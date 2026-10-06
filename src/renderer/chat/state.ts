@@ -1,5 +1,3 @@
-// Per session chat state, scrolling, turns and size caps.
-
 import { el } from "../dom.ts"
 
 export interface TextBlock {

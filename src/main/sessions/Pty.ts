@@ -1,5 +1,4 @@
-// A pseudo terminal, behind a service so Sessions can be tested without the
-// native node-pty module (which is built for Electron's ABI, not Bun's).
+// A service because node-pty targets Electron's ABI.
 
 import { Context } from "effect"
 

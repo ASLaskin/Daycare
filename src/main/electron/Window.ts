@@ -1,6 +1,4 @@
-// The app window, as a scoped resource: created once Electron is ready,
-// destroyed when the app scope closes. Loading the page is a separate step
-// (see main.ts) so IPC handlers are in place before the renderer asks anything.
+// Loaded later, once IPC handlers exist.
 
 import { app, BrowserWindow } from "electron"
 import { Context, Effect, Layer } from "effect"

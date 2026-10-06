@@ -1,5 +1,3 @@
-// Settings cache and the two cross view events.
-
 import type { Settings } from "../shared/settings.ts"
 import { api } from "./api.ts"
 

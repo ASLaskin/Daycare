@@ -1,13 +1,11 @@
-// The session model shared by main and renderer. A session is one Claude Code
-// process, either a master that splits work or a worker it spawned.
+// Session model shared by main and renderer.
 
 import { Schema } from "effect"
 
 export const SessionRole = Schema.Literals(["master", "worker"])
 export type SessionRole = typeof SessionRole.Type
 
-// A terminal is the real Claude Code TUI in a PTY; a chat is the same binary
-// run headless with stream-json, drawn natively by the renderer.
+// Terminal is the TUI; chat is headless stream-json.
 export const SessionKind = Schema.Literals(["terminal", "chat"])
 export type SessionKind = typeof SessionKind.Type
 
@@ -17,7 +15,7 @@ export type SessionStatus = typeof SessionStatus.Type
 export const PermissionMode = Schema.Literals(["default", "acceptEdits", "bypassPermissions", "plan"])
 export type PermissionMode = typeof PermissionMode.Type
 
-// What the renderer is told about a session. Produced by main, so a plain type.
+// Produced by main, so a plain type.
 export interface SessionView {
   readonly id: string
   readonly name: string
@@ -35,7 +33,7 @@ export interface SessionView {
   readonly context: number
 }
 
-// One line of sessions.json. Read back from disk on launch, so it is decoded.
+// Read from disk, so decoded.
 export const SessionRecord = Schema.Struct({
   id: Schema.String,
   role: SessionRole,
@@ -54,7 +52,7 @@ export const SessionRecord = Schema.Struct({
 })
 export type SessionRecord = typeof SessionRecord.Type
 
-// The renderer's request for a new master. An empty model means Claude's default.
+// Empty model means Claude's default.
 export const NewMaster = Schema.Struct({
   task: Schema.String,
   kind: SessionKind,

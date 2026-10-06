@@ -1,5 +1,3 @@
-// Panes: one group per master, an xterm or chat per session.
-
 import { FitAddon } from "@xterm/addon-fit"
 import { Terminal } from "@xterm/xterm"
 import type { SessionStatus, SessionView } from "../shared/session.ts"
@@ -59,7 +57,7 @@ export const getActiveMaster = () => activeMaster
 
 export const focused = (): SessionView | null => (focusedId ? (panes.get(focusedId)?.info ?? null) : null)
 
-// Types without submitting, so the rail can add arguments.
+// No submit, so the rail can add arguments.
 export const insertIntoFocused = (text: string): boolean => {
   const p = focusedId ? panes.get(focusedId) : undefined
   if (!p) return false

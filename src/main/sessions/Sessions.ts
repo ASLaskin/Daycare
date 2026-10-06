@@ -1,18 +1,4 @@
-// Every Claude Code session the app owns: masters and their workers, each one a
-// PTY running the claude TUI or a headless chat. This service is the hub the
-// other pieces report into:
-//
-//   renderer   -> create, close, type into, resize sessions (through IPC)
-//   hooks      -> status changes for terminal sessions   (ControlServer)
-//   MCP tools  -> a master spawning and steering workers  (ControlServer)
-//   Chat       -> status changes for chat sessions        (its event stream)
-//
-// and it pushes the results back out: session events to the renderer, busy
-// counts to Power, turn ends to Usage.
-//
-// Session records are plain mutable objects in a Map. All of this runs on the
-// one JS thread, so the interesting concurrency is not shared memory but
-// waiting: wait_for_subagents is a Deferred per waiter, raced against a timeout.
+// The hub hooks, MCP, Chat and IPC report into.
 
 import { Context, Deferred, Duration, Effect, Layer, Option, Schedule, Schema, Stream } from "effect"
 import { randomUUID } from "node:crypto"
@@ -63,10 +49,10 @@ interface Session {
   finishedTurns: number
   hadTurn: boolean
   context: number
-  // Terminal sessions only: the PTY, and whether it now runs a plain shell.
+  // Terminal only; shell after claude exits.
   proc: PtyProcess | null
   shell: boolean
-  // Closed from the app: its exit keeps it listed instead of removing it.
+  // Closed from the app stays listed.
   closing: boolean
   cols: number
   rows: number
@@ -117,8 +103,7 @@ const record = (s: Session): SessionRecord => ({
   closed: s.status === "closed" || s.closing,
 })
 
-// Records written by older builds can lack newer fields; fill them in before
-// decoding, and skip any record that still does not decode.
+// Fill new fields for old records.
 const decodeRecords = (raw: unknown): Array<SessionRecord> => {
   if (!Array.isArray(raw)) return []
   const defaults = { kind: "terminal", model: "", permissionMode: "default", icon: null, parentId: null, transcriptPath: null, hadTurn: false, closed: false }
@@ -127,10 +112,7 @@ const decodeRecords = (raw: unknown): Array<SessionRecord> => {
 
 const isSettled = (s: Session) => s.status !== "working" && s.status !== "starting"
 
-// A transcript only exists once the session has had a turn; resuming without
-// one fails, so such sessions start fresh under the same Claude session id. Ask
-// the disk, not hadTurn: quitting mid-first-turn leaves a transcript behind, and
-// --session-id on an existing one is refused as "already in use".
+// Ask the disk; hadTurn can lie.
 const canResume = (s: Session) => !!s.transcriptPath && fs.existsSync(s.transcriptPath)
 
 const later = (ms: number, f: () => void) => setTimeout(f, ms).unref()
@@ -141,7 +123,6 @@ export interface SessionsShape {
   readonly create: (options: CreateOptions) => Effect.Effect<SessionView>
   readonly createMaster: (options: NewMaster) => Effect.Effect<SessionView>
   readonly rename: (id: string, name: string) => Effect.Effect<void>
-  // Masters only; each takes the master's workers along.
   readonly close: (id: string) => Effect.Effect<void>
   readonly reopen: (id: string) => Effect.Effect<void>
   readonly remove: (id: string) => Effect.Effect<void>
@@ -151,9 +132,8 @@ export interface SessionsShape {
   readonly chatInterrupt: (id: string) => Effect.Effect<void>
   readonly chatRespond: (id: string, requestId: string, decision: PermissionDecision) => Effect.Effect<boolean>
   readonly chatHistory: (id: string) => Effect.Effect<ReadonlyArray<ChatEvent>>
-  // Brings back what sessions.json held at the last quit.
   readonly restore: Effect.Effect<void>
-  // Every folder the user works in, for project-scoped skills.
+  // For project scoped skills.
   readonly projectDirs: Effect.Effect<ReadonlyArray<string>>
 }
 
@@ -174,8 +154,7 @@ const make = Effect.gen(function* () {
   const mcpDir = path.join(userData, "mcp")
   let quitting = false
 
-  // Effects in here never fail and need nothing, so callbacks from PTYs and
-  // timers can run them on the spot.
+  // Never fail, so callbacks run them directly.
   const run = <A>(effect: Effect.Effect<A>) => Effect.runSync(effect)
   const runBackground = <A>(effect: Effect.Effect<A>) => void Effect.runFork(effect)
 
@@ -188,7 +167,7 @@ const make = Effect.gen(function* () {
 
   // ---------- outbound ----------
 
-  // Write then rename, so a crash mid-write never leaves a truncated file.
+  // A crash never leaves a truncated file.
   const persist = () => {
     fs.mkdirSync(userData, { recursive: true })
     const tmp = `${sessionsFile}.${process.pid}.tmp`
@@ -198,8 +177,7 @@ const make = Effect.gen(function* () {
 
   const notify = (s: Session, what: string, body: string) => ui.notify(`${s.name} ${what}`, body)
 
-  // Keep awake follows work in flight: a session that has answered, or is
-  // waiting on the user, lets the Mac sleep.
+  // Answered or waiting lets the Mac sleep.
   const syncPower = () => {
     const live = [...sessions.values()].filter(isRunning)
     const busy = live.filter((s) => !s.shell && !isSettled(s))
@@ -207,7 +185,7 @@ const make = Effect.gen(function* () {
     run(power.apply({ mode: current.keepAwake, lidClosed: current.keepAwakeLidClosed, activeCount: live.length, busyCount: busy.length }))
   }
 
-  // Status changes on every tool call, so power updates are coalesced.
+  // Coalesced; status changes every tool call.
   let powerTimer: ReturnType<typeof setTimeout> | null = null
   const schedulePowerSync = () => {
     powerTimer ??= later(400, () => {
@@ -243,8 +221,7 @@ const make = Effect.gen(function* () {
 
   // ---------- launching ----------
 
-  // Claude Code posts its hooks straight to the control server. The token is
-  // interpolated from the session's environment, so it never sits in argv.
+  // Token comes from env, never argv.
   const hookSettings = (id: string) => {
     const entry = (matcher?: string) => [
       {
@@ -271,9 +248,7 @@ const make = Effect.gen(function* () {
     }
   }
 
-  // --mcp-config does not expand env vars, so the token goes in a file only
-  // this user can read. The timeout floors the HTTP idle timeout, which would
-  // otherwise cut wait_for_subagents off at five minutes.
+  // No env expansion; timeout outlasts HTTP idle.
   const mcpConfigFile = (id: string) => {
     const file = path.join(mcpDir, `${id}.json`)
     fs.mkdirSync(mcpDir, { recursive: true, mode: 0o700 })
@@ -306,7 +281,7 @@ const make = Effect.gen(function* () {
         mcpConfigFile(s.id),
         "--allowedTools",
         "mcp__daycare__*",
-        // Workers must be real sessions, so the built-in in-process subagents are off.
+        // Workers must be real sessions.
         "--disallowedTools",
         "Agent",
         "Task",
@@ -337,13 +312,12 @@ const make = Effect.gen(function* () {
       proc.onExit(() => {
         if (s.proc !== proc) return
         s.proc = null
-        // Quitting Claude (Ctrl+C, /exit) leaves a normal shell in the same pane.
+        // Quitting Claude leaves a shell.
         if (!s.closing && !quitting && sessions.get(s.id) === s) startShell(s, dir, env)
         else sessionExited(s)
       })
     }
-    // Without a fresh task nothing runs until the user types, and neither kind
-    // reports in before then, so a resumed or empty session starts at rest.
+    // Nothing reports until the user types.
     if (resume || !s.task) {
       if (resume) s.lastMessage = lastAssistantText(s.transcriptPath) || s.lastMessage
       setStatus(s, s.hadTurn || s.lastMessage ? "done" : "idle", firstLine(s.lastMessage))
@@ -351,7 +325,7 @@ const make = Effect.gen(function* () {
     syncPower()
   }
 
-  // A login shell in the session's folder. Exiting it removes the session.
+  // Exiting it removes the session.
   const startShell = (s: Session, dir: string, env: NodeJS.ProcessEnv) => {
     let proc: PtyProcess
     try {
@@ -379,8 +353,7 @@ const make = Effect.gen(function* () {
     else s.proc?.kill()
   }
 
-  // A session closed from the app stays listed and can be reopened; one whose
-  // shell exits on its own leaves the app.
+  // App closes keep it; shell exits remove it.
   const sessionExited = (s: Session) => {
     if (quitting) return
     if (!s.closing) return removeSession(s)
@@ -394,7 +367,7 @@ const make = Effect.gen(function* () {
     runBackground(usage.refresh())
   }
 
-  // A removed master takes its workers with it. Claude's transcripts stay on disk.
+  // Transcripts stay on disk.
   const removeSession = (s: Session) => {
     if (!sessions.has(s.id)) return
     if (s.role === "master") {
@@ -455,7 +428,7 @@ const make = Effect.gen(function* () {
     return s
   }
 
-  // Pastes text into a session's prompt and submits it, the way a user would.
+  // Pastes and submits like a user.
   const submitText = (s: Session, text: string) => {
     if (s.kind === "chat") {
       if (!run(chat.has(s.id))) return false
@@ -477,10 +450,10 @@ const make = Effect.gen(function* () {
     if (p.session_id) s.claudeSessionId = p.session_id
     if (p.transcript_path && p.transcript_path !== s.transcriptPath) {
       s.transcriptPath = p.transcript_path
-      s.context = 0 // a new transcript (/clear, resume): the old count no longer applies
+      s.context = 0 // new transcript, old count is stale
       persist()
     }
-    // Chat sessions report through their own stream.
+    // Chat reports through its own stream.
     if (s.kind === "chat") return
 
     switch (p.hook_event_name) {
@@ -505,8 +478,7 @@ const make = Effect.gen(function* () {
         s.lastMessage = p.last_assistant_message || lastAssistantText(s.transcriptPath)
         setStatus(s, "done", firstLine(s.lastMessage))
         runBackground(usage.refresh())
-        // The Stop hook can fire before the final message is flushed to the
-        // transcript, so read it again shortly after.
+        // Stop can fire before the flush.
         for (const delay of [400, 1500]) {
           later(delay, () => {
             refreshContext(s)
@@ -548,7 +520,7 @@ const make = Effect.gen(function* () {
         notify(s, "needs you", `Allow ${ev.name}?`)
         break
       case "permission-resolved":
-        // tool-start fired before the prompt, so nothing else flips the status back until turn-end.
+        // Nothing else flips it back before turn-end.
         if (s.status === "needs_you") setStatus(s, "working", ev.allowed ? "running tool" : "thinking")
         break
       case "turn-end":
@@ -586,7 +558,7 @@ const make = Effect.gen(function* () {
       flushWaiters()
       const settled = yield* Deferred.await(waiter.done).pipe(
         Effect.timeoutOption(timeout),
-        // The MCP request can also be cancelled; the waiter goes either way.
+        // The MCP request may be cancelled.
         Effect.ensuring(Effect.sync(() => waiters.delete(waiter))),
       )
       return { timedOut: Option.isNone(settled) }
@@ -647,20 +619,17 @@ const make = Effect.gen(function* () {
     Effect.forkScoped,
   )
 
-  // Hooks only fire between steps, so context is re-read every few seconds while
-  // a terminal session is mid turn to keep the meters live.
+  // Hooks fire between steps; poll mid turn.
   yield* Effect.sync(() => {
     for (const s of sessions.values()) if (s.status === "working" && s.kind !== "chat") refreshContext(s)
   }).pipe(Effect.repeat(Schedule.spaced("2 seconds")), Effect.forkScoped)
 
-  // A keep-awake setting change takes effect straight away.
   yield* settings.changes.pipe(
     Effect.flatMap((changes) => Stream.runForEach(changes, () => Effect.sync(syncPower))),
     Effect.forkScoped,
   )
 
-  // Quitting: remember what was open, then end every PTY. Chat children are
-  // ended by Chat's own finalizer, which runs after this one.
+  // Chat's finalizer ends children after this.
   yield* Effect.addFinalizer(() =>
     Effect.sync(() => {
       quitting = true
@@ -801,8 +770,7 @@ const make = Effect.gen(function* () {
 })
 
 export class Sessions extends Context.Service<Sessions, SessionsShape>()("daycare/Sessions") {
-  // One construction provides both faces: Sessions for IPC, ControlHandlers
-  // for the control server's routes.
+  // Also provides ControlHandlers for the routes.
   static readonly layer = Layer.effectContext(
     make.pipe(Effect.map(({ service, handlers }) => Context.make(Sessions, service).pipe(Context.add(ControlHandlers, handlers)))),
   )

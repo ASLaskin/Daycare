@@ -1,17 +1,4 @@
-// Keeps the Mac awake while Claude Code sessions run. A power save blocker stops
-// idle sleep but lets the display turn off; with the lid closed that is not
-// enough, so we also flip pmset's disablesleep through the macOS auth dialog.
-//
-// Turning disablesleep back off needs root again, and a second password dialog
-// is no good when the point of the feature is walking away. So the one
-// privileged call also leaves a root watchdog behind that reverts on its own as
-// soon as this app exits or drops a sentinel file. That covers a normal quit, a
-// crash, and a SIGKILL; only power loss can still strand the setting, which is
-// detected on the next launch.
-//
-// Like Chat, the state machine is a plain class driven by timers and process
-// callbacks; the Power service wraps it, publishes its status, and releases
-// everything when the app scope closes.
+// Lid closed needs pmset; a root watchdog reverts it.
 
 import { Context, Effect, Layer, PubSub, Scope, Stream } from "effect"
 import { execFile } from "node:child_process"
@@ -22,7 +9,6 @@ import type { KeepAwake } from "../../shared/settings.ts"
 const AUTH_TIMEOUT_MS = 120000
 const WATCHDOG_POLL_S = 2
 
-// The OS power assertion, behind an interface so tests need no Electron.
 export class PowerBlocker extends Context.Service<
   PowerBlocker,
   {
@@ -35,11 +21,9 @@ export class PowerBlocker extends Context.Service<
 export interface PowerConfig {
   readonly osascript: string
   readonly pmset: string
-  // The file whose appearance tells the root watchdog to revert.
+  // Its appearance tells the watchdog to revert.
   readonly sentinel: string
-  // The lid escalation follows unfinished work, not an open window, so a laptop
-  // whose run is over still sleeps when it goes in a bag. The grace period is
-  // long because leaving it costs another password dialog.
+  // Follows work, not the window; long grace.
   readonly lidGraceMs: number
   readonly isMac: boolean
 }
@@ -72,11 +56,11 @@ class KeepAwakeMachine {
   private busyCount = 0
   private lidClosed = false
   private blockerId: number | null = null
-  private lidOn = false // true only when we turned disablesleep on
-  private busy = false // a privileged call is in flight
-  private lidFailed = false // set after a failed or cancelled escalation, so we never re-prompt
+  private lidOn = false // we turned disablesleep on
+  private busy = false // privileged call in flight
+  private lidFailed = false // never re-prompt after failure
   private error: string | null = null
-  private stale = false // disablesleep was already on at launch and is not ours
+  private stale = false // on at launch, not ours
   private lastBusyAt = 0
   private graceTimer: ReturnType<typeof setTimeout> | null = null
   private lastKey = ""
@@ -102,8 +86,7 @@ class KeepAwakeMachine {
 
   init() {
     this.clearSentinel()
-    // A watchdog from the last run can still be mid-poll, so give it time to
-    // revert before calling a leftover disablesleep stale.
+    // Let a previous watchdog finish reverting.
     setTimeout(() => this.detectStale(), WATCHDOG_POLL_S * 3000).unref()
     this.publish()
   }
@@ -124,8 +107,7 @@ class KeepAwakeMachine {
     this.publish()
   }
 
-  // The user-facing escape hatch for a stale setting: one prompt, no watchdog,
-  // because there is nothing left to watch.
+  // Stale escape hatch; nothing to watch.
   restore(done: (status: PowerStatus) => void) {
     if (!this.config.isMac || this.busy) return done(this.status())
     this.busy = true
@@ -150,8 +132,7 @@ class KeepAwakeMachine {
     this.publish()
   }
 
-  // Synchronous, so it is safe from an exit handler: the watchdog does the
-  // privileged part after we are gone.
+  // Sync, safe from an exit handler.
   release() {
     try {
       this.mode = "off"
@@ -167,7 +148,6 @@ class KeepAwakeMachine {
     this.publish()
   }
 
-  // Called from process exit, where nothing asynchronous runs any more.
   dropSentinelNow() {
     this.dropSentinel(true)
   }
@@ -184,8 +164,6 @@ class KeepAwakeMachine {
     return this.mode === "always" || (this.mode === "while-running" && this.busyCount > 0)
   }
 
-  // Inside the grace window after the last working session, and for as long as
-  // one is still working.
   private lidWorkWanted() {
     if (this.mode === "always" || this.busyCount > 0) return true
     return this.lastBusyAt > 0 && Date.now() - this.lastBusyAt < this.config.lidGraceMs
@@ -203,9 +181,7 @@ class KeepAwakeMachine {
     this.onChange(s)
   }
 
-  // disablesleep on, plus a detached root loop that turns it back off when this
-  // process is gone or the sentinel file appears. The sentinel is how a still
-  // running app reverts without asking for the password a second time.
+  // Sentinel avoids a second password prompt.
   private enableArgs() {
     const { pmset, sentinel } = this.config
     const watch =
@@ -237,8 +213,7 @@ class KeepAwakeMachine {
     }
   }
 
-  // Only turning the lid setting on needs a password. Turning it off is a file
-  // write the watchdog picks up, so it never blocks and never prompts.
+  // Only turning on prompts; off is a file.
   private reconcileLid() {
     if (this.busy) return
     const want = this.wantLid()
@@ -254,8 +229,7 @@ class KeepAwakeMachine {
     if (!want || this.lidFailed) return
 
     this.busy = true
-    // A previous watchdog exits on its own; starting fresh only needs the
-    // sentinel gone so the new one does not see a stale release.
+    // Clear the sentinel before a fresh watchdog.
     this.clearSentinel()
     execFile(this.config.osascript, this.enableArgs(), { timeout: AUTH_TIMEOUT_MS }, (err) => {
       this.busy = false
@@ -288,8 +262,7 @@ class KeepAwakeMachine {
     this.graceTimer.unref()
   }
 
-  // Power loss is the one exit we cannot hook, so check for a disablesleep we
-  // did not set and tell the user rather than leaving a Mac that will not sleep.
+  // Power loss is the unhookable exit.
   private detectStale() {
     if (!this.config.isMac) return
     execFile(this.config.pmset, ["-g"], { timeout: 10000 }, (err, stdout) => {
@@ -318,7 +291,7 @@ const make = (config: PowerConfig) =>
     const pubsub = yield* PubSub.sliding<PowerStatus>(16)
     const machine = new KeepAwakeMachine(config, blocker, (s) => PubSub.publishUnsafe(pubsub, s))
 
-    // Covers a crash of the JS side too: exit handlers run on any normal exit.
+    // Exit handlers also cover JS crashes.
     const onExit = () => machine.dropSentinelNow()
     process.on("exit", onExit)
     yield* Effect.addFinalizer(() =>

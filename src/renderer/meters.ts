@@ -1,5 +1,3 @@
-// Context rings on panes and the plan usage box.
-
 import type { Usage } from "../shared/usage.ts"
 import { api } from "./api.ts"
 import { $, el } from "./dom.ts"

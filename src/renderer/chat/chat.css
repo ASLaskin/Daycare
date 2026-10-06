@@ -1,6 +1,4 @@
-/* Chat sessions. Everything is scoped under .chat (or .chat-host, the pane body
-   it mounts into) so none of it reaches the terminal panes. Colors and motion
-   come from the tokens in styles.css. */
+/* Scoped under .chat, away from terminals. */
 
 .term.chat-host { padding: 0; }
 

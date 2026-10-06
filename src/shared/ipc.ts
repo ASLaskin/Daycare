@@ -1,9 +1,4 @@
-// The whole renderer <-> main surface in one place.
-//
-// `Invoke` lists request/response channels. Each carries the Schema its payload
-// is decoded with in main (the renderer is a web page, so its input is checked
-// like any other), and `InvokeResult` says what comes back. `Send` channels are
-// fire-and-forget, `Events` flow from main to the renderer.
+// Whole IPC surface; main decodes invoke payloads.
 
 import { Schema } from "effect"
 import type { ChatEvent } from "./chat.ts"
@@ -131,9 +126,7 @@ export interface Events {
 
 export type EventChannel = keyof Events
 
-// What the preload exposes as `window.daycare`. Deliberately generic: the typed
-// surface lives in the renderer's client, so adding a channel never touches the
-// preload.
+// Generic, so new channels skip the preload.
 export interface Bridge {
   readonly invoke: <C extends InvokeChannel>(channel: C, payload: InvokePayload<C>) => Promise<InvokeResult[C]>
   readonly send: <C extends SendChannel>(channel: C, payload: SendPayload<C>) => void

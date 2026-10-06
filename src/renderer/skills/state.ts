@@ -1,5 +1,3 @@
-// Skills listing shared by the manager and the rail.
-
 import type { SkillRow, SkillsListing } from "../../shared/skills.ts"
 import { api } from "../api.ts"
 

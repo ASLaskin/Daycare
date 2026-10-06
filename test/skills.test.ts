@@ -1,5 +1,4 @@
-// Port of Konductor's skills self test. Builds a fake home under a temp dir;
-// never touches the real ~/.claude. Cases share state and run in order.
+// Fake home in a temp dir; cases share state.
 
 import { afterAll, test } from "bun:test"
 import { Effect } from "effect"
@@ -10,7 +9,7 @@ import path from "node:path"
 import { Skills } from "../src/main/skills/Skills.ts"
 import type { SkillsListing, SkillState } from "../src/shared/skills.ts"
 
-// The service as plain promises, failing with the SkillError's message.
+// Service as promises, failing with the message.
 const client = (home: string) => {
   const svc = Effect.runSync(Effect.gen(function* () { return yield* Skills }).pipe(Effect.provide(Skills.layerFor(home))))
   const run = <A>(e: Effect.Effect<A, { message: string }>) =>
@@ -64,7 +63,7 @@ write(path.join(claude, 'plugins', 'installed_plugins.json'), JSON.stringify({
     'other@mkt': [{ scope: 'user', installPath: path.join(claude, 'plugins', 'cache', 'mkt', 'other', '1.0.0'), version: '1.0.0' }],
   },
 }));
-// settings: unrelated keys must survive; user overrides pr-review, project local overrides it too
+// Unrelated keys survive; both scopes override pr-review.
 write(path.join(claude, 'settings.json'), JSON.stringify({
   model: 'opus',
   skillOverrides: { 'pr-review': 'name-only' },
@@ -193,7 +192,7 @@ test('(i) absolute and relative symlinked skills resolve; dir is the real folder
   const notes = r.warnings.filter((w) => w.includes('is a link to'));
   assert.strictEqual(notes.length, 2);
   assert.ok(notes.some((w) => w.includes(rel.dir) && /may skip/.test(w)));
-  // toggling a linked skill still works and keys by name
+  // Linked skill toggles, keyed by name.
   const off = await skills1.setState({ id: 'personal:rel-link', state: 'off' }, []);
   assert.strictEqual(find(off, 'personal:rel-link').state, 'off');
   await skills1.setState({ id: 'personal:rel-link', state: 'on' }, []);
@@ -249,7 +248,7 @@ test('(l) stale plugin cache versions are not duplicated; newest lastUpdated ent
       'bare@mkt': [{ scope: 'user', version: '1.0.0' }],
     },
   }));
-  // A marketplace checkout for the install-path-less plugin; its sibling plugin must not leak in.
+  // Sibling plugin in the checkout must not leak.
   skill(path.join(claude, 'plugins', 'marketplaces', 'mkt', 'plugins', 'bare', 'skills', 'from-market'), 'description: market');
   skill(path.join(claude, 'plugins', 'marketplaces', 'mkt', 'plugins', 'unlisted', 'skills', 'nope'), 'description: not installed');
   const r = await skills1.list(opts.projectDirs);
@@ -260,7 +259,7 @@ test('(l) stale plugin cache versions are not duplicated; newest lastUpdated ent
   assert.ok(!r.skills.some((x) => /^s-(0\.|1\.)/.test(x.name)));
 });
 
-// A second fake home, so these cases are not affected by the mutations above.
+// Second fake home, untouched by earlier mutations.
 const home2 = path.join(tmp, 'home2');
 const proj2 = path.join(tmp, 'proj2');
 const claude2 = path.join(home2, '.claude');
@@ -268,14 +267,14 @@ const opts2 = { home: home2, projectDirs: [proj2] };
 const skills2 = client(home2);
 
 test('(m) the listing is priced against the caps Claude Code applies, not a raw sum', async () => {
-  // One very long description, plus enough ordinary ones to blow the budget.
+  // One huge description plus enough to overflow.
   skill(path.join(claude2, 'skills', 'verbose'), `name: verbose\ndescription: ${'d'.repeat(4000)}`);
   for (let i = 0; i < 20; i++) {
     skill(path.join(claude2, 'skills', `bulk-${i}`), `name: bulk-${i}\ndescription: ${'e'.repeat(400)}`);
   }
   const r = await skills2.list(opts2.projectDirs);
   const v = find(r, 'personal:verbose');
-  // "- " + name + ": " + description, with the description cut at 1536.
+  // Listing line; description cut at 1536.
   assert.strictEqual(v.listingChars, 'verbose'.length + 4 + 1536, 'long description is capped');
   assert.ok(v.listingChars < 4000, 'the cap is what keeps it from being priced at its full length');
   assert.ok(r.totals.overBudget, 'this many skills is over the listing budget');
@@ -287,7 +286,7 @@ test('(m) the listing is priced against the caps Claude Code applies, not a raw 
   );
   assert.ok(r.totals.listingTokens > r.totals.effectiveTokens, 'the uncapped sum is reported separately');
 
-  // Turning things off brings it back under, and then the two agree.
+  // Turning skills off fits it again.
   for (let i = 0; i < 20; i++) await skills2.setState({ id: `personal:bulk-${i}`, state: 'off' }, []);
   const r2 = await skills2.list(opts2.projectDirs);
   assert.ok(!r2.totals.overBudget, 'pruning brings the listing back under budget');

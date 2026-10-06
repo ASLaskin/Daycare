@@ -1,5 +1,3 @@
-// Pure formatting helpers for the chat surface.
-
 import { settings } from "../store.ts"
 
 export type Json = Record<string, unknown>
@@ -43,7 +41,6 @@ export interface ToolLabel {
   readonly full: string
 }
 
-// Name plus a short argument summary.
 export const toolLabel = (name: string, input: unknown, title: string): ToolLabel => {
   const i = rec(input) ?? {}
   let arg = ""

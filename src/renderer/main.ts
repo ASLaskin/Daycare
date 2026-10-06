@@ -1,4 +1,4 @@
-// Renderer entry: load settings, then wire every view.
+// Settings load before any view mounts.
 
 import "@xterm/xterm/css/xterm.css"
 import "./fonts.css"

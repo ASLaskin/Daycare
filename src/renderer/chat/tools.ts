@@ -1,5 +1,3 @@
-// Tool call cards, with diffs and output.
-
 import type { ChatEventOf } from "../../shared/chat.ts"
 import { el } from "../dom.ts"
 import { cap, contentText, oneLine, prettyInput, rec, str, toolLabel, wireToggle } from "./format.ts"

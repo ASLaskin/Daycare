@@ -1,4 +1,4 @@
-// Chat surface for a session. All model text goes through textContent.
+// All model text goes through textContent.
 
 import type { ChatEvent, ChatEventOf } from "../../shared/chat.ts"
 import type { SessionView } from "../../shared/session.ts"
@@ -12,7 +12,7 @@ import { renderTasks, task } from "./tasks.ts"
 import { settleThinking, textDelta, textFinal, thinking } from "./text.ts"
 import { toolEnd, toolStart } from "./tools.ts"
 
-// chat.js forwards total_cost_usd, a running total.
+// total_cost_usd is a running total.
 const COST_IS_CUMULATIVE = true
 const COMPOSER_MAX_PX = 168
 

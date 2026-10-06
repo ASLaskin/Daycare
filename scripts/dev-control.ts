@@ -1,6 +1,4 @@
-// Dev only: runs the control server alone with logging handlers, and writes an
-// MCP config pointing at it, for poking at with a real claude.
-// Run: bun scripts/dev-control.ts <config-out.json>
+// Dev: control server alone; arg is MCP config path.
 
 import { Effect, Layer } from "effect"
 import fs from "node:fs"

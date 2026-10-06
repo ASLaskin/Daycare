@@ -1,5 +1,4 @@
-/* Daycare design system. One set of tokens, one motion scale, one type ramp.
-   Everything else in this file and in chat.css / skills.css reads from here. */
+/* Tokens shared by every stylesheet. */
 
 :root {
   /* surfaces, darkest to lightest */
@@ -29,8 +28,7 @@
   --r-lg: 12px;
   --r-xl: 16px;
 
-  /* motion: --m scales every entrance and state transition. Looping status
-     indicators (spinners, pulses) keep their own speed so they still read. */
+  /* motion: --m scales transitions, not loops */
   --m: 1;
   --t-fast: calc(110ms * var(--m));
   --t: calc(180ms * var(--m));
@@ -403,8 +401,7 @@ kbd {
 }
 .loc-button:hover { background: var(--panel-2); border-color: var(--line-strong); }
 
-/* A group is one master and its workers. data-layout picks the preset and
-   --split is the master's share along the preset's axis. */
+/* --split is the master's share. */
 .group {
   --split: 44%;
   --cols: 1;
@@ -449,7 +446,7 @@ kbd {
 /* stack: master on top */
 .group[data-layout="stack"].has-workers .master-slot { flex: 0 0 var(--split); }
 
-/* side: master on the left, workers stacked on the right */
+/* side: master left, workers right */
 .group[data-layout="side"] { flex-direction: row; }
 .group[data-layout="side"].has-workers .master-slot { flex: 0 0 var(--split); }
 .group[data-layout="side"] .worker-grid { grid-template-columns: minmax(0, 1fr); }

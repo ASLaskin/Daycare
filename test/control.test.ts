@@ -1,4 +1,4 @@
-// The control server over real loopback HTTP, with fake handlers behind it.
+// Control server over real loopback HTTP.
 
 import { afterAll, expect, test } from "bun:test"
 import { Effect, Layer, ManagedRuntime } from "effect"
@@ -65,7 +65,7 @@ test("MCP initialize, ping and tools/list", async () => {
   expect((await rpc({ jsonrpc: "2.0", id: 2, method: "ping" })).result).toEqual({})
   const tools = (await rpc({ jsonrpc: "2.0", id: 3, method: "tools/list" })).result.tools
   expect(tools.map((t: any) => t.name)).toEqual(["spawn_subagent", "list_subagents", "wait_for_subagents", "read_subagent", "send_to_subagent"])
-  // Claude rejects the whole list if any input schema is not an object schema.
+  // Claude rejects non object input schemas.
   expect(tools.every((t: any) => t.inputSchema.type === "object")).toBe(true)
   expect(tools[0].inputSchema.required).toEqual(["name", "task"])
   expect(tools[2].inputSchema.properties.timeout_seconds.type).toBe("number")

@@ -1,6 +1,4 @@
-// The tools a master gets over MCP. Each input is one Schema: it is turned into
-// the JSON Schema Claude sees in tools/list, and it decodes the arguments
-// Claude sends back, so the two can never drift apart.
+// One Schema per tool: listing and decoding.
 
 import { Schema } from "effect"
 
@@ -57,11 +55,9 @@ export const Tools = {
 export type ToolName = keyof typeof Tools
 export type ToolInput<N extends ToolName> = (typeof Tools)[N]["input"]["Type"]
 
-// A call whose name and arguments have both been checked.
 export type ToolCall = { [N in ToolName]: { readonly name: N; readonly input: ToolInput<N> } }[ToolName]
 
-// MCP requires every inputSchema to be an object schema. An empty Struct comes
-// out without `type` (it would accept any non-null value), so it is pinned here.
+// Empty Structs lack type; MCP requires object.
 export const toolList = Object.entries(Tools).map(([name, tool]) => ({
   name,
   description: tool.description,

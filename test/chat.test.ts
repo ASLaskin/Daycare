@@ -1,6 +1,4 @@
-// Port of Konductor's chat self test. Runs the Chat service against a fake
-// `claude` that replays real stream-json lines, so no binary or auth is needed.
-// Cases share one runtime and run in order, like the original.
+// Fake claude replays stream-json; cases run in order.
 
 import { afterAll, describe, expect, test } from "bun:test"
 import { Deferred, Effect, ManagedRuntime, Stream } from "effect"
@@ -15,7 +13,7 @@ const FAKE = path.join(import.meta.dir, "fixtures", "fake-claude.js")
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "chat-test-"))
 const J = (o: unknown) => JSON.stringify(o) + "\n"
 
-// Events per session id, filled by one subscription that lives as long as the runtime.
+// Filled by one runtime long subscription.
 const events = new Map<string, Array<ChatEvent>>()
 
 const makeRuntime = (claudePath: string) => {
@@ -64,8 +62,7 @@ const launch = (scenario: Array<unknown>, extra: Array<string> = [], transcriptP
   fs.writeFileSync(files.scenario, JSON.stringify(scenario))
   fs.writeFileSync(files.log, "")
   events.set(id, [])
-  // Sessions strip CLAUDE_CODE_* before starting, and this runner may itself be
-  // running under Claude Code, so strip it here too.
+  // This runner may itself be under Claude Code.
   const base = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("CLAUDE_CODE_")))
   run((chat) =>
     chat.start({
@@ -97,7 +94,7 @@ const until = async (pred: () => boolean, ms = 8000) => {
 const kinds = <K extends ChatEvent["kind"]>(ev: ReadonlyArray<ChatEvent>, k: K) =>
   ev.filter((e): e is Extract<ChatEvent, { kind: K }> => e.kind === k) as Array<any>
 
-// The subscription must be in place before the first child starts.
+// Subscribe before the first child starts.
 await listen(runtime)
 
 afterAll(async () => {
@@ -109,8 +106,7 @@ const delta = (t: string, index = 1) => J({ type: 'stream_event', event: { type:
 const deltaLine = delta('Hel');
 const cut = Math.floor(deltaLine.length / 2);
 const usage = { input_tokens: 10, cache_creation_input_tokens: 200, cache_read_input_tokens: 3000, output_tokens: 40 };
-// The real stream sums every API call of the turn in usage and carries the last
-// call on its own in iterations.
+// usage sums the turn; iterations holds the last call.
 const summed = { input_tokens: 34, cache_creation_input_tokens: 9164, cache_read_input_tokens: 37296, output_tokens: 663, iterations: [{ input_tokens: 8, cache_creation_input_tokens: 136, cache_read_input_tokens: 22478, output_tokens: 81, type: 'message' }] };
 const result = (cost: number, u: object = usage) => J({ type: 'result', subtype: 'success', is_error: false, result: 'Hello', stop_reason: 'end_turn', total_cost_usd: cost, usage: u, modelUsage: { 'claude-sonnet-4-5': { contextWindow: 200000 } }, num_turns: 1, duration_ms: 1234, session_id: 'S1' });
 
@@ -431,7 +427,7 @@ test("closing the scope kills a stuck child at once", async () => {
   }
   expect(alive()).toBe(true)
   await runtime.dispose()
-  // No timer gets to run after quit, so the kill has to be immediate.
+  // No timer runs after quit, so kill now.
   expect(await until(() => !alive(), 1000)).toBe(true)
 })
 

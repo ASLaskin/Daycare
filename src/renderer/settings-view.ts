@@ -1,5 +1,3 @@
-// Settings screen: tabs, fields, locations, update and keep awake.
-
 import type { PowerStatus } from "../shared/power.ts"
 import type { Settings } from "../shared/settings.ts"
 import { api } from "./api.ts"
@@ -174,7 +172,7 @@ const removeLocation = (i: number) => {
   saveSettings({ locations: s.locations.filter((_, j) => j !== i), defaultLocation: def })
 }
 
-// Selects carry literals; main drops values that do not decode.
+// Main drops values that do not decode.
 const onSelect = (id: string, save: (value: string) => Promise<unknown>) => {
   select(id).onchange = (e) => save((e.target as HTMLSelectElement).value)
 }

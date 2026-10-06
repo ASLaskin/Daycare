@@ -1,5 +1,3 @@
-// The subagent strip above the thread.
-
 import type { ChatEventOf } from "../../shared/chat.ts"
 import { el } from "../dom.ts"
 import { fmtTokens, rec } from "./format.ts"

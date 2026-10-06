@@ -1,5 +1,4 @@
-// The small event vocabulary a chat session is normalized into. Main turns the
-// CLI's stream-json into these; the renderer only ever draws these.
+// Events main normalizes stream-json into.
 
 export type ChatState = "running" | "idle"
 
@@ -17,7 +16,7 @@ export type ChatEvent =
       readonly slashCommands: ReadonlyArray<string>
     }
   | { readonly kind: "state"; readonly state: ChatState }
-  // Streaming text; superseded by the final `text` event for the same block.
+  // Superseded by the final text event.
   | { readonly kind: "text-delta"; readonly block: string; readonly text: string }
   | { readonly kind: "text"; readonly block: string; readonly text: string }
   | { readonly kind: "thinking"; readonly block: string; readonly text: string; readonly tokens: number | null }
@@ -65,14 +64,14 @@ export type ChatEvent =
       readonly input: unknown
       readonly description: string
       readonly suggestions: ReadonlyArray<unknown>
-      // Set for tools whose answer is the point (AskUserQuestion, ExitPlanMode).
+      // Tools whose answer is the point.
       readonly requiresUserInteraction: boolean
     }
   | {
       readonly kind: "permission-resolved"
       readonly requestId: string
       readonly allowed: boolean
-      // The CLI withdrawing its own prompt is not the user refusing it.
+      // CLI withdrew it; user did not refuse.
       readonly reason?: "cancelled"
     }
   | { readonly kind: "user"; readonly text: string }

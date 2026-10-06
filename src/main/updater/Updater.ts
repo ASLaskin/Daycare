@@ -1,6 +1,4 @@
-// Settings > Update: pull main in the checkout this build came from, rebuild,
-// reinstall, then reopen the new build. Sessions come back with --resume like
-// any restart.
+// Pull, rebuild, reinstall, reopen; sessions resume.
 
 import { app } from "electron"
 import { Context, Effect, Layer, Semaphore } from "effect"
@@ -23,10 +21,10 @@ export class Updater extends Context.Service<
     Effect.gen(function* () {
       const { appRoot } = yield* AppPaths
       const ui = yield* Ui
-      // A second click while one runs waits for it instead of starting another.
+      // A second click waits for the first.
       const lock = yield* Semaphore.make(1)
 
-      // The packaged app records which checkout built it; in dev the checkout is right here.
+      // In dev the checkout is right here.
       const info = Effect.sync((): BuildInfo | null => {
         try {
           return JSON.parse(fs.readFileSync(path.join(appRoot, "dist", "build-info.json"), "utf8"))

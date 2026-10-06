@@ -1,6 +1,4 @@
-// Sessions against fakes at its edges: a fake PTY that records what it was
-// asked to do, a fake window, and a fake claude for chat sessions. Everything
-// between (Chat, Power, SettingsStore, Usage) is the real service.
+// Fakes at the edges, real services between.
 
 import { afterAll, beforeEach, describe, expect, test } from "bun:test"
 import { Effect, Layer, ManagedRuntime } from "effect"
@@ -50,7 +48,7 @@ const FakePty = Layer.succeed(
       return {
         write: (data) => void proc.written.push(data),
         resize: () => {},
-        // Like a real PTY, killing it is reported back as an exit.
+        // Killing a PTY reports an exit.
         kill: () => {
           proc.killed = true
           queueMicrotask(proc.exit)
@@ -139,7 +137,7 @@ describe("launching a terminal master", () => {
       allowedEnvVars: ["DAYCARE_TOKEN"],
       timeout: 10,
     })
-    // The token reaches claude through its environment and a private file, never argv.
+    // Token goes via env and file, never argv.
     expect(args.join(" ")).not.toContain("secret-token")
     expect(p.options.env["DAYCARE_TOKEN"]).toBe("secret-token")
     const mcpFile = args[args.indexOf("--mcp-config") + 1]!
@@ -276,8 +274,7 @@ describe("chat sessions", () => {
     const m = await sessions((s) => s.createMaster({ task: "", kind: "chat", cwd: work, model: "", permissionMode: "default" }))
     await sessions((s) => s.chatSend(m.id, "hello"))
     expect((await get(m.id)).status).toBe("working")
-    // The fake claude has no scenario file and exits at once, which is an exit
-    // the user did not ask for, so the session leaves the app.
+    // Unrequested exit, so the session leaves.
     for (let i = 0; i < 100 && (await get(m.id)); i++) await Bun.sleep(20)
     expect(await get(m.id)).toBeNull()
     expect(sent.some((e) => e.channel === "chat:event" && (e.payload as any).id === m.id)).toBe(true)
@@ -296,7 +293,7 @@ describe("persistence", () => {
     await sessions((s) => s.restore)
     const back = await get(m.id)
     expect([back.name, back.status]).toEqual(["Keeper", "idle"])
-    // No transcript was written, so it starts fresh under the same Claude session id.
+    // No transcript, so fresh under the same id.
     expect(procOf(m.id).args).toContain("--session-id")
   })
 

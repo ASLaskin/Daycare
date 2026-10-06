@@ -1,5 +1,3 @@
-// Fonts, motion and sidebar width from settings.
-
 import { panes, scheduleFit } from "./state.ts"
 import { settings } from "./store.ts"
 

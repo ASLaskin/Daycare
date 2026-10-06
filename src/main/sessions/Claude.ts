@@ -1,13 +1,10 @@
-// Where the claude binary is, and the fixed parts of every launch.
-
 import { Context, Effect, Layer } from "effect"
 import { execFileSync } from "node:child_process"
 import os from "node:os"
 import path from "node:path"
 
 export class ClaudeBinary extends Context.Service<ClaudeBinary, { readonly path: string }>()("daycare/ClaudeBinary") {
-  // A login shell so the user's PATH applies. DAYCARE_CLAUDE points every
-  // session at a stand-in binary, for development.
+  // Login shell for PATH; DAYCARE_CLAUDE overrides.
   static readonly layer = Layer.effect(
     ClaudeBinary,
     Effect.sync(() => {
@@ -42,8 +39,7 @@ export const WORKER_PROMPT = [
   "output lives; the master reads only that summary.",
 ].join(" ")
 
-// Sessions must look like fresh top-level Claude Code sessions even when
-// Daycare itself was launched from inside one.
+// Look top level even when nested.
 export const cleanEnv = (env: NodeJS.ProcessEnv): NodeJS.ProcessEnv =>
   Object.fromEntries(
     Object.entries(env).filter(([key]) => key !== "CLAUDECODE" && !(key.startsWith("CLAUDE_CODE_") && key !== "CLAUDE_CODE_OAUTH_TOKEN")),
@@ -66,14 +62,12 @@ export const AGENT_NAMES = [
 
 const pick = <A>(list: ReadonlyArray<A>): A => list[Math.floor(Math.random() * list.length)]!
 
-// A sprite for a new master, preferring ones no master is using yet.
+// Prefer sprites no master is using.
 export const nextIcon = (used: ReadonlySet<string | null>) => {
   const free = ICONS.filter((i) => !used.has(i))
   return pick(free.length ? free : ICONS)
 }
 
-// A random agent name not already taken, or the folder's location label when
-// random names are off.
 export const defaultMasterName = (options: {
   readonly cwd: string
   readonly taken: ReadonlySet<string>
@@ -94,7 +88,6 @@ export const defaultMasterName = (options: {
   return unique(options.locationLabel || path.basename(options.cwd) || "Master")
 }
 
-// Short description of a tool call for the status line.
 export const describeTool = (name: string, input: unknown) => {
   const i = (typeof input === "object" && input !== null ? input : {}) as Record<string, unknown>
   const short = (v: unknown) => String(v).replace(/\s+/g, " ").slice(0, 60)

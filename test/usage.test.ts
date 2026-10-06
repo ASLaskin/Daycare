@@ -1,5 +1,4 @@
-// The usage pacing rules, run against a fake source with TestClock, so
-// "three minutes later" takes no time at all.
+// Pacing rules under TestClock, no real waiting.
 
 import { describe, expect, test } from "bun:test"
 import { Effect, Layer, Ref } from "effect"
@@ -16,11 +15,10 @@ const limit = (percent: number): UsageLimit => ({ kind: "session", label: "Sessi
 
 type Reply = "ok" | "rate-limited" | "down"
 
-// Runs `body` with a Usage service whose source answers from `replies` in order
-// and counts its calls.
+// Source answers replies in order, counting calls.
 const withUsage = <A>(replies: Array<Reply>, body: (calls: Ref.Ref<number>) => Effect.Effect<A, never, Usage>) =>
   Effect.gen(function* () {
-    // TestClock starts at 0, which would read as "just fetched".
+    // TestClock 0 would read as just fetched.
     yield* TestClock.setTime(Date.UTC(2026, 0, 1))
     const calls = yield* Ref.make(0)
     const source = Layer.succeed(
@@ -87,7 +85,7 @@ describe("Usage pacing", () => {
         yield* TestClock.adjust("1 minute")
         yield* refresh(true)
         expect(yield* Ref.get(calls)).toBe(2)
-        // The backoff is five minutes; the deferred fetch fires when it ends.
+        // Deferred fetch fires when backoff ends.
         yield* TestClock.adjust("5 minutes")
         expect(yield* Ref.get(calls)).toBe(3)
       }),

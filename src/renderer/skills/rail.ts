@@ -1,5 +1,3 @@
-// Rail that types a slash command into the focused session.
-
 import type { SkillRow } from "../../shared/skills.ts"
 import { el } from "../dom.ts"
 import { focused, insertIntoFocused } from "../sessions.ts"

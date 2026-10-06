@@ -1,5 +1,3 @@
-// The /api/oauth/usage response in the shape the sidebar draws. Pure.
-
 import type { UsageLimit } from "../../shared/usage.ts"
 
 const LIMIT_LABEL: Record<string, string> = {
@@ -9,7 +7,7 @@ const LIMIT_LABEL: Record<string, string> = {
   weekly_sonnet: "Week, Sonnet",
 }
 
-// Two response shapes exist: a `limits` array, and older per-window keys.
+// Newer limits array or older keys.
 export const normalizeUsage = (body: any): ReadonlyArray<UsageLimit> => {
   if (Array.isArray(body?.limits) && body.limits.length) {
     return body.limits.map((l: any) => ({
@@ -31,7 +29,7 @@ export const normalizeUsage = (body: any): ReadonlyArray<UsageLimit> => {
   ].filter((l): l is UsageLimit => l !== null)
 }
 
-// Retry-After is either seconds or an HTTP date.
+// Retry-After is seconds or a date.
 export const retryAfterMs = (value: string | null, now: number): number => {
   if (!value) return 0
   const secs = Number(value)

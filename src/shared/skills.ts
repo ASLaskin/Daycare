@@ -1,11 +1,11 @@
-// The skills inventory as the Settings > Skills tab and the rail show it.
+// Skills inventory for Settings and the rail.
 
 import { Schema } from "effect"
 
 export const SkillState = Schema.Literals(["on", "name-only", "user-invocable-only", "off"])
 export type SkillState = typeof SkillState.Type
 
-// A row's state also covers skills parked in ~/.claude/skills-disabled.
+// Also covers ~/.claude/skills-disabled.
 export type RowState = SkillState | "parked"
 
 export type SkillSource = "personal" | "synced" | "command" | "parked" | "project" | "plugin"

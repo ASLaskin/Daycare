@@ -1,4 +1,4 @@
-// Plan usage, the same numbers /usage shows.
+// Plan usage, same numbers as /usage.
 
 export interface UsageLimit {
   readonly kind: string

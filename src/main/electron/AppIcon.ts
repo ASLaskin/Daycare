@@ -1,5 +1,4 @@
-// The Dock icon follows the appIcon setting. Finder keeps the bundle's Toy
-// Block; this only changes the Dock and window icon.
+// Dock icon only; Finder keeps the bundle's.
 
 import { app } from "electron"
 import { Effect, Layer, Stream } from "effect"
@@ -16,7 +15,7 @@ export const AppIcon = Layer.effectDiscard(
     const { appRoot } = yield* AppPaths
     const { win } = yield* MainWindow
     const settings = yield* SettingsStore
-    // "random" picks once per launch, not on every settings save.
+    // Random picks once per launch.
     const random = ICONS[Math.floor(Math.random() * ICONS.length)]!
     let shown = ""
     const apply = (s: Settings) => {

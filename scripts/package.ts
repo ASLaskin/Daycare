@@ -1,5 +1,4 @@
-// Builds Daycare.app for this Mac and installs it to /Applications.
-// Run: bun run package [--no-install]
+// Builds Daycare.app; --no-install skips /Applications.
 
 import { packager, type SupportedArch } from "@electron/packager"
 import { execFileSync } from "node:child_process"
@@ -9,7 +8,7 @@ import path from "node:path"
 const root = path.resolve(import.meta.dir, "..")
 const install = !process.argv.includes("--no-install")
 
-// Lets the installed app find this checkout for Settings > Update.
+// Lets Settings > Update find this checkout.
 const commit = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: root, encoding: "utf8" }).trim()
 writeFileSync(
   path.join(root, "dist/build-info.json"),
@@ -27,9 +26,9 @@ const [outDir] = await packager({
   arch: process.arch as SupportedArch,
   out: path.join(root, "out"),
   overwrite: true,
-  // Main is bundled; only node-pty loads at runtime.
+  // Only node-pty loads at runtime.
   prune: false,
-  // Native code cannot load from inside an asar.
+  // Native code cannot load from asar.
   asar: { unpack: "**/node_modules/node-pty/**" },
   ignore: [
     /^\/(?!(dist|assets|node_modules|package\.json)(\/|$))/,
@@ -37,7 +36,7 @@ const [outDir] = await packager({
     // Only this Mac's node-pty build.
     new RegExp(`^/node_modules/node-pty/prebuilds/(?!darwin-${process.arch}($|/))`),
     /^\/node_modules\/node-pty\/(third_party|deps|src)($|\/)/,
-    // The renderer has its own copies of fonts and sprites.
+    // Renderer bundles its own fonts, sprites.
     /^\/assets\/(?!brand(\/|$))/,
     /^\/assets\/brand\/(render\.js$|logos\/.*\.svg$)/,
   ],
@@ -45,7 +44,7 @@ const [outDir] = await packager({
 })
 
 const built = path.join(outDir!, "Daycare.app")
-// Packaging breaks Electron's signature; Apple Silicon needs one.
+// Repackaging breaks the signature; Apple Silicon needs one.
 execFileSync("codesign", ["--force", "--deep", "--sign", "-", built], { stdio: "inherit" })
 
 if (!install) {
@@ -53,7 +52,7 @@ if (!install) {
   process.exit(0)
 }
 
-// Swap by rename so a running copy keeps working.
+// Rename swap keeps a running copy working.
 const installed = "/Applications/Daycare.app"
 const staged = `${installed}.new`
 const old = `${installed}.old`

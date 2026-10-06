@@ -1,11 +1,4 @@
-// Plan usage: the same numbers as /usage, read from the endpoint Claude Code
-// itself uses with the subscription's OAuth token. It costs no model tokens but
-// is rate limited, so there is no polling timer: fetch at launch and when a turn
-// ends, at most once per MIN_GAP, plus manual clicks. The last good numbers
-// persist to disk and are never cleared by a failed request.
-//
-// Two services: UsageSource does the network call and can fail in typed ways;
-// Usage owns the pacing. Tests swap the source and drive time with TestClock.
+// Rate limited, so no polling timer.
 
 import { Clock, Context, Duration, Effect, Layer, PubSub, Ref, Schema, Scope, Semaphore, Stream } from "effect"
 import { execFile } from "node:child_process"
@@ -48,7 +41,7 @@ const tokenFromJson = (raw: string): string | null => {
   }
 }
 
-// The Keychain on a Mac, ~/.claude/.credentials.json elsewhere or as a fallback.
+// Keychain on a Mac, else the file.
 const oauthToken = (home: string) =>
   Effect.callback<string | null>((resume) => {
     const fromFile = () => {
@@ -87,7 +80,7 @@ const fetchUsage = (home: string) =>
 
 // ---------- pacing ----------
 
-// usage.json. Decoded, since it is read back from disk.
+// Decoded, since it is read from disk.
 const SavedUsage = Schema.Struct({
   limits: Schema.Array(
     Schema.Struct({ kind: Schema.String, label: Schema.String, percent: Schema.Number, resetsAt: Schema.NullOr(Schema.String) }),
@@ -99,15 +92,14 @@ const SavedUsage = Schema.Struct({
 interface Pacing {
   readonly usage: UsageData
   readonly lastAttempt: number
-  readonly blockedUntil: number // set by 429s
+  readonly blockedUntil: number
   readonly backoffMs: number
-  readonly scheduled: boolean // one deferred fetch coalesces bursts of finished turns
+  readonly scheduled: boolean // coalesces bursts of finished turns
 }
 
 export interface UsageShape {
   readonly get: Effect.Effect<UsageData>
-  // Auto calls (launch, turn end) wait out MIN_GAP by deferring one fetch;
-  // manual calls only wait MANUAL_GAP. A 429 blocks both.
+  // Auto waits MIN_GAP, manual MANUAL_GAP; 429 blocks both.
   readonly refresh: (options?: { readonly manual?: boolean }) => Effect.Effect<UsageData>
   readonly changes: Effect.Effect<Stream.Stream<UsageData>, never, Scope.Scope>
 }
@@ -119,7 +111,7 @@ export class Usage extends Context.Service<Usage, UsageShape>()("daycare/Usage")
       const source = yield* UsageSource
       const { userData } = yield* AppPaths
       const file = path.join(userData, "usage.json")
-      // Deferred fetches run in the service's own scope, so they stop with it.
+      // Stops with the service's scope.
       const scope = yield* Effect.scope
 
       const saved = yield* Effect.sync(() => {
@@ -137,7 +129,7 @@ export class Usage extends Context.Service<Usage, UsageShape>()("daycare/Usage")
         scheduled: false,
       })
       const pubsub = yield* PubSub.unbounded<UsageData>()
-      // One refresh at a time; a caller that waits sees the fresh numbers.
+      // Waiters see the fresh numbers.
       const lock = yield* Semaphore.make(1)
 
       const save = (p: Pacing) =>
@@ -150,7 +142,7 @@ export class Usage extends Context.Service<Usage, UsageShape>()("daycare/Usage")
       const attempt = Effect.gen(function* () {
         const result = yield* source.fetch.pipe(
           Effect.map((limits) => ({ ok: true as const, limits })),
-          // Failures stay silent: the widget keeps the last good numbers.
+          // Failures keep the last good numbers.
           Effect.catchTag("RateLimited", (e) => Effect.succeed({ ok: false as const, retryAfterMs: e.retryAfterMs })),
           Effect.catchTag("UsageUnavailable", () => Effect.succeed({ ok: false as const, retryAfterMs: null })),
         )
@@ -177,7 +169,7 @@ export class Usage extends Context.Service<Usage, UsageShape>()("daycare/Usage")
             if (now < due) {
               if (!p.scheduled) {
                 yield* Ref.update(pacing, (q) => ({ ...q, scheduled: true }))
-                // Skipped if a manual refresh fetched in the meantime.
+                // Skipped if a manual refresh ran.
                 const wake = Effect.gen(function* () {
                   const q = yield* Ref.getAndUpdate(pacing, (q) => ({ ...q, scheduled: false }))
                   if (q.lastAttempt === p.lastAttempt) yield* refresh()

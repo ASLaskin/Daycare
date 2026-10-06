@@ -1,7 +1,4 @@
-// Electron main process entry: the whole app is one layer graph. Building it
-// starts everything in dependency order; quitting interrupts it, and every
-// finalizer runs in reverse order (save sessions, end PTYs, end chat children,
-// release keep awake, close the server, destroy the window).
+// Quitting runs every finalizer in reverse.
 
 import { app } from "electron"
 import { Effect, Fiber, Layer } from "effect"
@@ -27,10 +24,8 @@ import { Usage, UsageSource } from "./usage/Usage.ts"
 
 app.setName("Daycare")
 
-// Things with no dependencies of their own.
 const Platform = Layer.mergeAll(ElectronPaths, ClaudeBinary.layer, NodePty, Skills.layer)
 
-// The window and what hangs off it.
 const Window = ElectronUi.pipe(Layer.provideMerge(MainWindow.layer))
 
 const ChatLive = Layer.unwrap(ClaudeBinary.use((claude) => Effect.succeed(Chat.layer(claude.path))))
@@ -49,7 +44,7 @@ const Services = Layer.mergeAll(
   Updater.layer,
 ).pipe(Layer.provideMerge(Window), Layer.provideMerge(Control))
 
-// Sessions also provides the ControlHandlers that the routes call.
+// Sessions also provides ControlHandlers.
 const Core = Sessions.layer.pipe(Layer.provideMerge(Services))
 
 const App = Layer.mergeAll(ControlRoutes, Ipc, AppIcon).pipe(
@@ -63,7 +58,7 @@ const main = Layer.launch(Boot.pipe(Layer.provide(App))).pipe(
 
 const fiber = Effect.runFork(main)
 
-// The first quit is held back until the app has unwound, then let through.
+// Hold the first quit until unwound.
 let unwound = false
 app.on("before-quit", (event) => {
   if (unwound) return

@@ -1,6 +1,4 @@
-// App settings. The file on disk is edited by hand sometimes and outlives app
-// versions, so it is decoded one field at a time: a bad or unknown field falls
-// back to its default instead of throwing the whole file away.
+// Decoded per field; bad fields fall back.
 
 import { Option, Schema } from "effect"
 import { PermissionMode, SessionKind } from "./session.ts"
@@ -38,7 +36,7 @@ export const Settings = Schema.Struct({
   monoFont: MonoFont,
   termFontSize: Schema.Finite,
   layout: Layout,
-  // Preset -> master share in percent, set by dragging the split.
+  // Preset to master share, in percent.
   splits: Schema.Record(Schema.String, Schema.Finite),
   sidebarWidth: Schema.Finite,
   railWidth: Schema.Finite,
@@ -49,7 +47,7 @@ export const Settings = Schema.Struct({
 })
 export type Settings = typeof Settings.Type
 
-// Defaults that do not depend on the machine. Locations are filled in by main.
+// Main fills in locations.
 export const baseSettings: Omit<Settings, "locations"> = {
   askOnNew: false,
   randomNames: true,
@@ -78,7 +76,7 @@ export const baseSettings: Omit<Settings, "locations"> = {
   stageGap: 10,
 }
 
-// Keeps every field of `raw` that decodes, on top of `defaults`.
+// Keeps each decodable field of raw.
 export const mergeSettings = (defaults: Settings, raw: unknown): Settings => {
   if (typeof raw !== "object" || raw === null) return defaults
   const input = raw as Record<string, unknown>
@@ -91,6 +89,5 @@ export const mergeSettings = (defaults: Settings, raw: unknown): Settings => {
   return out as Settings
 }
 
-// A partial update from the renderer. Same lenient rule, so a stray field is
-// dropped rather than failing the save.
+// Lenient: stray fields dropped, not fatal.
 export const SettingsPatch = Schema.Record(Schema.String, Schema.Unknown)

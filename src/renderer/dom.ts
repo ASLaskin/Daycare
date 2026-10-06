@@ -1,5 +1,3 @@
-// Tiny DOM helpers shared by every view.
-
 export const $ = <T extends HTMLElement = HTMLElement>(selector: string): T => {
   const node = document.querySelector<T>(selector)
   if (!node) throw new Error(`Missing ${selector}`)

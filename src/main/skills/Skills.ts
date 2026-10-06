@@ -1,10 +1,4 @@
-// Inventory of Claude Code skills and their on/off state. Reads SKILL.md files
-// and settings JSON; the only things it ever writes are settings JSON (via
-// atomic rename) and, for restore, a directory rename. SKILL.md is never touched.
-//
-// The scan itself is synchronous and never fails: anything unreadable becomes a
-// warning in the result. Only the mutations can fail, with a SkillError whose
-// message is written for the user.
+// Never writes SKILL.md; scan never fails.
 
 import { Context, Effect, Layer, Schema } from "effect"
 import { randomBytes } from "node:crypto"
@@ -16,16 +10,11 @@ import { type Frontmatter, isFalse, isTrue, parseFrontmatter, str } from "./fron
 
 export class SkillError extends Schema.TaggedError<SkillError>()("SkillError", { message: Schema.String }) {}
 
-// A rough estimate, not a real tokenizer: about four characters per token.
+// About four characters per token.
 const CHARS_PER_TOKEN = 4
 const estimateTokens = (text: string) => Math.ceil(text.length / CHARS_PER_TOKEN)
 
-// Claude Code caps the listing twice, and both caps change what pruning buys
-// you, so they are modelled here rather than reporting a raw sum. Each
-// description is cut at skillListingMaxDescChars, and the whole listing gets
-// skillListingBudgetFraction of the context window measured in characters.
-// Over that, descriptions are dropped so only names remain, so the real cost
-// stops growing while the apparent one keeps climbing.
+// Models Claude Code's two listing caps.
 const LISTING_MAX_DESC_CHARS = 1536
 const LISTING_BUDGET_FRACTION = 0.01
 const LISTING_CONTEXT_CHARS = 200000
@@ -65,9 +54,7 @@ const readDirSafe = (dir: string, warnings: Warnings, quietIfMissing: boolean) =
   }
 }
 
-// An editor-written settings file can start with a byte order mark, and an
-// empty one is an empty object as far as Claude Code is concerned. Refusing
-// either would leave the toggle stuck with nothing the user could do about it.
+// Tolerate a BOM and empty files.
 const parseSettingsText = (raw: string): unknown => {
   const text = raw.replace(/^﻿/, "")
   return text.trim() ? JSON.parse(text) : {}
@@ -96,7 +83,7 @@ interface MdFile {
   readonly data: Frontmatter
 }
 
-// Follows symlinks, so the size guard applies to the resolved file.
+// Size guard applies to the target.
 const readMdFile = (file: string, warnings: Warnings): MdFile | null => {
   let st: fs.Stats
   try {
@@ -133,14 +120,13 @@ const readSkillFile = (dir: string, warnings: Warnings) => {
 
 interface ChildDir {
   readonly name: string
-  // The resolved folder; viaPath is where it was found.
+  // viaPath is where it was found.
   readonly dir: string
   readonly viaPath: string
   readonly symlink: boolean
 }
 
-// Immediate children that are directories. Symlinked directories are followed;
-// a broken link, a link loop, or a link to a non-directory is skipped with a warning.
+// Bad links are skipped with a warning.
 const childDirs = (root: string, warnings: Warnings, quietIfMissing: boolean): Array<ChildDir> => {
   const out: Array<ChildDir> = []
   for (const e of readDirSafe(root, warnings, quietIfMissing) ?? []) {
@@ -167,7 +153,7 @@ const childDirs = (root: string, warnings: Warnings, quietIfMissing: boolean): A
   return out
 }
 
-// SKILL.md folders under root, at most maxDepth levels down; a skill folder is not descended into.
+// Skill folders are not descended into.
 const findSkillDirs = (root: string, maxDepth: number, warnings: Warnings) => {
   const found: Array<ChildDir> = []
   const visited = new Set<string>()
@@ -191,7 +177,7 @@ interface CommandFile {
   readonly symlink: boolean
 }
 
-// Markdown files directly in dir, plus one level of subfolders (namespaced commands).
+// One subfolder level: namespaced commands.
 const findCommandFiles = (dir: string, warnings: Warnings) => {
   const out: Array<CommandFile> = []
   const scan = (d: string, prefix: string, quiet: boolean, canDescend: boolean) => {
@@ -226,7 +212,7 @@ const projectSettingsPath = (dir: string) => path.join(dir, ".claude", "settings
 const projectLocalPath = (dir: string) => path.join(dir, ".claude", "settings.local.json")
 
 const writeJsonAtomic = (file: string, obj: Json) => {
-  // Write through a symlinked settings file instead of replacing the link.
+  // Write through a symlink, keep it.
   let target = file
   try {
     target = fs.realpathSync(file)
@@ -247,7 +233,7 @@ const writeJsonAtomic = (file: string, obj: Json) => {
   }
 }
 
-// Read-modify-write of one top-level map key. A malformed file is never overwritten.
+// Never overwrites a malformed file.
 const mutateSettingsMap = (file: string, mapKey: string, entry: string, value: unknown) =>
   Effect.gen(function* () {
     const name = path.basename(file)
@@ -281,8 +267,7 @@ const mutateSettingsMap = (file: string, mapKey: string, entry: string, value: u
 
 // ---------- listing ----------
 
-// Characters this skill adds to the listing: "- name" when only the name is
-// listed, "- name: description" otherwise, with the description capped.
+// Name only drops the description.
 const listingCharsFor = (state: RowState, name: string, description: string, whenToUse: string, modelInvocable: boolean) => {
   if (state === "off" || state === "parked" || state === "user-invocable-only" || !modelInvocable) return 0
   if (state === "name-only") return name.length + 2
@@ -342,7 +327,7 @@ const overridesOf = (layer: SettingsLayer): Json | null => {
   return isObject(map) ? map : null
 }
 
-// First settings layer (highest precedence first) that carries a valid override for the name.
+// Highest precedence layer first.
 const resolveOverride = (name: string, layers: ReadonlyArray<SettingsLayer>, warnings: Warnings) => {
   for (const layer of layers) {
     const map = overridesOf(layer)
@@ -383,13 +368,11 @@ const collect = (home: string, projectDirs: ReadonlyArray<string>): Collected =>
     rows.push(row)
   }
 
-  // Overridable rows share one flow: read, resolve the override by name, add.
   const addOverridable = (base: RowBase, file: MdFile, layers: ReadonlyArray<SettingsLayer>) => {
     const ov = resolveOverride(str(file.data["name"]) || base.dirName, layers, warnings)
     add(base, file, ov.state, ov.file)
   }
 
-  // personal and synced
   const skillsRoot = path.join(claudeDir, "skills")
   for (const child of childDirs(skillsRoot, warnings, true)) {
     if (child.name === "synced") continue
@@ -413,7 +396,6 @@ const collect = (home: string, projectDirs: ReadonlyArray<string>): Collected =>
     )
   }
 
-  // personal commands
   for (const c of findCommandFiles(path.join(claudeDir, "commands"), warnings)) {
     const file = readMdFile(c.file, warnings)
     if (!file) continue
@@ -424,7 +406,6 @@ const collect = (home: string, projectDirs: ReadonlyArray<string>): Collected =>
     )
   }
 
-  // parked
   for (const child of childDirs(path.join(claudeDir, "skills-disabled"), warnings, true)) {
     const file = readSkillFile(child.dir, warnings)
     if (!file) continue
@@ -436,7 +417,6 @@ const collect = (home: string, projectDirs: ReadonlyArray<string>): Collected =>
     )
   }
 
-  // projects
   const projectLayerSets: Array<{ dir: string; layers: ReadonlyArray<SettingsLayer> }> = []
   const seen = new Set<string>()
   for (const raw of projectDirs) {
@@ -470,8 +450,7 @@ const collect = (home: string, projectDirs: ReadonlyArray<string>): Collected =>
     }
   }
 
-  // plugins: only the installPath recorded in installed_plugins.json is read, so
-  // stale version folders left in the plugin cache never produce rows.
+  // Plugins: installPath only, skips stale versions.
   const pluginsRoot = path.join(claudeDir, "plugins")
   const installed = readJson(path.join(pluginsRoot, "installed_plugins.json"), warnings)
   const known = readJson(path.join(pluginsRoot, "known_marketplaces.json"), warnings) ?? {}
@@ -482,13 +461,13 @@ const collect = (home: string, projectDirs: ReadonlyArray<string>): Collected =>
     const entries = (Array.isArray(rawEntry) ? rawEntry : [rawEntry]).filter(
       (e): e is Json & { installPath: string } => isObject(e) && typeof e["installPath"] === "string",
     )
-    // Newest lastUpdated wins; sort is stable so ties keep file order.
+    // Stable sort keeps ties in order.
     const stamp = (e: Json) => Date.parse(String(e["lastUpdated"])) || 0
     const entry = entries.sort((x, y) => stamp(y) - stamp(x))[0] ?? null
     const [pluginName = "", marketplace] = pluginId.split("@")
     let root: string | null = entry ? entry.installPath : null
     if (!entry && marketplace) {
-      // Exact marketplace checkout path for this plugin, never a glob of the cache.
+      // Never a glob of the cache.
       const market = known[marketplace]
       const loc = isObject(market) && typeof market["installLocation"] === "string" ? market["installLocation"] : null
       const candidates = [loc && path.join(loc, "plugins", pluginName), path.join(pluginsRoot, "marketplaces", marketplace, "plugins", pluginName)]
@@ -512,10 +491,7 @@ const collect = (home: string, projectDirs: ReadonlyArray<string>): Collected =>
     }
   }
 
-  // A row shows one state, but Claude Code merges settings per project, so a
-  // project file can quietly override a personal skill or a plugin for sessions
-  // in that folder. The app writes the user file, so say so rather than showing
-  // a state that is wrong where the user is actually working.
+  // Project files can override the user file.
   const personalSources = new Set<SkillSource>(["personal", "synced", "command"])
   for (const { dir, layers } of projectLayerSets) {
     for (const l of layers) {
@@ -556,7 +532,7 @@ const totalsOf = (rows: ReadonlyArray<SkillRow>): SkillTotals => {
     else if (r.state === "parked") parked++
     else on++
   }
-  // One newline between entries, the same separator Claude Code counts.
+  // Same separator Claude Code counts.
   listingChars += Math.max(0, listed - 1)
   const listingTokens = Math.ceil(listingChars / CHARS_PER_TOKEN)
   const budgetTokens = Math.ceil(LISTING_BUDGET_CHARS / CHARS_PER_TOKEN)
@@ -569,8 +545,7 @@ const totalsOf = (rows: ReadonlyArray<SkillRow>): SkillTotals => {
     budgetChars: LISTING_BUDGET_CHARS,
     budgetTokens,
     overBudget: listingChars > LISTING_BUDGET_CHARS,
-    // Past the budget Claude Code spends the budget and no more, so that, not
-    // the sum, is what the listing actually costs today.
+    // Past budget, the budget is the cost.
     effectiveTokens: Math.min(listingTokens, budgetTokens),
   }
 }
@@ -579,7 +554,7 @@ const totalsOf = (rows: ReadonlyArray<SkillRow>): SkillTotals => {
 
 const kindOf = (id: string) => id.slice(0, Math.max(id.indexOf(":"), 0))
 
-// Project rows carry their directory in the id, so callers need not repeat it.
+// Project ids carry their directory.
 const isProjectId = (id: string) => kindOf(id) === "project" || kindOf(id) === "project-command"
 
 const projectDirFromId = (id: string) => {
@@ -624,9 +599,7 @@ const make = (home: string): SkillsShape => {
     const file = projectDir ? projectLocalPath(projectDir) : userSettingsPath(home)
     yield* mutateSettingsMap(file, "skillOverrides", row.name, state === "on" ? undefined : state)
 
-    // Overrides come from several settings files. Deleting ours can uncover one
-    // in a lower layer, which would snap the row straight back with no reason
-    // given, so check the result and write the state out in full if it did.
+    // A lower layer can snap it back.
     let after = collect(home, dirs).result
     let row2 = after.skills.find((r) => r.id === id)
     if (row2 && row2.state !== state) {
@@ -685,7 +658,7 @@ const make = (home: string): SkillsShape => {
 }
 
 export class Skills extends Context.Service<Skills, SkillsShape>()("daycare/Skills") {
-  // `home` is a parameter so tests can point the whole service at a fake one.
+  // A parameter so tests can fake it.
   static readonly layerFor = (home: string) => Layer.succeed(Skills, make(path.resolve(home)))
   static readonly layer = Skills.layerFor(os.homedir())
 }

@@ -1,5 +1,3 @@
-// Inline rename for pane titles and sidebar names.
-
 import { api } from "./api.ts"
 import { el } from "./dom.ts"
 import { renderSidebar } from "./sidebar.ts"

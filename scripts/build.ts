@@ -1,9 +1,4 @@
-// Bundles the three Electron targets with Bun. Main and preload run in
-// Electron's own Node with electron and node-pty left as runtime imports. Main
-// is an ES module (Effect uses import.meta, which CommonJS cannot parse); the
-// preload stays CommonJS because sandboxed preloads must be. The renderer is a
-// plain browser bundle built from its HTML.
-// Run: bun scripts/build.ts
+// Main is ESM for import.meta; preload must be CJS.
 
 import { cpSync, mkdirSync, readdirSync, rmSync } from "node:fs"
 import path from "node:path"
@@ -45,7 +40,7 @@ for (const build of builds) {
     process.exit(1)
   }
 }
-// Sprites are picked by name at runtime, so copied, not bundled.
+// Sprites load by name, so copied.
 const icons = path.join(root, "assets/icons")
 const iconsOut = path.join(out, "renderer/icons")
 mkdirSync(iconsOut, { recursive: true })

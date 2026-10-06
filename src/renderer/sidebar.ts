@@ -1,5 +1,3 @@
-// Sidebar: masters with their workers, then closed ones.
-
 import type { SessionView } from "../shared/session.ts"
 import { api } from "./api.ts"
 import { $, baseName, el } from "./dom.ts"

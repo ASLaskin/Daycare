@@ -1,6 +1,3 @@
-// The last layer built: everything is ready, so forward background updates to
-// the renderer, load the page, and restore the saved sessions once it is up.
-
 import { Effect, Layer, type Scope, Stream } from "effect"
 import fs from "node:fs"
 import os from "node:os"
@@ -30,8 +27,7 @@ export const Boot = Layer.effectDiscard(
     yield* forward(usage.changes, (u) => ui.send("usage:update", u))
     yield* forward(power.changes, (p) => ui.send("power:update", p))
 
-    // Cmd+W closes the active master instead of the window. Handled here so the
-    // default menu's Close Window never sees it.
+    // Cmd+W must never reach Close Window.
     win.webContents.on("before-input-event", (event, input) => {
       if (input.type === "keyDown" && input.meta && !input.shift && !input.alt && !input.control && input.key.toLowerCase() === "w") {
         event.preventDefault()
@@ -42,18 +38,13 @@ export const Boot = Layer.effectDiscard(
     const loaded = Effect.promise(() => win.loadFile(path.join(appRoot, "dist", "renderer", "index.html")))
     yield* loaded
     yield* sessions.restore
-    // A fetch at launch; later ones follow finished turns.
+    // Later fetches follow finished turns.
     yield* Effect.forkScoped(usage.refresh())
     yield* devHooks
   }),
 )
 
-// Dev only:
-//   DAYCARE_AUTOSTART='{"task":"...","cwd":"..."}' starts a master on launch.
-//   DAYCARE_DEMO='{"workers":3,"kind":"terminal"}' starts a master with that many
-//     workers, for looking at layouts without a real run.
-//   DAYCARE_EVAL='[[ms, "js"], ...]' runs renderer JS at each delay.
-//   DAYCARE_SNAPSHOT=/dir writes a screenshot and state.json every 5s.
+// Dev hooks, see README.
 const devHooks = Effect.gen(function* () {
   const { win } = yield* MainWindow
   const sessions = yield* Sessions

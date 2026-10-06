@@ -1,4 +1,4 @@
-// App shortcuts, in the capture phase so terminals do not eat them.
+// Capture phase, so terminals do not eat them.
 
 import { closeActiveMaster, unzoom } from "./sessions.ts"
 import { closeSettings, isSettingsOpen, toggleSettings } from "./settings-view.ts"

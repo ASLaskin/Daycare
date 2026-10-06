@@ -1,6 +1,4 @@
-// The only bridge between the renderer and the main process. The renderer gets
-// a single generic `window.daycare` object; only channels named in the shared
-// contract get through, so a compromised page cannot reach anything else.
+// Only contract channels get through.
 
 import { contextBridge, ipcRenderer } from "electron"
 import { type Bridge, Invoke, Send } from "../shared/ipc.ts"

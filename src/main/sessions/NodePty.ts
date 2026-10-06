@@ -1,5 +1,3 @@
-// The real Pty, on node-pty.
-
 import { Layer } from "effect"
 import * as pty from "node-pty"
 import { Pty } from "./Pty.ts"

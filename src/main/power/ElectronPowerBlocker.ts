@@ -1,5 +1,4 @@
-// The real PowerBlocker. 'prevent-app-suspension' stops idle sleep but lets the
-// display turn off, which is all a running session needs.
+// Stops idle sleep, lets the display sleep.
 
 import { powerSaveBlocker } from "electron"
 import { Layer } from "effect"

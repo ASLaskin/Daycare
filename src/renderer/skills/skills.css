@@ -1,5 +1,4 @@
-/* Skills manager (Settings > Skills) and the injector rail beside the stage.
-   Everything is scoped under .skills-manager or .skill-rail. */
+/* Scoped under .skills-manager or .skill-rail. */
 
 /* ---------- manager ---------- */
 
@@ -56,8 +55,7 @@
 .skills-manager .sm-group-note { padding: 10px 14px 2px; }
 .skills-manager .sm-group-err { margin: 0; padding: 8px 14px; border-bottom: 1px solid var(--line); }
 
-/* One row: text | cost | control | reveal. Fixed columns keep every group lined
-   up with the next, whatever the control inside is. */
+/* Fixed columns align rows across groups. */
 .skills-manager .sm-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 72px 168px 28px;

@@ -1,7 +1,4 @@
-// Port of Konductor's power self test. Fakes the power assertion, points the
-// privileged calls at fake binaries, and runs the real watchdog shell snippet
-// that the privileged call would leave behind. Touches nothing outside a temp
-// directory and never asks for a password.
+// Fakes privileged calls; never asks for a password.
 
 import { afterAll, describe, expect, test } from "bun:test"
 import { Effect, Layer, ManagedRuntime } from "effect"
@@ -22,8 +19,7 @@ const writeBin = (name: string, body: string) => {
   return p
 }
 
-// Records argv one line per call. The exit code comes from a file so a test can
-// make the password dialog "cancelled" without rewriting the script.
+// Exit code file lets tests fake a cancel.
 const osascript = writeBin(
   "osascript",
   `printf '%s\\n' "$*" >> "${log("osa")}"\nexit "$(cat "${root}/osa-exit" 2>/dev/null || echo 0)"`,
@@ -49,7 +45,6 @@ const FakeBlocker = Layer.succeed(
 
 const readLog = (name: string) => (fs.existsSync(log(name)) ? fs.readFileSync(log(name), "utf8").trim().split("\n") : [])
 
-// A fresh Power service over clean fakes, with promise helpers.
 const fresh = () => {
   started.length = 0
   stopped.length = 0
@@ -70,8 +65,7 @@ const fresh = () => {
   }
 }
 
-// The privileged argument is one AppleScript string; recover the shell command
-// the same way osascript would, so the test runs exactly what root would run.
+// Unwrap the AppleScript as osascript would.
 const shellFromOsaLine = (line: string) => {
   const m = /^-e do shell script "([\s\S]*)" with administrator privileges$/.exec(line.trim())
   expect(m).not.toBeNull()
@@ -91,7 +85,7 @@ test("the blocker follows working sessions, not open ones", async () => {
   expect(started.length).toBe(0)
   await p.apply({ activeCount: 1, busyCount: 1 })
   expect((await p.status()).holding).toBe(true)
-  // A second session does not start a second assertion.
+  // No second assertion for a second session.
   await p.apply({ activeCount: 2, busyCount: 1 })
   expect(started.length).toBe(1)
   await p.apply({ activeCount: 0, busyCount: 0 })
@@ -99,7 +93,7 @@ test("the blocker follows working sessions, not open ones", async () => {
   expect(stopped.length).toBe(1)
   await p.apply({ mode: "always" })
   expect((await p.status()).holding).toBe(true)
-  // Closing the scope releases it, which is what quitting does.
+  // Closing the scope is quitting.
   await p.runtime.dispose()
   expect(stopped.length).toBe(2)
 })
@@ -125,7 +119,7 @@ test("the lid escalation asks once, holds through the grace window, then lapses"
   await sleep(120)
   expect(readLog("osa").length).toBe(1)
 
-  // Work finishes: the grace window keeps it on, then it releases by itself.
+  // Grace window holds, then releases itself.
   await p.apply({ activeCount: 1, busyCount: 0, lidClosed: true })
   await sleep(500)
   expect((await p.status()).lidClosedActive).toBe(true)
@@ -137,7 +131,7 @@ test("the lid escalation asks once, holds through the grace window, then lapses"
   await p.runtime.dispose()
 })
 
-// The whole point of the watchdog: root reverts without a second dialog.
+// Root reverts without a second dialog.
 describe("the watchdog", () => {
   const sleeper = () => spawn(process.execPath, ["-e", "setTimeout(()=>{}, 60000)"])
   const withPid = (pid: number) => watchdogScript.replace(/'(\d+)'/, `'${pid}'`)
@@ -199,7 +193,7 @@ test(
     fs.writeFileSync(path.join(root, "sleep-disabled"), "1")
     await p.status()
     await sleep(250)
-    // Not stale yet: the old watchdog may still be about to revert it.
+    // Old watchdog may still revert it.
     expect((await p.status()).stale).toBe(false)
     await sleep(6200)
     expect((await p.status()).stale).toBe(true)

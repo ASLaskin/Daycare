@@ -1,5 +1,3 @@
-// Layout presets, split dragging, and sidebar resize.
-
 import type { Layout } from "../shared/settings.ts"
 import { SIDEBAR_WIDTH } from "./appearance.ts"
 import { $, el } from "./dom.ts"

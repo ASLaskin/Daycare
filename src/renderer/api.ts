@@ -1,5 +1,3 @@
-// Typed client over the preload bridge.
-
 import type { Bridge, EventChannel, Events, InvokeChannel, InvokePayload, InvokeResult } from "../shared/ipc.ts"
 import type { PermissionDecision } from "../shared/ipc.ts"
 import type { NewMaster } from "../shared/session.ts"

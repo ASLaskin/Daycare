@@ -1,5 +1,3 @@
-// Open panes, closed sessions, and fit scheduling.
-
 import type { FitAddon } from "@xterm/addon-fit"
 import type { Terminal } from "@xterm/xterm"
 import type { SessionView } from "../shared/session.ts"

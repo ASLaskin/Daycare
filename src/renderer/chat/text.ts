@@ -1,4 +1,4 @@
-// Streamed text and thinking blocks. Markdown is never rendered as HTML.
+// Markdown is never rendered as HTML.
 
 import type { ChatEventOf } from "../../shared/chat.ts"
 import { el } from "../dom.ts"
@@ -39,7 +39,6 @@ const parseSegments = (raw: string): Array<Segment> => {
   return segs
 }
 
-// Returns the last prose text node for delta appends.
 export const appendProse = (parent: HTMLElement, raw: string) => {
   const segs = parseSegments(raw)
   let tail: Text | null = null

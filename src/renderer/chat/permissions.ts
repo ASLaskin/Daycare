@@ -1,5 +1,3 @@
-// Permission cards: generic approval, AskUserQuestion, and ExitPlanMode.
-
 import type { ChatEventOf } from "../../shared/chat.ts"
 import type { PermissionDecision } from "../../shared/ipc.ts"
 import { api } from "../api.ts"
@@ -59,7 +57,7 @@ interface Question {
   free: string
 }
 
-// Answers keyed by exact question text; whole input echoed back.
+// Keyed by exact question text.
 const askQuestions = (input: unknown): Array<Question> | null => {
   const raw = rec(input)?.["questions"]
   if (!Array.isArray(raw) || !raw.length) return null
@@ -201,7 +199,7 @@ const buildAsk = (ev: PermissionEvent, card: HTMLElement, p: Perm, buttons: Arra
   }
 }
 
-// Approve allows as asked; deny message carries feedback.
+// Deny message carries the feedback.
 const buildPlan = (ev: PermissionEvent, card: HTMLElement, p: Perm, buttons: Array<HTMLButtonElement>, answer: Answer) => {
   const i = rec(ev.input) ?? {}
   const text = str(i["plan"])

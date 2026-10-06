@@ -1,6 +1,4 @@
-// A minimal MCP server over Streamable HTTP, answering each POST with plain
-// JSON (the spec allows that instead of an event stream). Stateless: the
-// master is identified by the URL, not by an MCP session.
+// Stateless; the URL identifies the master.
 
 import { Effect, Schema } from "effect"
 import { isToolName, type ToolCall, toolList, Tools } from "./tools.ts"
@@ -24,8 +22,7 @@ const text = (value: unknown, isError = false) => ({
   content: [{ type: "text", text: typeof value === "string" ? value : JSON.stringify(value, null, 2) }],
 })
 
-// Arguments are decoded against the tool's own Schema; a bad call is reported
-// back to Claude as a tool error it can read and correct.
+// Bad arguments go back as readable errors.
 const decodeCall = (name: string, args: unknown): Effect.Effect<ToolCall, ToolError> => {
   if (!isToolName(name)) return Effect.fail(new ToolError({ message: `Unknown tool ${name}` }))
   return Schema.decodeUnknownEffect(Tools[name].input as Schema.Codec<unknown>)(args ?? {}).pipe(
@@ -34,7 +31,7 @@ const decodeCall = (name: string, args: unknown): Effect.Effect<ToolCall, ToolEr
   )
 }
 
-// Returns the JSON-RPC response, or null for a notification (answered with 202).
+// Null for a notification (answered 202).
 export const handleMessage = <R>(
   msg: RpcRequest,
   call: (tool: ToolCall) => Effect.Effect<unknown, ToolError, R>,

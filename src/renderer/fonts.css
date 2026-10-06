@@ -1,5 +1,4 @@
-/* Bundled fonts. The system stack is the default; these are opt-in from
-   Settings > Appearance and only load when a rule actually uses them. */
+/* Opt in fonts, loaded only when used. */
 
 @font-face {
   font-family: "Inter";

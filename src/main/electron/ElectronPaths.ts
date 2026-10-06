@@ -1,5 +1,4 @@
-// AppPaths from Electron. DAYCARE_USER_DATA runs an isolated instance with its
-// own settings and sessions, for development.
+// DAYCARE_USER_DATA isolates a dev instance.
 
 import { app } from "electron"
 import { Layer } from "effect"

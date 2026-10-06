@@ -1,6 +1,3 @@
-// Ui on top of the real window: IPC events, macOS notifications, and a native
-// confirm dialog.
-
 import { dialog, Notification } from "electron"
 import { Effect, Layer } from "effect"
 import { Ui } from "../Ui.ts"

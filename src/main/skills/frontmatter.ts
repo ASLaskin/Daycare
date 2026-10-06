@@ -1,6 +1,4 @@
-// Minimal YAML subset for SKILL.md frontmatter: key: value, quoted values, > and
-// | blocks, wrapped plain values, and "- item" lists. Anything it cannot read is
-// ignored, never thrown. Pure, so it is tested on its own.
+// Tiny YAML subset; unreadable keys are ignored.
 
 export type FrontmatterValue = string | ReadonlyArray<string>
 export type Frontmatter = Readonly<Record<string, FrontmatterValue>>
@@ -54,7 +52,7 @@ export const parseFrontmatter = (text: string): { readonly data: Frontmatter; re
       const indents = body.filter((l) => l.trim() !== "").map(indentOf)
       const indent = indents.length ? Math.min(...indents) : 0
       const cut = body.map((l) => (l.trim() === "" ? "" : l.slice(indent))).join("\n")
-      // Folded: single newlines become spaces, blank lines become newlines.
+      // Folded: newlines become spaces.
       data[key] = blockMatch[1] === ">" ? cut.replace(/([^\n])\n(?=[^\n])/g, "$1 ").replace(/\n{2}/g, "\n") : cut
       continue
     }
@@ -70,7 +68,7 @@ export const parseFrontmatter = (text: string): { readonly data: Frontmatter; re
       continue
     }
 
-    // Plain or quoted value, possibly wrapped onto more indented lines.
+    // Possibly wrapped onto indented lines.
     let value = rest
     const quote = value[0] === '"' || value[0] === "'" ? value[0] : ""
     const closed = (v: string) => v.length >= 2 && v.endsWith(quote) && !v.endsWith("\\" + quote)
@@ -83,7 +81,6 @@ export const parseFrontmatter = (text: string): { readonly data: Frontmatter; re
   return { data, hasFrontmatter: true }
 }
 
-// Frontmatter values as the listing reads them.
 export const str = (v: FrontmatterValue | undefined): string =>
   typeof v === "string" ? v.trim() : Array.isArray(v) ? v.join(" ").trim() : ""
 export const isTrue = (v: FrontmatterValue | undefined) => typeof v === "string" && v.trim().toLowerCase() === "true"

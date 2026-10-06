@@ -1,7 +1,4 @@
-// Every IPC channel in the shared contract, answered. The `handlers` object is
-// typed against the contract, so a missing channel or a wrong result type is a
-// compile error, and every payload is decoded with its channel's Schema before
-// a handler sees it.
+// Payloads are decoded before handlers run.
 
 import { dialog, ipcMain, Menu, shell } from "electron"
 import { Effect, Layer, Schema } from "effect"
@@ -36,7 +33,6 @@ export const Ipc = Layer.effectDiscard(
 
     const withProjectDirs = <A, E>(f: (dirs: ReadonlyArray<string>) => Effect.Effect<A, E>) => Effect.flatMap(sessions.projectDirs, f)
 
-    // Native right-click menu for a master in the sidebar.
     const sessionMenu = (id: string) =>
       Effect.gen(function* () {
         const m = yield* sessions.get(id)
@@ -61,7 +57,7 @@ export const Ipc = Layer.effectDiscard(
           Effect.map((r) => (r.canceled ? null : (r.filePaths[0] ?? null))),
         ),
       "open:finder": (dir) => Effect.promise(() => shell.openPath(dir)).pipe(Effect.asVoid),
-      // `code .` from a login shell so the user's PATH applies; fall back to the app bundle.
+      // Login shell for PATH, else the bundle.
       "open:vscode": (dir) =>
         Effect.sync(() => {
           execFile("/bin/zsh", ["-lc", "code ."], { cwd: dir }, (err) => {
@@ -105,7 +101,7 @@ export const Ipc = Layer.effectDiscard(
     for (const channel of invokeChannels) {
       const decode = Schema.decodeUnknownEffect(Invoke[channel] as Schema.Codec<unknown>)
       const handler = handlers[channel] as (payload: unknown) => Effect.Effect<unknown, { readonly message: string }>
-      // A rejected promise reaches the renderer as an Error with this message.
+      // Reaches the renderer as this message.
       ipcMain.handle(channel, (_event, payload) =>
         Effect.runPromise(decode(payload).pipe(Effect.flatMap(handler), Effect.mapError((e) => new Error(e.message)))),
       )

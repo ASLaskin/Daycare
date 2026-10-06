@@ -1,5 +1,3 @@
-// Settings > Skills: prune what every session pays for.
-
 import type { RowState, SkillRow, SkillSource, SkillsListing, SkillState } from "../../shared/skills.ts"
 import { api } from "../api.ts"
 import { el } from "../dom.ts"
@@ -346,7 +344,7 @@ const runBulk = (groupKey: string, calls: ReadonlyArray<Call>) => {
   })
 }
 
-// A failed call keeps old data, error shown beside.
+// A failed call keeps old data.
 const mutateRow = (row: SkillRow, call: Call) => {
   mgr.busy.add(row.id)
   mgr.rowErrors.delete(row.id)

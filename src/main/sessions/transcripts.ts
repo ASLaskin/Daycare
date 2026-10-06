@@ -1,5 +1,3 @@
-// Reading Claude Code's JSONL transcripts. Pure file reads, no state.
-
 import fs from "node:fs"
 
 const textOf = (content: unknown): string =>
@@ -12,7 +10,6 @@ const textOf = (content: unknown): string =>
       ? content
       : ""
 
-// The newest assistant message with any text in it.
 export const lastAssistantText = (transcriptPath: string | null): string => {
   if (!transcriptPath) return ""
   let lines: Array<string>
@@ -34,8 +31,7 @@ export const lastAssistantText = (transcriptPath: string | null): string => {
 
 const TAIL_BYTES = 512 * 1024
 
-// Tokens in the context window as of the latest main-thread reply: everything
-// that was sent in plus what came back. Only the file's tail is read.
+// Reads only the file's tail.
 export const contextTokens = (transcriptPath: string | null): number => {
   if (!transcriptPath) return 0
   let fd: number | undefined

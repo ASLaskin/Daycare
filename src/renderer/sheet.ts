@@ -1,5 +1,3 @@
-// New session: location pickers, kind buttons, and the popup form.
-
 import type { NewMaster, PermissionMode, SessionKind } from "../shared/session.ts"
 import { api } from "./api.ts"
 import { $, baseName, el, tildify } from "./dom.ts"
