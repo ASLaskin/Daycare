@@ -2,7 +2,7 @@
   "name": "daycare",
   "version": "0.2.0",
   "private": true,
-  "description": "Desktop orchestrator: one master Claude Code session that spawns worker sessions you can talk to directly.",
+  "description": "Agent Orchestator",
   "productName": "Daycare",
   "main": "dist/main.mjs",
   "scripts": {
