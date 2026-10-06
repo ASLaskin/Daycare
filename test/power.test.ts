@@ -1,4 +1,4 @@
-// Fakes privileged calls; never asks for a password.
+// Power service with fake osascript, pmset and blocker.
 
 import { afterAll, describe, expect, test } from "bun:test"
 import { Effect, Layer, ManagedRuntime } from "effect"
@@ -6,7 +6,9 @@ import { execFileSync, spawn } from "node:child_process"
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
-import { Power, PowerBlocker, type PowerConfig, type PowerInput } from "../src/main/power/Power.ts"
+import type { PowerConfig, PowerInput } from "../src/main/power/config.ts"
+import { Power } from "../src/main/power/Power.ts"
+import { PowerBlocker } from "../src/main/power/PowerBlocker.ts"
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "daycare-power-"))
 const log = (name: string) => path.join(root, `${name}.log`)
@@ -19,7 +21,7 @@ const writeBin = (name: string, body: string) => {
   return p
 }
 
-// Exit code file lets tests fake a cancel.
+// Fake osascript; its exit code comes from osa-exit
 const osascript = writeBin(
   "osascript",
   `printf '%s\\n' "$*" >> "${log("osa")}"\nexit "$(cat "${root}/osa-exit" 2>/dev/null || echo 0)"`,
@@ -48,13 +50,10 @@ const readLog = (name: string) => (fs.existsSync(log(name)) ? fs.readFileSync(lo
 const fresh = () => {
   started.length = 0
   stopped.length = 0
-  for (const f of ["osa", "pmset"]) fs.rmSync(log(f), { force: true })
-  for (const f of ["osa-exit", "sleep-disabled", "lid-release"]) fs.rmSync(path.join(root, f), { force: true })
+  const leftovers = [log("osa"), log("pmset"), ...["osa-exit", "sleep-disabled", "lid-release"].map((f) => path.join(root, f))]
+  leftovers.forEach((f) => fs.rmSync(f, { force: true }))
   const runtime = ManagedRuntime.make(Power.layer(config).pipe(Layer.provide(FakeBlocker)))
-  const use = <A>(f: (p: Power["Service"]) => Effect.Effect<A>) =>
-    runtime.runPromise(
-      Power.use(f),
-    )
+  const use = <A>(f: (p: Power["Service"]) => Effect.Effect<A>) => runtime.runPromise(Power.use(f))
   return {
     runtime,
     apply: (input: Partial<PowerInput>) =>
@@ -65,7 +64,7 @@ const fresh = () => {
   }
 }
 
-// Unwrap the AppleScript as osascript would.
+// Shell script inside an osascript log line
 const shellFromOsaLine = (line: string) => {
   const m = /^-e do shell script "([\s\S]*)" with administrator privileges$/.exec(line.trim())
   expect(m).not.toBeNull()
@@ -80,12 +79,12 @@ test("the blocker follows working sessions, not open ones", async () => {
   expect(started.length).toBe(0)
   await p.apply({ activeCount: 0, busyCount: 0 })
   expect(started.length).toBe(0)
-  // An idle session lets the machine sleep.
+  // Idle session holds nothing
   await p.apply({ activeCount: 1, busyCount: 0 })
   expect(started.length).toBe(0)
   await p.apply({ activeCount: 1, busyCount: 1 })
   expect((await p.status()).holding).toBe(true)
-  // No second assertion for a second session.
+  // Second session reuses the assertion
   await p.apply({ activeCount: 2, busyCount: 1 })
   expect(started.length).toBe(1)
   await p.apply({ activeCount: 0, busyCount: 0 })
@@ -93,7 +92,7 @@ test("the blocker follows working sessions, not open ones", async () => {
   expect(stopped.length).toBe(1)
   await p.apply({ mode: "always" })
   expect((await p.status()).holding).toBe(true)
-  // Closing the scope is quitting.
+  // Quit
   await p.runtime.dispose()
   expect(stopped.length).toBe(2)
 })
@@ -119,7 +118,7 @@ test("the lid escalation asks once, holds through the grace window, then lapses"
   await sleep(120)
   expect(readLog("osa").length).toBe(1)
 
-  // Grace window holds, then releases itself.
+  // Grace window holds, then releases
   await p.apply({ activeCount: 1, busyCount: 0, lidClosed: true })
   await sleep(500)
   expect((await p.status()).lidClosedActive).toBe(true)
@@ -131,7 +130,7 @@ test("the lid escalation asks once, holds through the grace window, then lapses"
   await p.runtime.dispose()
 })
 
-// Root reverts without a second dialog.
+// Root watchdog reverting disablesleep
 describe("the watchdog", () => {
   const sleeper = () => spawn(process.execPath, ["-e", "setTimeout(()=>{}, 60000)"])
   const withPid = (pid: number) => watchdogScript.replace(/'(\d+)'/, `'${pid}'`)
@@ -193,7 +192,7 @@ test(
     fs.writeFileSync(path.join(root, "sleep-disabled"), "1")
     await p.status()
     await sleep(250)
-    // Old watchdog may still revert it.
+    // Not stale yet during the watchdog window
     expect((await p.status()).stale).toBe(false)
     await sleep(6200)
     expect((await p.status()).stale).toBe(true)

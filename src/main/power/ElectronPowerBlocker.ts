@@ -1,8 +1,8 @@
-// Stops idle sleep, lets the display sleep.
+// PowerBlocker backed by Electron, display may still sleep.
 
 import { powerSaveBlocker } from "electron"
 import { Layer } from "effect"
-import { PowerBlocker } from "./Power.ts"
+import { PowerBlocker } from "./PowerBlocker.ts"
 
 export const ElectronPowerBlocker = Layer.succeed(
   PowerBlocker,
