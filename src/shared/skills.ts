@@ -1,22 +1,24 @@
-// Skills inventory for Settings and the rail.
+// Skills inventory for Settings and the skills rail.
 
 import { Schema } from "effect"
+import type { DirPath, FilePath } from "./ids.ts"
+import { SkillId } from "./ids.ts"
 
 export const SkillState = Schema.Literals(["on", "name-only", "user-invocable-only", "off"])
 export type SkillState = typeof SkillState.Type
 
-// Also covers ~/.claude/skills-disabled.
+// Skill state, plus parked in skills-disabled
 export type RowState = SkillState | "parked"
 
 export type SkillSource = "personal" | "synced" | "command" | "parked" | "project" | "plugin"
 
 export interface SkillRow {
-  readonly id: string
+  readonly id: SkillId
   readonly name: string
   readonly invoke: string
   readonly source: SkillSource
   readonly scope: string
-  readonly dir: string
+  readonly dir: DirPath
   readonly description: string
   readonly whenToUse: string
   readonly state: RowState
@@ -26,7 +28,7 @@ export interface SkillRow {
   readonly listingChars: number
   readonly listingTokens: number
   readonly bodyTokens: number
-  readonly settingsFile: string | null
+  readonly settingsFile: FilePath | null
   readonly symlink: boolean
 }
 
@@ -48,6 +50,6 @@ export interface SkillsListing {
   readonly warnings: ReadonlyArray<string>
 }
 
-export const SetSkillState = Schema.Struct({ id: Schema.String, state: SkillState })
-export const SetSkillPlugin = Schema.Struct({ id: Schema.String, enabled: Schema.Boolean })
-export const RestoreSkill = Schema.Struct({ id: Schema.String })
+export const SetSkillState = Schema.Struct({ id: SkillId, state: SkillState })
+export const SetSkillPlugin = Schema.Struct({ id: SkillId, enabled: Schema.Boolean })
+export const RestoreSkill = Schema.Struct({ id: SkillId })

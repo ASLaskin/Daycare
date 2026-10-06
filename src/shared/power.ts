@@ -1,4 +1,4 @@
-// Keep awake state for Settings.
+// Keep awake status shown in Settings.
 
 import type { KeepAwake } from "./settings.ts"
 

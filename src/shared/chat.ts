@@ -1,43 +1,44 @@
-// Events main normalizes stream-json into.
+// Chat events sent from main to the renderer.
+
+import type { ClaudeSessionId, DirPath, RequestId, TaskId, ToolUseId } from "./ids.ts"
+import type { Json, JsonObject } from "./json.ts"
 
 export type ChatState = "running" | "idle"
 
-export interface TaskUsage {
-  readonly [key: string]: unknown
-}
+export type TaskUsage = JsonObject
 
 export type ChatEvent =
   | {
       readonly kind: "ready"
-      readonly claudeSessionId: string | null
+      readonly claudeSessionId: ClaudeSessionId | null
       readonly model: string | null
-      readonly cwd: string | null
+      readonly cwd: DirPath | null
       readonly tools: ReadonlyArray<string>
       readonly slashCommands: ReadonlyArray<string>
     }
   | { readonly kind: "state"; readonly state: ChatState }
-  // Superseded by the final text event.
+  // Streaming text, later replaced by a text event
   | { readonly kind: "text-delta"; readonly block: string; readonly text: string }
   | { readonly kind: "text"; readonly block: string; readonly text: string }
   | { readonly kind: "thinking"; readonly block: string; readonly text: string; readonly tokens: number | null }
   | {
       readonly kind: "tool-start"
-      readonly toolUseId: string
+      readonly toolUseId: ToolUseId
       readonly name: string
       readonly title: string
-      readonly input: unknown
-      readonly parentToolUseId: string | null
+      readonly input: Json
+      readonly parentToolUseId: ToolUseId | null
     }
   | {
       readonly kind: "tool-end"
-      readonly toolUseId: string
+      readonly toolUseId: ToolUseId
       readonly isError: boolean
       readonly content: string
-      readonly structured: unknown
+      readonly structured: Json | null
     }
   | {
       readonly kind: "task"
-      readonly taskId: string
+      readonly taskId: TaskId
       readonly status: string
       readonly description: string
       readonly subagentType: string | null
@@ -57,21 +58,21 @@ export type ChatEvent =
     }
   | {
       readonly kind: "permission"
-      readonly requestId: string
-      readonly toolUseId: string | null
+      readonly requestId: RequestId
+      readonly toolUseId: ToolUseId | null
       readonly name: string
       readonly title: string
-      readonly input: unknown
+      readonly input: Json
       readonly description: string
-      readonly suggestions: ReadonlyArray<unknown>
-      // Tools whose answer is the point.
+      readonly suggestions: ReadonlyArray<Json>
+      // Prompts like AskUserQuestion and ExitPlanMode
       readonly requiresUserInteraction: boolean
     }
   | {
       readonly kind: "permission-resolved"
-      readonly requestId: string
+      readonly requestId: RequestId
       readonly allowed: boolean
-      // CLI withdrew it; user did not refuse.
+      // Set when the CLI withdrew the prompt
       readonly reason?: "cancelled"
     }
   | { readonly kind: "user"; readonly text: string }

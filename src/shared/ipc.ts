@@ -1,21 +1,22 @@
-// Whole IPC surface; main decodes invoke payloads.
+// IPC channels between main and renderer.
 
 import { Schema } from "effect"
 import type { ChatEvent } from "./chat.ts"
+import { DirPath, type FilePath, RequestId, SessionId } from "./ids.ts"
 import type { PowerStatus } from "./power.ts"
 import { NewMaster, type SessionView } from "./session.ts"
 import { type Settings, SettingsPatch } from "./settings.ts"
 import { RestoreSkill, SetSkillPlugin, SetSkillState, type SkillsListing } from "./skills.ts"
 import type { Usage } from "./usage.ts"
 
-const Id = Schema.String
+const Id = SessionId
 const None = Schema.Undefined
 
 export const PermissionDecision = Schema.Struct({
   allow: Schema.Boolean,
   message: Schema.optionalKey(Schema.String),
-  updatedInput: Schema.optionalKey(Schema.Unknown),
-  updatedPermissions: Schema.optionalKey(Schema.Array(Schema.Unknown)),
+  updatedInput: Schema.optionalKey(Schema.Json),
+  updatedPermissions: Schema.optionalKey(Schema.Array(Schema.Json)),
 })
 export type PermissionDecision = typeof PermissionDecision.Type
 
@@ -24,8 +25,8 @@ export const Invoke = {
   "settings:get": None,
   "settings:set": SettingsPatch,
   "dialog:pick-folder": None,
-  "open:finder": Schema.String,
-  "open:vscode": Schema.String,
+  "open:finder": DirPath,
+  "open:vscode": DirPath,
   "update:info": None,
   "update:run": None,
   "usage:get": None,
@@ -50,18 +51,19 @@ export const Invoke = {
 
   "chat:send": Schema.Struct({ id: Id, text: Schema.String }),
   "chat:interrupt": Id,
-  "chat:permission": Schema.Struct({ id: Id, requestId: Schema.String, decision: PermissionDecision }),
+  "chat:permission": Schema.Struct({ id: Id, requestId: RequestId, decision: PermissionDecision }),
   "chat:history": Id,
 } as const
 
 export type InvokeChannel = keyof typeof Invoke
 export type InvokePayload<C extends InvokeChannel> = (typeof Invoke)[C]["Type"]
 
-export interface BuildInfo {
-  readonly sourceDir: string
-  readonly commit: string | null
-  readonly builtAt: string | null
-}
+export const BuildInfo = Schema.Struct({
+  sourceDir: DirPath,
+  commit: Schema.NullOr(Schema.String),
+  builtAt: Schema.NullOr(Schema.String),
+})
+export type BuildInfo = typeof BuildInfo.Type
 
 export interface UpdateResult {
   readonly ok: boolean
@@ -69,10 +71,10 @@ export interface UpdateResult {
 }
 
 export interface InvokeResult {
-  "app:defaults": { readonly cwd: string; readonly claude: string }
+  "app:defaults": { readonly cwd: DirPath; readonly claude: FilePath }
   "settings:get": Settings
   "settings:set": Settings
-  "dialog:pick-folder": string | null
+  "dialog:pick-folder": DirPath | null
   "open:finder": void
   "open:vscode": void
   "update:info": BuildInfo | null
@@ -114,11 +116,11 @@ export type SendPayload<C extends SendChannel> = (typeof Send)[C]["Type"]
 export interface Events {
   "session:created": SessionView
   "session:update": SessionView
-  "session:removed": { readonly id: string; readonly parentId: string | null }
-  "session:begin-rename": { readonly id: string }
+  "session:removed": { readonly id: SessionId; readonly parentId: SessionId | null }
+  "session:begin-rename": { readonly id: SessionId }
   "shortcut:close": undefined
-  "pty:data": { readonly id: string; readonly data: string }
-  "chat:event": { readonly id: string; readonly event: ChatEvent }
+  "pty:data": { readonly id: SessionId; readonly data: string }
+  "chat:event": { readonly id: SessionId; readonly event: ChatEvent }
   "usage:update": Usage
   "power:update": PowerStatus
   "update:log": string
@@ -126,7 +128,7 @@ export interface Events {
 
 export type EventChannel = keyof Events
 
-// Generic, so new channels skip the preload.
+// Bridge exposed as window.daycare
 export interface Bridge {
   readonly invoke: <C extends InvokeChannel>(channel: C, payload: InvokePayload<C>) => Promise<InvokeResult[C]>
   readonly send: <C extends SendChannel>(channel: C, payload: SendPayload<C>) => void

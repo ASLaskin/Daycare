@@ -1,9 +1,11 @@
-// Decoded per field; bad fields fall back.
+// App settings schema, defaults and merging.
 
 import { Option, Schema } from "effect"
+import { DirPath } from "./ids.ts"
+import { isJsonObject, type Json } from "./json.ts"
 import { PermissionMode, SessionKind } from "./session.ts"
 
-export const Location = Schema.Struct({ label: Schema.String, path: Schema.String })
+export const Location = Schema.Struct({ label: Schema.String, path: DirPath })
 export type Location = typeof Location.Type
 
 export const KeepAwake = Schema.Literals(["off", "while-running", "always"])
@@ -36,7 +38,7 @@ export const Settings = Schema.Struct({
   monoFont: MonoFont,
   termFontSize: Schema.Finite,
   layout: Layout,
-  // Preset to master share, in percent.
+  // Master share per layout preset, in percent
   splits: Schema.Record(Schema.String, Schema.Finite),
   sidebarWidth: Schema.Finite,
   railWidth: Schema.Finite,
@@ -47,7 +49,7 @@ export const Settings = Schema.Struct({
 })
 export type Settings = typeof Settings.Type
 
-// Main fills in locations.
+// Defaults without machine specific locations
 export const baseSettings: Omit<Settings, "locations"> = {
   askOnNew: false,
   randomNames: true,
@@ -76,18 +78,20 @@ export const baseSettings: Omit<Settings, "locations"> = {
   stageGap: 10,
 }
 
-// Keeps each decodable field of raw.
-export const mergeSettings = (defaults: Settings, raw: unknown): Settings => {
-  if (typeof raw !== "object" || raw === null) return defaults
-  const input = raw as Record<string, unknown>
-  const out: Record<string, unknown> = { ...defaults }
-  for (const [key, schema] of Object.entries(Settings.fields)) {
-    if (!(key in input)) continue
-    const decoded = Schema.decodeUnknownOption(schema as Schema.Codec<unknown>)(input[key])
-    if (Option.isSome(decoded)) out[key] = decoded.value
+// Defaults overlaid with each decodable field of raw
+export const mergeSettings = (defaults: Settings, raw: Json | undefined): Settings => {
+  if (!isJsonObject(raw)) {
+    return defaults
   }
-  return out as Settings
+  const input = raw
+  const decoded = Object.entries(Settings.fields)
+    .filter(([key]) => key in input)
+    .flatMap(([key, schema]) => {
+      const value = Schema.decodeUnknownOption(schema)(input[key])
+      return Option.isSome(value) ? [[key, value.value] as const] : []
+    })
+  return { ...defaults, ...Object.fromEntries(decoded) } as Settings
 }
 
-// Lenient: stray fields dropped, not fatal.
-export const SettingsPatch = Schema.Record(Schema.String, Schema.Unknown)
+// Partial settings update from the renderer
+export const SettingsPatch = Schema.Record(Schema.String, Schema.Json)
