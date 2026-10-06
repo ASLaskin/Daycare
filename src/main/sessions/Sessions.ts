@@ -188,9 +188,12 @@ const make = Effect.gen(function* () {
 
   // ---------- outbound ----------
 
+  // Write then rename, so a crash mid-write never leaves a truncated file.
   const persist = () => {
     fs.mkdirSync(userData, { recursive: true })
-    fs.writeFileSync(sessionsFile, JSON.stringify([...sessions.values()].map(record), null, 2))
+    const tmp = `${sessionsFile}.${process.pid}.tmp`
+    fs.writeFileSync(tmp, JSON.stringify([...sessions.values()].map(record), null, 2))
+    fs.renameSync(tmp, sessionsFile)
   }
 
   const notify = (s: Session, what: string, body: string) => ui.notify(`${s.name} ${what}`, body)
