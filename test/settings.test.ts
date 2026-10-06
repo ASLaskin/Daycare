@@ -5,9 +5,10 @@ import os from "node:os"
 import path from "node:path"
 import { AppPaths } from "../src/main/AppPaths.ts"
 import { SettingsStore } from "../src/main/settings/SettingsStore.ts"
+import { asDirPath, type DirPath } from "../src/shared/ids.ts"
 import { baseSettings, mergeSettings, type Settings } from "../src/shared/settings.ts"
 
-const defaults: Settings = { ...baseSettings, locations: [{ label: "Home", path: "/home" }] }
+const defaults: Settings = { ...baseSettings, locations: [{ label: "Home", path: asDirPath("/home") }] }
 
 describe("mergeSettings", () => {
   test("keeps valid fields and drops invalid ones", () => {
@@ -26,7 +27,7 @@ describe("mergeSettings", () => {
 })
 
 describe("SettingsStore", () => {
-  const withStore = <A>(userData: string, body: Effect.Effect<A, never, SettingsStore>) =>
+  const withStore = <A>(userData: DirPath, body: Effect.Effect<A, never, SettingsStore>) =>
     Effect.runPromise(
       body.pipe(
         Effect.provide(
@@ -36,7 +37,7 @@ describe("SettingsStore", () => {
     )
 
   test("starts from defaults, saves a patch, and reads it back on the next launch", async () => {
-    const userData = fs.mkdtempSync(path.join(os.tmpdir(), "daycare-settings-"))
+    const userData = asDirPath(fs.mkdtempSync(path.join(os.tmpdir(), "daycare-settings-")))
     const first = await withStore(userData, SettingsStore.use((s) => s.get))
     expect(first.model).toBe("opus")
     expect(first.locations).toEqual([{ label: "Home", path: userData }])
@@ -46,7 +47,7 @@ describe("SettingsStore", () => {
   })
 
   test("a corrupt file falls back to defaults", async () => {
-    const userData = fs.mkdtempSync(path.join(os.tmpdir(), "daycare-settings-"))
+    const userData = asDirPath(fs.mkdtempSync(path.join(os.tmpdir(), "daycare-settings-")))
     fs.writeFileSync(path.join(userData, "settings.json"), "{ nope")
     expect((await withStore(userData, SettingsStore.use((s) => s.get))).model).toBe("opus")
   })

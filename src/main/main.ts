@@ -1,4 +1,4 @@
-// Quitting runs every finalizer in reverse.
+// Main process entry: the layer graph and quit handling.
 
 import { app } from "electron"
 import { Effect, Fiber, Layer } from "effect"
@@ -13,14 +13,16 @@ import { ElectronUi } from "./electron/ElectronUi.ts"
 import { Ipc } from "./electron/Ipc.ts"
 import { MainWindow } from "./electron/Window.ts"
 import { ElectronPowerBlocker } from "./power/ElectronPowerBlocker.ts"
-import { defaultPowerConfig, Power } from "./power/Power.ts"
+import { defaultPowerConfig } from "./power/config.ts"
+import { Power } from "./power/Power.ts"
 import { ClaudeBinary } from "./sessions/Claude.ts"
 import { NodePty } from "./sessions/NodePty.ts"
 import { Sessions } from "./sessions/Sessions.ts"
 import { SettingsStore } from "./settings/SettingsStore.ts"
 import { Skills } from "./skills/Skills.ts"
 import { Updater } from "./updater/Updater.ts"
-import { Usage, UsageSource } from "./usage/Usage.ts"
+import { Usage } from "./usage/Usage.ts"
+import { UsageSource } from "./usage/UsageSource.ts"
 
 app.setName("Daycare")
 
@@ -44,7 +46,7 @@ const Services = Layer.mergeAll(
   Updater.layer,
 ).pipe(Layer.provideMerge(Window), Layer.provideMerge(Control))
 
-// Sessions also provides ControlHandlers.
+// Sessions plus the ControlHandlers it provides
 const Core = Sessions.layer.pipe(Layer.provideMerge(Services))
 
 const App = Layer.mergeAll(ControlRoutes, Ipc, AppIcon).pipe(
@@ -58,10 +60,12 @@ const main = Layer.launch(Boot.pipe(Layer.provide(App))).pipe(
 
 const fiber = Effect.runFork(main)
 
-// Hold the first quit until unwound.
+// First quit waits for every finalizer
 let unwound = false
 app.on("before-quit", (event) => {
-  if (unwound) return
+  if (unwound) {
+    return
+  }
   event.preventDefault()
   Effect.runPromise(Fiber.interrupt(fiber)).finally(() => {
     unwound = true

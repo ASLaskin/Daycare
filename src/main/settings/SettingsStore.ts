@@ -1,26 +1,30 @@
+// App settings persisted to settings.json.
+
 import { Context, Effect, Layer, PubSub, Ref, Scope, Stream } from "effect"
 import fs from "node:fs"
 import path from "node:path"
+import { asDirPath } from "../../shared/ids.ts"
+import { type JsonObject, parseJson } from "../../shared/json.ts"
 import { baseSettings, type Location, mergeSettings, type Settings } from "../../shared/settings.ts"
 import { AppPaths } from "../AppPaths.ts"
 
-// First launch locations, if they exist.
+// Default folder shortcuts that exist on this machine.
 const candidateLocations = (home: string): ReadonlyArray<Location> => {
-  const loc = (label: string, ...parts: Array<string>) => ({ label, path: path.join(home, ...parts) })
+  const loc = (label: string, ...parts: Array<string>) => ({ label, path: asDirPath(path.join(home, ...parts)) })
   const found = [
     loc("Desktop", "Desktop"),
     loc("extracurriculars", "Desktop", "extracurriculars"),
     loc("taxfyle", "projects", "taxfyle"),
     loc("physics-channel", "Desktop", "extracurriculars", "physics-channel"),
   ].filter((l) => fs.existsSync(l.path))
-  return found.length ? found : [{ label: "Home", path: home }]
+  return found.length ? found : [{ label: "Home", path: asDirPath(home) }]
 }
 
 export const defaultSettings = (home: string): Settings => ({ ...baseSettings, locations: candidateLocations(home) })
 
 const readSettings = (file: string, defaults: Settings) => {
   try {
-    return mergeSettings(defaults, JSON.parse(fs.readFileSync(file, "utf8")))
+    return mergeSettings(defaults, parseJson(fs.readFileSync(file, "utf8")) ?? undefined)
   } catch {
     return defaults
   }
@@ -28,8 +32,8 @@ const readSettings = (file: string, defaults: Settings) => {
 
 export interface SettingsStoreShape {
   readonly get: Effect.Effect<Settings>
-  // Fields that do not decode are dropped.
-  readonly update: (patch: Readonly<Record<string, unknown>>) => Effect.Effect<Settings>
+  // Merges a partial update, dropping fields that do not decode.
+  readonly update: (patch: JsonObject) => Effect.Effect<Settings>
   readonly changes: Effect.Effect<Stream.Stream<Settings>, never, Scope.Scope>
 }
 
@@ -42,7 +46,7 @@ export class SettingsStore extends Context.Service<SettingsStore, SettingsStoreS
       const ref = yield* Ref.make(readSettings(file, defaultSettings(home)))
       const pubsub = yield* PubSub.unbounded<Settings>()
 
-      const update = (patch: Readonly<Record<string, unknown>>) =>
+      const update = (patch: JsonObject) =>
         Effect.gen(function* () {
           const next = mergeSettings(yield* Ref.get(ref), patch)
           yield* Effect.sync(() => {

@@ -5,12 +5,12 @@ import { Effect, Layer } from "effect"
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
+import { asDirPath, asFilePath, type DirPath } from "../src/shared/ids.ts"
 import type { EventChannel, Events } from "../src/shared/ipc.ts"
 import { Invoke, Send } from "../src/shared/ipc.ts"
+import type { Json } from "../src/shared/json.ts"
 
-// ---------- fake electron ----------
-
-type Handler = (event: unknown, payload: unknown) => unknown
+type Handler = (event: object, payload?: Json) => Promise<Json> | undefined
 const handlers = new Map<string, Handler>()
 const listeners = new Map<string, Handler>()
 const icons: Array<string> = []
@@ -30,7 +30,7 @@ mock.module("electron", () => ({
   BrowserWindow: class {},
 }))
 
-// Imported after the mock so they see it.
+// Modules under test, loaded after the electron mock
 const { AppPaths } = await import("../src/main/AppPaths.ts")
 const { Ui } = await import("../src/main/Ui.ts")
 const { Updater } = await import("../src/main/updater/Updater.ts")
@@ -44,9 +44,9 @@ const { Skills } = await import("../src/main/skills/Skills.ts")
 const { Usage } = await import("../src/main/usage/Usage.ts")
 const { ClaudeBinary } = await import("../src/main/sessions/Claude.ts")
 
-const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "daycare-electron-"))
+const tmp = () => asDirPath(fs.mkdtempSync(path.join(os.tmpdir(), "daycare-electron-")))
 
-const sent: Array<{ channel: EventChannel; payload: unknown }> = []
+const sent: Array<{ channel: EventChannel; payload: Events[EventChannel] }> = []
 const FakeUi = Layer.succeed(
   Ui,
   Ui.of({
@@ -55,16 +55,14 @@ const FakeUi = Layer.succeed(
     confirm: () => Effect.succeed(true),
   }),
 )
-const paths = (appRoot: string, userData = tmp()) => Layer.succeed(AppPaths, AppPaths.of({ appRoot, userData, home: userData }))
+const paths = (appRoot: DirPath, userData = tmp()) => Layer.succeed(AppPaths, AppPaths.of({ appRoot, userData, home: userData }))
 const fakeWin = Layer.succeed(MainWindow, MainWindow.of({ win: { isDestroyed: () => false } as never }))
 
-// ---------- Ipc ----------
-
 describe("Ipc", () => {
-  const calls: Array<[string, unknown]> = []
+  const calls: Array<[string, ReadonlyArray<Json>]> = []
   const record =
     (name: string) =>
-    (...args: Array<unknown>) =>
+    (...args: Array<Json>) =>
       Effect.sync(() => void calls.push([name, args]))
   const FakeSessions = Layer.succeed(Sessions, {
     rename: record("rename"),
@@ -78,13 +76,13 @@ describe("Ipc", () => {
     FakeSessions,
     FakeUi,
     fakeWin,
-    paths("/app"),
+    paths(asDirPath("/app")),
     none(SettingsStore),
     none(Usage),
     none(Power),
     none(Skills),
     none(Updater),
-    Layer.succeed(ClaudeBinary, { path: "/bin/claude" } as never),
+    Layer.succeed(ClaudeBinary, { path: asFilePath("/bin/claude") }),
   )
 
   const withIpc = (body: () => Promise<void>) =>
@@ -118,10 +116,8 @@ describe("Ipc", () => {
   })
 })
 
-// ---------- Updater ----------
-
 describe("Updater", () => {
-  const withUpdater = <A>(appRoot: string, f: (u: (typeof Updater)["Service"]) => Effect.Effect<A>) =>
+  const withUpdater = <A>(appRoot: DirPath, f: (u: (typeof Updater)["Service"]) => Effect.Effect<A>) =>
     Effect.runPromise(Effect.flatMap(Updater, f).pipe(Effect.provide(Layer.provide(Updater.layer, Layer.merge(FakeUi, paths(appRoot))))))
 
   test("info falls back to the checkout in dev", async () => {
@@ -131,7 +127,7 @@ describe("Updater", () => {
 
   test("info reads build-info.json", async () => {
     const root = tmp()
-    const info = { sourceDir: "/src", commit: "abc1234", builtAt: "2026-10-06T00:00:00.000Z" }
+    const info = { sourceDir: asDirPath("/src"), commit: "abc1234", builtAt: "2026-10-06T00:00:00.000Z" }
     fs.mkdirSync(path.join(root, "dist"))
     fs.writeFileSync(path.join(root, "dist", "build-info.json"), JSON.stringify(info))
     expect(await withUpdater(root, (u) => u.info)).toEqual(info)
@@ -165,12 +161,10 @@ describe("Updater", () => {
   })
 })
 
-// ---------- AppIcon ----------
-
 describe("AppIcon", () => {
   test("shows the chosen logo and follows settings", async () => {
     icons.length = 0
-    const deps = Layer.provideMerge(SettingsStore.layer, Layer.mergeAll(paths("/app"), fakeWin))
+    const deps = Layer.provideMerge(SettingsStore.layer, Layer.mergeAll(paths(asDirPath("/app")), fakeWin))
     await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
@@ -184,7 +178,7 @@ describe("AppIcon", () => {
         }),
       ),
     )
-    // Random first, then each change once.
+    // Random icon first, then each change once
     expect(icons.length).toBeGreaterThanOrEqual(2)
     expect(icons.slice(-2).map((f) => path.basename(f))).toEqual(["house.png", "block.png"])
     expect(icons.every((f) => f.startsWith("/app/assets/brand/logos/"))).toBe(true)

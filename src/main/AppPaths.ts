@@ -1,13 +1,14 @@
-// A service so tests use temp folders.
+// File locations the app reads and writes.
 
 import { Context } from "effect"
+import type { DirPath } from "../shared/ids.ts"
 
 export class AppPaths extends Context.Service<
   AppPaths,
   {
-    readonly userData: string
-    // Package folder in dev, app.asar packaged.
-    readonly appRoot: string
-    readonly home: string
+    readonly userData: DirPath
+    // Package folder in dev, app.asar when packaged
+    readonly appRoot: DirPath
+    readonly home: DirPath
   }
 >()("daycare/AppPaths") {}

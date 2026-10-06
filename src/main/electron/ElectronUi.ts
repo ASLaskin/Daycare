@@ -1,3 +1,5 @@
+// Ui backed by the Electron window.
+
 import { dialog, Notification } from "electron"
 import { Effect, Layer } from "effect"
 import { Ui } from "../Ui.ts"
@@ -9,10 +11,14 @@ export const ElectronUi = Layer.effect(
     const { win } = yield* MainWindow
     return Ui.of({
       send: (channel, payload) => {
-        if (!win.isDestroyed()) win.webContents.send(channel, payload)
+        if (!win.isDestroyed()) {
+          win.webContents.send(channel, payload)
+        }
       },
       notify: (title, body) => {
-        if (!Notification.isSupported() || win.isFocused()) return
+        if (!Notification.isSupported() || win.isFocused()) {
+          return
+        }
         new Notification({ title, body }).show()
       },
       confirm: ({ message, detail, confirmLabel }) =>

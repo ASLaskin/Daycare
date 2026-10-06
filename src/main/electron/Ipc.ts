@@ -1,19 +1,21 @@
-// Payloads are decoded before handlers run.
+// IPC handlers, each payload decoded first.
 
-import { dialog, ipcMain, Menu, shell } from "electron"
 import { Effect, Layer, Schema } from "effect"
+import { dialog, ipcMain, shell } from "electron"
 import { execFile } from "node:child_process"
+import { asDirPath, type DirPath } from "../../shared/ids.ts"
 import { Invoke, type InvokeChannel, type InvokePayload, type InvokeResult, Send, type SendChannel, type SendPayload } from "../../shared/ipc.ts"
 import { AppPaths } from "../AppPaths.ts"
+import { Ui } from "../Ui.ts"
 import { Power } from "../power/Power.ts"
 import { ClaudeBinary } from "../sessions/Claude.ts"
 import { Sessions } from "../sessions/Sessions.ts"
 import { SettingsStore } from "../settings/SettingsStore.ts"
 import { Skills } from "../skills/Skills.ts"
-import { Ui } from "../Ui.ts"
 import { Updater } from "../updater/Updater.ts"
 import { Usage } from "../usage/Usage.ts"
 import { MainWindow } from "./Window.ts"
+import { showSessionMenu } from "./sessionMenu.ts"
 
 type Handlers = { readonly [C in InvokeChannel]: (payload: InvokePayload<C>) => Effect.Effect<InvokeResult[C], { readonly message: string }> }
 type SendHandlers = { readonly [C in SendChannel]: (payload: SendPayload<C>) => Effect.Effect<void> }
@@ -31,22 +33,9 @@ export const Ipc = Layer.effectDiscard(
     const { home } = yield* AppPaths
     const { win } = yield* MainWindow
 
-    const withProjectDirs = <A, E>(f: (dirs: ReadonlyArray<string>) => Effect.Effect<A, E>) => Effect.flatMap(sessions.projectDirs, f)
+    const withProjectDirs = <A, E>(f: (dirs: ReadonlyArray<DirPath>) => Effect.Effect<A, E>) => Effect.flatMap(sessions.projectDirs, f)
 
-    const sessionMenu = (id: string) =>
-      Effect.gen(function* () {
-        const m = yield* sessions.get(id)
-        if (!m || m.role !== "master") return
-        const later = (effect: Effect.Effect<void>) => () => void Effect.runFork(effect)
-        Menu.buildFromTemplate([
-          { label: "Rename", click: () => ui.send("session:begin-rename", { id }) },
-          m.status === "closed"
-            ? { label: "Reopen", click: later(sessions.reopen(id)) }
-            : { label: "Close", accelerator: "CmdOrCtrl+W", click: later(sessions.close(id)) },
-          { type: "separator" },
-          { label: "Delete", click: later(sessions.remove(id)) },
-        ]).popup({ window: win })
-      })
+    const sessionMenu = showSessionMenu(sessions, ui, win)
 
     const handlers: Handlers = {
       "app:defaults": () => Effect.succeed({ cwd: home, claude: claude.path }),
@@ -54,14 +43,19 @@ export const Ipc = Layer.effectDiscard(
       "settings:set": (patch) => settings.update(patch),
       "dialog:pick-folder": () =>
         Effect.promise(() => dialog.showOpenDialog(win, { properties: ["openDirectory"] })).pipe(
-          Effect.map((r) => (r.canceled ? null : (r.filePaths[0] ?? null))),
+          Effect.map((r) => {
+            const picked = r.canceled ? undefined : r.filePaths[0]
+            return picked ? asDirPath(picked) : null
+          }),
         ),
       "open:finder": (dir) => Effect.promise(() => shell.openPath(dir)).pipe(Effect.asVoid),
-      // Login shell for PATH, else the bundle.
+      // VS Code CLI on the login PATH, else the app
       "open:vscode": (dir) =>
         Effect.sync(() => {
           execFile("/bin/zsh", ["-lc", "code ."], { cwd: dir }, (err) => {
-            if (err) execFile("open", ["-a", "Visual Studio Code", dir])
+            if (err) {
+              execFile("open", ["-a", "Visual Studio Code", dir])
+            }
           })
         }),
       "update:info": () => updater.info,
@@ -97,32 +91,38 @@ export const Ipc = Layer.effectDiscard(
       "pty:resize": ({ id, cols, rows }) => sessions.resize(id, cols, rows),
     }
 
-    const invokeChannels = Object.keys(Invoke) as Array<InvokeChannel>
-    for (const channel of invokeChannels) {
-      const decode = Schema.decodeUnknownEffect(Invoke[channel] as Schema.Codec<unknown>)
-      const handler = handlers[channel] as (payload: unknown) => Effect.Effect<unknown, { readonly message: string }>
-      // Reaches the renderer as this message.
-      ipcMain.handle(channel, (_event, payload) =>
+    // Failures reject with their message
+    const handleInvoke = <C extends InvokeChannel>(channel: C) => {
+      const decode = Schema.decodeUnknownEffect(Invoke[channel])
+      const handler: Handlers[C] = handlers[channel]
+      ipcMain.handle(channel, (_event, payload: unknown) =>
         Effect.runPromise(decode(payload).pipe(Effect.flatMap(handler), Effect.mapError((e) => new Error(e.message)))),
       )
     }
 
-    const sendChannels = Object.keys(Send) as Array<SendChannel>
-    const listeners = sendChannels.map((channel) => {
-      const decode = Schema.decodeUnknownOption(Send[channel] as Schema.Codec<unknown>)
-      const handler = sendHandlers[channel] as (payload: unknown) => Effect.Effect<void>
-      const listener = (_event: unknown, payload: unknown) => {
+    // Payloads that fail to decode are dropped
+    const handleSend = <C extends SendChannel>(channel: C) => {
+      const decode = Schema.decodeUnknownOption(Send[channel])
+      const handler: SendHandlers[C] = sendHandlers[channel]
+      const listener = (_event: Electron.IpcMainEvent, payload: unknown) => {
         const decoded = decode(payload)
-        if (decoded._tag === "Some") Effect.runSync(handler(decoded.value))
+        if (decoded._tag === "Some") {
+          Effect.runSync(handler(decoded.value))
+        }
       }
       ipcMain.on(channel, listener)
       return [channel, listener] as const
-    })
+    }
+
+    const invokeChannels = Object.keys(Invoke) as Array<InvokeChannel>
+    invokeChannels.forEach(handleInvoke)
+    const sendChannels = Object.keys(Send) as Array<SendChannel>
+    const listeners = sendChannels.map(handleSend)
 
     yield* Effect.addFinalizer(() =>
       Effect.sync(() => {
-        for (const channel of invokeChannels) ipcMain.removeHandler(channel)
-        for (const [channel, listener] of listeners) ipcMain.removeListener(channel, listener)
+        invokeChannels.forEach((channel) => ipcMain.removeHandler(channel))
+        listeners.forEach(([channel, listener]) => ipcMain.removeListener(channel, listener))
       }),
     )
   }),

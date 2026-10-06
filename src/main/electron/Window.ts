@@ -1,4 +1,4 @@
-// Loaded later, once IPC handlers exist.
+// The main app window, destroyed with the app scope.
 
 import { app, BrowserWindow } from "electron"
 import { Context, Effect, Layer } from "effect"
@@ -29,7 +29,12 @@ export class MainWindow extends Context.Service<MainWindow, { readonly win: Brow
               },
             }),
         ),
-        (win) => Effect.sync(() => win.isDestroyed() || win.destroy()),
+        (win) =>
+          Effect.sync(() => {
+            if (!win.isDestroyed()) {
+              win.destroy()
+            }
+          }),
       )
       return MainWindow.of({ win })
     }),

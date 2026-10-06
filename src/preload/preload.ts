@@ -1,4 +1,4 @@
-// Only contract channels get through.
+// Exposes the IPC contract channels as window.daycare.
 
 import { contextBridge, ipcRenderer } from "electron"
 import { type Bridge, Invoke, Send } from "../shared/ipc.ts"
@@ -10,10 +10,12 @@ const bridge: Bridge = {
   invoke: (channel, payload) =>
     invokable.has(channel) ? ipcRenderer.invoke(channel, payload) : Promise.reject(new Error(`Unknown channel ${channel}`)),
   send: (channel, payload) => {
-    if (sendable.has(channel)) ipcRenderer.send(channel, payload)
+    if (sendable.has(channel)) {
+      ipcRenderer.send(channel, payload)
+    }
   },
   on: (channel, listener) => {
-    const wrapped = (_event: Electron.IpcRendererEvent, payload: unknown) => listener(payload as never)
+    const wrapped = (_event: Electron.IpcRendererEvent, payload: Parameters<typeof listener>[0]) => listener(payload)
     ipcRenderer.on(channel, wrapped)
     return () => ipcRenderer.removeListener(channel, wrapped)
   },

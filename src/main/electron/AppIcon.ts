@@ -1,4 +1,4 @@
-// Dock icon only; Finder keeps the bundle's.
+// Dock icon from the appIcon setting.
 
 import { app } from "electron"
 import { Effect, Layer, Stream } from "effect"
@@ -15,16 +15,23 @@ export const AppIcon = Layer.effectDiscard(
     const { appRoot } = yield* AppPaths
     const { win } = yield* MainWindow
     const settings = yield* SettingsStore
-    // Random picks once per launch.
+    // Random choice for this launch
     const random = ICONS[Math.floor(Math.random() * ICONS.length)]!
     let shown = ""
     const apply = (s: Settings) => {
       const name = ICONS.includes(s.appIcon) ? s.appIcon : random
-      if (name === shown) return
+      if (name === shown) {
+        return
+      }
       shown = name
       const file = path.join(appRoot, "assets", "brand", "logos", `${name}.png`)
-      if (app.dock) app.dock.setIcon(file)
-      else if (!win.isDestroyed()) win.setIcon(file)
+      if (app.dock) {
+        app.dock.setIcon(file)
+        return
+      }
+      if (!win.isDestroyed()) {
+        win.setIcon(file)
+      }
     }
     apply(yield* settings.get)
     yield* settings.changes.pipe(
