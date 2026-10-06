@@ -1,0 +1,15 @@
+.chat-think-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px 2px 4px;
+  background: transparent;
+  color: var(--faint);
+  font-size: 12px;
+  border-radius: var(--r-sm);
+}
+.chat-think-toggle:hover { color: var(--muted); background: var(--panel-2); }
+.chat-think.live .chat-think-label { background: linear-gradient(90deg, var(--faint), var(--text), var(--faint)); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: chat-shimmer 1.8s linear infinite; }
+@keyframes chat-shimmer { to { background-position: -200% 0; } }
+.chat-think-meta { font: 11px var(--mono); }
+.chat-think-body { margin: 4px 0 0 8px; padding: 2px 0 2px 14px; border-left: 2px solid var(--line); color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12.5px; line-height: 1.55; max-height: 320px; overflow-y: auto; user-select: text; }

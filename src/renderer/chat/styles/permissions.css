@@ -1,0 +1,23 @@
+.chat-perm {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--needs) 9%, transparent), color-mix(in srgb, var(--needs) 3%, transparent)), var(--panel-2);
+  border: 1px solid color-mix(in srgb, var(--needs) 50%, var(--line));
+  border-radius: var(--r-lg);
+  padding: 12px 14px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.chat-perm.stale { opacity: 0.55; }
+.chat-perm-top { display: flex; align-items: baseline; gap: 8px; }
+.chat-perm-badge { color: var(--needs); font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.chat-perm-name { font-weight: 600; }
+.chat-perm-what { font: 12.5px/1.5 var(--mono); color: var(--text); overflow-wrap: anywhere; white-space: pre-wrap; }
+.chat-perm-desc { color: var(--muted); font-size: 12.5px; }
+.chat-perm-more { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 1px 6px 1px 0; background: transparent; color: var(--faint); font-size: 12px; }
+.chat-perm-more:hover { color: var(--muted); }
+.chat-perm-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 3px; }
+.chat-perm-actions .ghost { border: 1px solid var(--line-strong); }
+.chat-perm-actions .ghost:hover:not(:disabled) { border-color: var(--line-strong); background: var(--panel-3); }
+.chat-perm-actions button:disabled { opacity: 0.4; cursor: default; }
+.chat-perm-actions .chat-deny:hover:not(:disabled) { color: var(--exited); border-color: color-mix(in srgb, var(--exited) 40%, var(--line)); }

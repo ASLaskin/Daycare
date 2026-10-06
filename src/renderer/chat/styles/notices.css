@@ -1,0 +1,35 @@
+.chat-note { border-left: 2px solid var(--faint); padding: 4px 0 4px 12px; color: var(--muted); font-size: 12.5px; display: flex; flex-direction: column; gap: 6px; }
+.chat-note.error { border-left-color: var(--exited); color: color-mix(in srgb, var(--exited) 45%, var(--text)); }
+.chat-note-text { white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+
+.chat-exit { align-self: stretch; background: var(--panel-2); border: 1px solid color-mix(in srgb, var(--exited) 45%, var(--line)); border-radius: var(--r-lg); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.chat-exit-title { font-weight: 600; color: var(--exited); }
+.chat-exit-sub { color: var(--faint); font-size: 12.5px; }
+
+.chat-empty { margin: 14vh auto 0; text-align: center; display: flex; flex-direction: column; gap: 6px; color: var(--muted); }
+.chat-empty-title { color: var(--text); font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+.chat-empty-sub { font: 12px var(--mono); color: var(--faint); overflow-wrap: anywhere; }
+
+.chat-working { display: inline-flex; gap: 4px; padding: 4px 2px 10px; align-self: flex-start; }
+.chat-working span { width: 5px; height: 5px; border-radius: 50%; background: var(--faint); animation: chat-bounce 1.2s ease-in-out infinite; }
+.chat-working span:nth-child(2) { animation-delay: 150ms; }
+.chat-working span:nth-child(3) { animation-delay: 300ms; }
+
+.chat-jump {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  padding: 5px 13px;
+  background: var(--panel-3);
+  color: var(--text);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font-size: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  z-index: 2;
+  animation: chat-jump-in var(--t) var(--ease-out) both;
+}
+.chat-jump:hover { background: var(--line-strong); }
+.chat-jump:active { transform: translateX(-50%) scale(0.97); }
+@keyframes chat-jump-in { from { opacity: 0; transform: translate(-50%, 6px); } }

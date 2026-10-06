@@ -1,0 +1,37 @@
+.chat-tasks { flex: none; border-bottom: 1px solid var(--line); background: var(--panel); }
+.chat-tasks-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 14px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: left;
+  border-radius: 0;
+}
+.chat-tasks-head:hover { background: var(--panel-2); color: var(--text); }
+.chat-tasks-head:active { transform: none; }
+.chat-tasks-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--done); flex: none; }
+.chat-tasks.busy .chat-tasks-dot { background: var(--working); animation: chat-pulse 1.2s ease-in-out infinite; }
+.chat-tasks-list { max-height: 188px; overflow-y: auto; padding: 2px 14px 10px 30px; display: flex; flex-direction: column; gap: 2px; }
+
+.chat-task { display: flex; align-items: flex-start; gap: 10px; padding: 5px 0; font-size: 12px; line-height: 1.45; animation: chat-in var(--t) var(--ease) both; }
+.chat-task-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--faint); margin-top: 6px; flex: none; }
+.chat-task.running .chat-task-dot { background: var(--working); animation: chat-pulse 1.2s ease-in-out infinite; }
+.chat-task.done .chat-task-dot { background: var(--done); }
+.chat-task.error .chat-task-dot { background: var(--exited); }
+.chat-task-main { flex: 1; min-width: 0; }
+.chat-task-line { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.chat-task-desc { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-task-type { color: var(--faint); font: 11px var(--mono); flex: none; }
+.chat-task-sub { color: var(--faint); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-task-state { flex: none; color: var(--faint); font-size: 11px; font-weight: 600; }
+.chat-task.running .chat-task-state { color: var(--working); }
+.chat-task.done .chat-task-state { color: var(--done); }
+.chat-task.error .chat-task-state { color: var(--exited); }
+
+.chat-chev { display: inline-block; flex: none; width: 10px; color: var(--faint); transition: transform var(--t) var(--ease); text-align: center; }
+[aria-expanded="true"] > .chat-chev { transform: rotate(90deg); }

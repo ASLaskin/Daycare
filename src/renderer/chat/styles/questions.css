@@ -1,0 +1,51 @@
+.chat-ask-q { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.chat-ask-q + .chat-ask-q { border-top: 1px solid var(--line); padding-top: 10px; }
+.chat-ask-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.chat-ask-chip {
+  flex: none;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--needs) 16%, transparent);
+  color: var(--needs);
+  font-size: 11px;
+  font-weight: 600;
+}
+.chat-ask-text { font-weight: 600; overflow-wrap: anywhere; }
+.chat-ask-hint { color: var(--muted); font-size: 12.5px; }
+.chat-ask-opts { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.chat-ask-opt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 7px 11px;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  text-align: left;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.chat-ask-opt:hover:not(:disabled) { border-color: var(--line-strong); background: var(--panel-3); }
+.chat-ask-opt[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--panel-2)); }
+.chat-ask-opt:disabled { opacity: 0.45; cursor: default; }
+.chat-ask-opt-label { font-weight: 600; }
+.chat-ask-opt-note { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+
+.chat-ask-free, .chat-plan-note { width: 100%; min-width: 0; padding: 6px 11px; font-size: 12.5px; }
+.chat-ask-free:disabled, .chat-plan-note:disabled { opacity: 0.45; }
+
+.chat-plan {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, transparent), color-mix(in srgb, var(--accent) 3%, transparent)), var(--panel-2);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+}
+.chat-plan .chat-perm-badge { color: var(--accent); }
+.chat-plan-body { max-height: 340px; overflow-y: auto; display: flex; flex-direction: column; gap: 9px; padding: 2px 0; min-width: 0; user-select: text; }
+.chat-plan-path { font: 11.5px var(--mono); color: var(--faint); overflow-wrap: anywhere; }
+
+.chat-perm-done { display: flex; align-items: baseline; gap: 8px; color: var(--faint); font-size: 12px; padding: 0 2px; min-width: 0; }
+.chat-perm-mark { flex: none; width: 12px; text-align: center; }
+.chat-perm-done.allowed .chat-perm-mark { color: var(--done); }
+.chat-perm-done.denied .chat-perm-mark { color: var(--exited); }
+.chat-perm-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
