@@ -1,6 +1,8 @@
 // Bundles the three Electron targets with Bun. Main and preload run in
-// Electron's own Node, so they are CommonJS with electron and node-pty left as
-// runtime requires; the renderer is a plain browser bundle built from its HTML.
+// Electron's own Node with electron and node-pty left as runtime imports. Main
+// is an ES module (Effect uses import.meta, which CommonJS cannot parse); the
+// preload stays CommonJS because sandboxed preloads must be. The renderer is a
+// plain browser bundle built from its HTML.
 // Run: bun scripts/build.ts
 
 import { rmSync } from "node:fs"
@@ -15,8 +17,9 @@ const builds = await Promise.all([
   Bun.build({
     entrypoints: [path.join(root, "src/main/main.ts")],
     outdir: out,
+    naming: "[name].mjs",
     target: "node",
-    format: "cjs",
+    format: "esm",
     external: ["electron", "node-pty"],
     sourcemap: "linked",
   }),

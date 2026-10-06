@@ -4,7 +4,7 @@
   "private": true,
   "description": "Desktop orchestrator: one master Claude Code session that spawns worker sessions you can talk to directly.",
   "productName": "Daycare",
-  "main": "dist/main.js",
+  "main": "dist/main.mjs",
   "scripts": {
     "build": "bun scripts/build.ts",
     "start": "bun run build && electron .",

@@ -1,48 +1,69 @@
-// Electron main process entry. Everything the app owns lives inside one Effect
-// program, so quitting interrupts that program and every scoped resource
-// (window, servers, child processes) is released by its own finalizer.
+// Electron main process entry: the whole app is one layer graph. Building it
+// starts everything in dependency order; quitting interrupts it, and every
+// finalizer runs in reverse order (save sessions, end PTYs, end chat children,
+// release keep awake, close the server, destroy the window).
 
-import { app, BrowserWindow } from "electron"
-import { Effect, Fiber } from "effect"
+import { app } from "electron"
+import { Effect, Fiber, Layer } from "effect"
 import path from "node:path"
+import { AppPaths } from "./AppPaths.ts"
+import { Chat } from "./chat/Chat.ts"
+import { ControlEndpoint, ControlHttpServer, ControlRoutes } from "./control/ControlServer.ts"
+import { AppIcon } from "./electron/AppIcon.ts"
+import { Boot } from "./electron/Boot.ts"
+import { ElectronPaths } from "./electron/ElectronPaths.ts"
+import { ElectronUi } from "./electron/ElectronUi.ts"
+import { Ipc } from "./electron/Ipc.ts"
+import { MainWindow } from "./electron/Window.ts"
+import { ElectronPowerBlocker } from "./power/ElectronPowerBlocker.ts"
+import { defaultPowerConfig, Power } from "./power/Power.ts"
+import { ClaudeBinary } from "./sessions/Claude.ts"
+import { NodePty } from "./sessions/NodePty.ts"
+import { Sessions } from "./sessions/Sessions.ts"
+import { SettingsStore } from "./settings/SettingsStore.ts"
+import { Skills } from "./skills/Skills.ts"
+import { Updater } from "./updater/Updater.ts"
+import { Usage, UsageSource } from "./usage/Usage.ts"
 
 app.setName("Daycare")
 
-// Bun bakes __dirname in at build time, so files are found from the app root,
-// which is the package folder in dev and the bundle's app folder when packaged.
-const dist = (...parts: Array<string>) => path.join(app.getAppPath(), "dist", ...parts)
+// Things with no dependencies of their own.
+const Platform = Layer.mergeAll(ElectronPaths, ClaudeBinary.layer, NodePty, Skills.layer)
 
-const openWindow = Effect.acquireRelease(
-  Effect.sync(() => {
-    const win = new BrowserWindow({
-      width: 1600,
-      height: 1000,
-      minWidth: 900,
-      minHeight: 600,
-      backgroundColor: "#0b0c0e",
-      titleBarStyle: "hiddenInset",
-      webPreferences: {
-        preload: dist("preload.js"),
-        contextIsolation: true,
-        nodeIntegration: false,
-      },
-    })
-    win.loadFile(dist("renderer", "index.html"))
-    return win
-  }),
-  (win) => Effect.sync(() => win.isDestroyed() || win.destroy()),
+// The window and what hangs off it.
+const Window = ElectronUi.pipe(Layer.provideMerge(MainWindow.layer))
+
+const ChatLive = Layer.unwrap(ClaudeBinary.use((claude) => Effect.succeed(Chat.layer(claude.path))))
+
+const PowerLive = Layer.unwrap(
+  AppPaths.use(({ userData }) => Effect.succeed(Power.layer(defaultPowerConfig(path.join(userData, "lid-release"))))),
+).pipe(Layer.provide(ElectronPowerBlocker))
+
+const Control = ControlEndpoint.layer.pipe(Layer.provideMerge(ControlHttpServer))
+
+const Services = Layer.mergeAll(
+  SettingsStore.layer,
+  Usage.layer.pipe(Layer.provide(UsageSource.layer)),
+  ChatLive,
+  PowerLive,
+  Updater.layer,
+).pipe(Layer.provideMerge(Window), Layer.provideMerge(Control))
+
+// Sessions also provides the ControlHandlers that the routes call.
+const Core = Sessions.layer.pipe(Layer.provideMerge(Services))
+
+const App = Layer.mergeAll(ControlRoutes, Ipc, AppIcon).pipe(
+  Layer.provideMerge(Core),
+  Layer.provideMerge(Platform),
 )
 
-const program = Effect.gen(function* () {
-  yield* Effect.promise(() => app.whenReady())
-  yield* openWindow
-  yield* Effect.log("Daycare is running")
-  return yield* Effect.never
-}).pipe(Effect.scoped)
+const main = Layer.launch(Boot.pipe(Layer.provide(App))).pipe(
+  Effect.tapCause((cause) => Effect.logError("Daycare failed to start", cause)),
+)
 
-const fiber = Effect.runFork(program)
+const fiber = Effect.runFork(main)
 
-// The first quit is held back until the program has unwound, then let through.
+// The first quit is held back until the app has unwound, then let through.
 let unwound = false
 app.on("before-quit", (event) => {
   if (unwound) return
