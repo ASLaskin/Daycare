@@ -1,0 +1,69 @@
+// The tools a master gets over MCP. Each input is one Schema: it is turned into
+// the JSON Schema Claude sees in tools/list, and it decodes the arguments
+// Claude sends back, so the two can never drift apart.
+
+import { Schema } from "effect"
+
+const desc = (description: string) => ({ description })
+
+export const SpawnSubagent = Schema.Struct({
+  name: Schema.String.annotate(desc('Short display name, e.g. "video-3-script"')),
+  task: Schema.String.annotate(desc("Complete instructions for the worker")),
+  model: Schema.optionalKey(Schema.String.annotate(desc('Optional model override, e.g. "opus" or "sonnet"'))),
+  cwd: Schema.optionalKey(Schema.String.annotate(desc("Optional working directory; defaults to the master's"))),
+})
+
+export const ListSubagents = Schema.Struct({})
+
+export const WaitForSubagents = Schema.Struct({
+  workers: Schema.optionalKey(Schema.Array(Schema.String).annotate(desc("Worker names or ids; omit for all"))),
+  timeout_seconds: Schema.optionalKey(Schema.Finite.annotate(desc("Max seconds to wait (default 900)"))),
+})
+
+export const ReadSubagent = Schema.Struct({
+  worker: Schema.String.annotate(desc("Worker name or id")),
+})
+
+export const SendToSubagent = Schema.Struct({
+  worker: Schema.String.annotate(desc("Worker name or id")),
+  message: Schema.String,
+})
+
+export const Tools = {
+  spawn_subagent: {
+    input: SpawnSubagent,
+    description:
+      "Start a worker: a full Claude Code session in its own pane that the user can also talk to directly. Give it a short name and a complete, self-contained task. Returns immediately; use wait_for_subagents to wait for it.",
+  },
+  list_subagents: {
+    input: ListSubagents,
+    description: "List this master's workers with their status (starting, working, needs_you, done, exited) and current activity.",
+  },
+  wait_for_subagents: {
+    input: WaitForSubagents,
+    description:
+      "Block until the given workers (or all workers) stop working: finished their turn, need the user, or exited. Returns each worker's status and the first line of its final message.",
+  },
+  read_subagent: {
+    input: ReadSubagent,
+    description: "Read a worker's latest final message (its summary), plus status. Does not return the full transcript.",
+  },
+  send_to_subagent: {
+    input: SendToSubagent,
+    description: "Type a follow-up message into a worker's prompt and submit it, as if the user typed it.",
+  },
+} as const
+
+export type ToolName = keyof typeof Tools
+export type ToolInput<N extends ToolName> = (typeof Tools)[N]["input"]["Type"]
+
+// A call whose name and arguments have both been checked.
+export type ToolCall = { [N in ToolName]: { readonly name: N; readonly input: ToolInput<N> } }[ToolName]
+
+export const toolList = Object.entries(Tools).map(([name, tool]) => ({
+  name,
+  description: tool.description,
+  inputSchema: Schema.toJsonSchemaDocument(tool.input).schema,
+}))
+
+export const isToolName = (name: string): name is ToolName => Object.hasOwn(Tools, name)
