@@ -1,4 +1,4 @@
-// Pacing rules under TestClock, no real waiting.
+// Usage pacing rules under TestClock.
 
 import { describe, expect, test } from "bun:test"
 import { Effect, Layer, Ref } from "effect"
@@ -7,18 +7,21 @@ import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import { AppPaths } from "../src/main/AppPaths.ts"
+import { Usage } from "../src/main/usage/Usage.ts"
+import { UsageSource } from "../src/main/usage/UsageSource.ts"
+import { RateLimited, UsageUnavailable } from "../src/main/usage/errors.ts"
 import { normalizeUsage, retryAfterMs } from "../src/main/usage/normalize.ts"
-import { RateLimited, Usage, UsageSource, UsageUnavailable } from "../src/main/usage/Usage.ts"
+import { asDirPath } from "../src/shared/ids.ts"
 import type { UsageLimit } from "../src/shared/usage.ts"
 
 const limit = (percent: number): UsageLimit => ({ kind: "session", label: "Session", percent, resetsAt: null })
 
 type Reply = "ok" | "rate-limited" | "down"
 
-// Source answers replies in order, counting calls.
+// Fake source answering replies in order, counting calls
 const withUsage = <A>(replies: Array<Reply>, body: (calls: Ref.Ref<number>) => Effect.Effect<A, never, Usage>) =>
   Effect.gen(function* () {
-    // TestClock 0 would read as just fetched.
+    // Start the clock at a real date
     yield* TestClock.setTime(Date.UTC(2026, 0, 1))
     const calls = yield* Ref.make(0)
     const source = Layer.succeed(
@@ -27,13 +30,17 @@ const withUsage = <A>(replies: Array<Reply>, body: (calls: Ref.Ref<number>) => E
         fetch: Effect.gen(function* () {
           const n = yield* Ref.getAndUpdate(calls, (c) => c + 1)
           const reply = replies[n] ?? "ok"
-          if (reply === "rate-limited") return yield* new RateLimited({ retryAfterMs: 0 })
-          if (reply === "down") return yield* new UsageUnavailable({ reason: "down" })
+          if (reply === "rate-limited") {
+            return yield* new RateLimited({ retryAfterMs: 0 })
+          }
+          if (reply === "down") {
+            return yield* new UsageUnavailable({ reason: "down" })
+          }
           return [limit(n + 1)]
         }),
       }),
     )
-    const userData = fs.mkdtempSync(path.join(os.tmpdir(), "daycare-usage-"))
+    const userData = asDirPath(fs.mkdtempSync(path.join(os.tmpdir(), "daycare-usage-")))
     const paths = Layer.succeed(AppPaths, AppPaths.of({ userData, appRoot: userData, home: userData }))
     return yield* body(calls).pipe(Effect.provide(Usage.layer.pipe(Layer.provide([source, paths]))))
   }).pipe(Effect.provide(TestClock.layer()), Effect.runPromise)
@@ -67,7 +74,8 @@ describe("Usage pacing", () => {
     withUsage([], (calls) =>
       Effect.gen(function* () {
         yield* refresh()
-        yield* refresh() // schedules the auto fetch for minute 3
+        // Schedules the auto fetch for minute 3
+        yield* refresh()
         yield* TestClock.adjust("11 seconds")
         yield* refresh(true)
         expect(yield* Ref.get(calls)).toBe(2)
@@ -85,7 +93,7 @@ describe("Usage pacing", () => {
         yield* TestClock.adjust("1 minute")
         yield* refresh(true)
         expect(yield* Ref.get(calls)).toBe(2)
-        // Deferred fetch fires when backoff ends.
+        // Deferred fetch after the backoff
         yield* TestClock.adjust("5 minutes")
         expect(yield* Ref.get(calls)).toBe(3)
       }),
