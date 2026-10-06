@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e08a6a"/><stop offset="1" stop-color="#c45f3d"/></linearGradient>
+<linearGradient id="rim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.3"/><stop offset="0.5" stop-color="#fff" stop-opacity="0.05"/><stop offset="1" stop-color="#000" stop-opacity="0.08"/></linearGradient>
+<clipPath id="sq"><rect x="100" y="100" width="824" height="824" rx="185"/></clipPath>
+<filter id="drop" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000" flood-opacity="0.35"/></filter>
+<filter id="lift" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#000" flood-opacity="0.25"/></filter>
+</defs>
+<g filter="url(#drop)"><rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/></g>
+<g clip-path="url(#sq)">
+<g filter="url(#lift)">
+<rect x="262" y="370" width="460" height="380" rx="110" fill="#f4efe6"/>
+<rect x="497" y="290" width="22" height="90" rx="11" fill="#f4efe6"/>
+<circle cx="508" cy="282" r="30" fill="#f4efe6"/>
+</g>
+<path d="M360 560 Q 405 610 450 560" fill="none" stroke="#1f1d1a" stroke-width="26" stroke-linecap="round"/>
+<path d="M534 560 Q 579 610 624 560" fill="none" stroke="#1f1d1a" stroke-width="26" stroke-linecap="round"/>
+<rect x="460" y="650" width="64" height="20" rx="10" fill="#b8532f"/>
+<text x="690" y="330" font-family="SF Pro Rounded, ui-rounded, -apple-system, Helvetica, sans-serif" font-weight="800" font-size="120" fill="#f4efe6">z</text>
+<text x="780" y="250" font-family="SF Pro Rounded, ui-rounded, -apple-system, Helvetica, sans-serif" font-weight="800" font-size="80" fill="#f4efe6" opacity="0.75">z</text>
+</g>
+<rect x="101.5" y="101.5" width="821" height="821" rx="183.5" fill="none" stroke="url(#rim)" stroke-width="3"/>
+</svg>
