@@ -60,10 +60,12 @@ export type ToolInput<N extends ToolName> = (typeof Tools)[N]["input"]["Type"]
 // A call whose name and arguments have both been checked.
 export type ToolCall = { [N in ToolName]: { readonly name: N; readonly input: ToolInput<N> } }[ToolName]
 
+// MCP requires every inputSchema to be an object schema. An empty Struct comes
+// out without `type` (it would accept any non-null value), so it is pinned here.
 export const toolList = Object.entries(Tools).map(([name, tool]) => ({
   name,
   description: tool.description,
-  inputSchema: Schema.toJsonSchemaDocument(tool.input).schema,
+  inputSchema: { properties: {}, ...Schema.toJsonSchemaDocument(tool.input).schema, type: "object" },
 }))
 
 export const isToolName = (name: string): name is ToolName => Object.hasOwn(Tools, name)
