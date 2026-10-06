@@ -1,3 +1,5 @@
+// Settings cache and cross view events.
+
 import type { Settings } from "../shared/settings.ts"
 import { api } from "./api.ts"
 
@@ -5,17 +7,16 @@ type Listener = () => void
 
 const emitter = () => {
   const listeners: Array<Listener> = []
+  const call = (fn: Listener) => {
+    try {
+      fn()
+    } catch (err) {
+      console.error(err)
+    }
+  }
   return {
     on: (fn: Listener) => void listeners.push(fn),
-    fire: () => {
-      for (const fn of listeners) {
-        try {
-          fn()
-        } catch (err) {
-          console.error(err)
-        }
-      }
-    },
+    fire: () => listeners.forEach(call),
   }
 }
 
@@ -24,9 +25,11 @@ const focusChanged = emitter()
 
 let current: Settings | null = null
 
-// Loaded once in main.ts before any view mounts.
+// Loaded settings; throws before main.ts loads them.
 export const settings = (): Settings => {
-  if (!current) throw new Error("Settings not loaded")
+  if (!current) {
+    throw new Error("Settings not loaded")
+  }
   return current
 }
 

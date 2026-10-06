@@ -1,0 +1,35 @@
+/* New session popup. */
+
+.sheet {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay);
+  backdrop-filter: blur(8px);
+  display: grid;
+  place-items: center;
+  z-index: 10;
+  animation: fade var(--t) var(--ease) both;
+}
+.sheet.hidden { display: none; }
+@keyframes fade { from { opacity: 0; } }
+
+.sheet-card {
+  width: min(560px, calc(100vw - 32px));
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-xl);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+  animation: card-in var(--t-slow) var(--ease-out) both;
+}
+@keyframes card-in { from { opacity: 0; transform: translateY(10px) scale(0.98); } }
+.sheet-card h2 { margin: 0; font-size: 15px; letter-spacing: -0.01em; }
+.sheet-card label { display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 12px; font-weight: 500; flex: 1; min-width: 0; }
+.sheet-card .row { display: flex; gap: 10px; }
+.sheet-card .folder { display: flex; gap: 8px; }
+.sheet-card .folder select { flex: 1; min-width: 0; }
+.sheet-card .actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
+.sheet-card .actions .hint { margin-right: auto; }

@@ -1,5 +1,6 @@
 import type { FitAddon } from "@xterm/addon-fit"
 import type { Terminal } from "@xterm/xterm"
+import type { SessionId } from "../shared/ids.ts"
 import type { SessionView } from "../shared/session.ts"
 import { api } from "./api.ts"
 
@@ -17,22 +18,24 @@ export interface Pane {
   }
 }
 
-export const panes = new Map<string, Pane>()
-// Closed sessions have a sidebar entry but no pane.
-export const closedInfo = new Map<string, SessionView>()
+export const panes = new Map<SessionId, Pane>()
+// Closed sessions, listed in the sidebar without panes.
+export const closedInfo = new Map<SessionId, SessionView>()
 
-export const workersOf = (masterId: string) =>
+export const workersOf = (masterId: SessionId) =>
   [...panes.values()].filter((p) => p.info.parentId === masterId).map((p) => p.info)
 
-const fitTimers = new Map<string, ReturnType<typeof setTimeout>>()
+const fitTimers = new Map<SessionId, ReturnType<typeof setTimeout>>()
 
 export const scheduleFit = (p: Pane) => {
   clearTimeout(fitTimers.get(p.info.id))
   fitTimers.set(
     p.info.id,
     setTimeout(() => {
-      // Chat panes and hidden groups have nothing to fit.
-      if (!p.term || !p.fit || !p.pane.offsetParent) return
+      // Skips chat panes and hidden groups.
+      if (!p.term || !p.fit || !p.pane.offsetParent) {
+        return
+      }
       try {
         p.fit.fit()
         api.resize(p.info.id, p.term.cols, p.term.rows)
@@ -41,6 +44,4 @@ export const scheduleFit = (p: Pane) => {
   )
 }
 
-export const fitAll = () => {
-  for (const p of panes.values()) scheduleFit(p)
-}
+export const fitAll = () => panes.forEach(scheduleFit)

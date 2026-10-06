@@ -1,0 +1,49 @@
+/* Design tokens shared by every stylesheet. */
+
+:root {
+  --bg: #0b0c0e;
+  --panel: #111316;
+  --panel-2: #181b1f;
+  --panel-3: #1f2328;
+  --line: #23272d;
+  --line-strong: #2f343c;
+  --overlay: rgba(4, 5, 7, 0.62);
+
+  --text: #e9ebee;
+  --muted: #8f96a0;
+  --faint: #5d646e;
+
+  --accent: #7aa2ff;
+  --working: #7aa2ff;
+  --needs: #f2b84b;
+  --done: #5fd39a;
+  --exited: #e5726b;
+
+  --r-sm: 6px;
+  --r: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+
+  /* --m scales transitions, not loops */
+  --m: 1;
+  --t-fast: calc(110ms * var(--m));
+  --t: calc(180ms * var(--m));
+  --t-slow: calc(320ms * var(--m));
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Helvetica Neue", sans-serif;
+  --mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  --fs: 13px;
+
+  --sidebar-w: 264px;
+  --toolbar-h: 46px;
+  --stage-gap: 10px;
+}
+
+html[data-motion="off"] { --m: 0; }
+html[data-motion="fast"] { --m: 0.55; }
+html[data-motion="slow"] { --m: 1.7; }
+
+html[data-font="inter"] { --sans: "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+html[data-mono="jetbrains"] { --mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace; }

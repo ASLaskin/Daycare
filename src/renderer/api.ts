@@ -1,3 +1,4 @@
+import type { RequestId, SessionId, SkillId } from "../shared/ids.ts"
 import type { Bridge, EventChannel, Events, InvokeChannel, InvokePayload, InvokeResult } from "../shared/ipc.ts"
 import type { PermissionDecision } from "../shared/ipc.ts"
 import type { NewMaster } from "../shared/session.ts"
@@ -43,7 +44,7 @@ export const api = {
 
   listSessions: ask("session:list"),
   createMaster: (options: NewMaster) => bridge.invoke("master:create", options),
-  rename: (id: string, name: string) => bridge.invoke("session:rename", { id, name }),
+  rename: (id: SessionId, name: string) => bridge.invoke("session:rename", { id, name }),
   closeSession: call("session:close"),
   reopenSession: call("session:reopen"),
   deleteSession: call("session:delete"),
@@ -54,8 +55,8 @@ export const api = {
   onBeginRename: on("session:begin-rename"),
   onCloseShortcut: on("shortcut:close"),
 
-  write: (id: string, data: string) => bridge.send("pty:write", { id, data }),
-  resize: (id: string, cols: number, rows: number) => bridge.send("pty:resize", { id, cols, rows }),
+  write: (id: SessionId, data: string) => bridge.send("pty:write", { id, data }),
+  resize: (id: SessionId, cols: number, rows: number) => bridge.send("pty:resize", { id, cols, rows }),
   onData: on("pty:data"),
 
   powerStatus: ask("power:status"),
@@ -64,13 +65,13 @@ export const api = {
   onPower: on("power:update"),
 
   listSkills: ask("skills:list"),
-  setSkillState: (id: string, state: SkillState) => bridge.invoke("skills:set", { id, state }),
-  setSkillPlugin: (id: string, enabled: boolean) => bridge.invoke("skills:plugin", { id, enabled }),
-  restoreSkill: (id: string) => bridge.invoke("skills:restore", { id }),
+  setSkillState: (id: SkillId, state: SkillState) => bridge.invoke("skills:set", { id, state }),
+  setSkillPlugin: (id: SkillId, enabled: boolean) => bridge.invoke("skills:plugin", { id, enabled }),
+  restoreSkill: (id: SkillId) => bridge.invoke("skills:restore", { id }),
 
-  chatSend: (id: string, text: string) => bridge.invoke("chat:send", { id, text }),
+  chatSend: (id: SessionId, text: string) => bridge.invoke("chat:send", { id, text }),
   chatInterrupt: call("chat:interrupt"),
-  chatPermission: (id: string, requestId: string, decision: PermissionDecision) =>
+  chatPermission: (id: SessionId, requestId: RequestId, decision: PermissionDecision) =>
     bridge.invoke("chat:permission", { id, requestId, decision }),
   chatHistory: call("chat:history"),
   onChatEvent: on("chat:event"),

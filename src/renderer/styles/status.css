@@ -1,0 +1,21 @@
+/* Session status labels. */
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
+.status.starting { color: var(--faint); }
+.status.idle { color: var(--muted); }
+.status.working { color: var(--working); }
+.status.working::before { animation: pulse 1.4s ease-in-out infinite; }
+.status.needs_you { color: var(--needs); }
+.status.done { color: var(--done); }
+.status.exited { color: var(--exited); }
+.status.closed { color: var(--faint); }
+@keyframes pulse { 50% { opacity: 0.3; transform: scale(0.8); } }

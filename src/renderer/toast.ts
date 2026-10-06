@@ -6,7 +6,7 @@ export const toast = (text: string) => {
   setTimeout(() => {
     t.classList.add("out")
     t.addEventListener("animationend", () => t.remove(), { once: true })
-    // With motion off the animation never fires.
+    // Fallback removal when motion is off.
     setTimeout(() => t.remove(), 400)
   }, 1600)
 }

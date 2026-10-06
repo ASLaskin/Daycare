@@ -1,0 +1,55 @@
+/* Session panes and headers. */
+
+.pane {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  transition: border-color var(--t) var(--ease), box-shadow var(--t) var(--ease);
+}
+.pane.focused { border-color: var(--line-strong); box-shadow: 0 0 0 1px var(--line-strong), 0 8px 30px -12px rgba(0, 0, 0, 0.6); }
+.pane.needs_you { border-color: color-mix(in srgb, var(--needs) 55%, var(--line)); }
+.pane.needs_you.focused { box-shadow: 0 0 0 1px color-mix(in srgb, var(--needs) 40%, transparent); }
+.pane.enter { animation: pane-in var(--t-slow) var(--ease-out) both; }
+@keyframes pane-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.99); }
+  to { opacity: 1; transform: none; }
+}
+
+.pane-head {
+  position: relative;
+  z-index: 2;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 34px;
+  padding: 0 8px 0 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-2);
+}
+.pane-head .title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; min-width: 0; }
+.pane-head .role { color: var(--faint); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.07em; flex: none; }
+.pane-head .activity {
+  flex: 1;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pane-head .head-actions { display: flex; align-items: center; gap: 2px; flex: none; margin-left: 4px; }
+.pane-head .head-actions .ghost { padding: 3px 8px; font-size: 12px; color: var(--faint); }
+.pane-head .head-actions .ghost:hover { color: var(--text); }
+.pane-head .head-actions .ghost.danger:hover { color: var(--exited); background: color-mix(in srgb, var(--exited) 10%, transparent); }
+
+.term { flex: 1; min-height: 0; padding: 6px 4px 4px 10px; }
+.term .xterm { height: 100%; }
+.term .xterm-viewport { background: transparent !important; }

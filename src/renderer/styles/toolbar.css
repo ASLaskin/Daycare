@@ -1,0 +1,20 @@
+/* Top toolbar. */
+
+.main { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+
+.toolbar {
+  flex: none;
+  height: var(--toolbar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 10px 0 14px;
+  -webkit-app-region: drag;
+}
+.toolbar-controls { display: flex; gap: 6px; align-items: center; min-width: 0; -webkit-app-region: no-drag; }
+.toolbar-controls.project { flex: 1; }
+.toolbar-controls.project.hidden { visibility: hidden; display: flex !important; }
+.toolbar select { min-width: 180px; padding: 5px 26px 5px 10px; font-size: 12.5px; background-color: var(--panel); }
+.project-path { color: var(--muted); font-family: var(--mono); font-size: 12px; margin-right: 4px; max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toolbar .divider { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }

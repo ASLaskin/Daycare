@@ -1,2 +1,2 @@
-// Bun bundles CSS imports.
+// Lets TypeScript accept CSS imports.
 declare module "*.css"

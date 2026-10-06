@@ -40,12 +40,12 @@ export const applyAppearance = () => {
   root.style.setProperty("--sidebar-w", `${w >= 200 ? Math.min(460, w) : SIDEBAR_WIDTH}px`)
   const family = monoFamily()
   const size = termFontSize()
-  for (const p of panes.values()) {
-    if (!p.term) continue
-    if (p.term.options.fontFamily !== family || p.term.options.fontSize !== size) {
-      p.term.options.fontFamily = family
-      p.term.options.fontSize = size
-      scheduleFit(p)
+  panes.forEach((p) => {
+    if (!p.term || (p.term.options.fontFamily === family && p.term.options.fontSize === size)) {
+      return
     }
-  }
+    p.term.options.fontFamily = family
+    p.term.options.fontSize = size
+    scheduleFit(p)
+  })
 }

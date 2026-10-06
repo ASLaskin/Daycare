@@ -1,17 +1,19 @@
-// Settings load before any view mounts.
+// Renderer entry: load settings, then mount views.
 
 import "@xterm/xterm/css/xterm.css"
 import "./fonts.css"
-import "./styles.css"
+import "./styles/index.css"
 import "./skills/skills.css"
 import "./chat/chat.css"
 import { applyAppearance } from "./appearance.ts"
 import { $ } from "./dom.ts"
-import { initSidebarResize, relayoutAll } from "./layout.ts"
-import { initUsage } from "./meters.ts"
+import { relayoutAll } from "./layout.ts"
+import { initSidebarResize } from "./sidebar-resize.ts"
+import { initUsage } from "./usage-view.ts"
 import { initSessions } from "./sessions.ts"
 import { initSettingsView, renderSettings, renderTabs } from "./settings-view.ts"
-import { clampLocation, initSheet, renderKindButtons, renderLocationPickers, setCurrentLocation } from "./sheet.ts"
+import { clampLocation, initNewSession, renderKindButtons, renderLocationPickers, setCurrentLocation } from "./new-session.ts"
+import { initSheet } from "./sheet.ts"
 import { initShortcuts, toggleRail } from "./shortcuts.ts"
 import * as skills from "./skills/index.ts"
 import { loadSettings, onSettingsChanged } from "./store.ts"
@@ -34,6 +36,7 @@ onSettingsChanged(() => {
 initUsage()
 initSidebarResize()
 initSettingsView()
+initNewSession()
 initSheet()
 initShortcuts()
 $("#toggle-rail").onclick = toggleRail

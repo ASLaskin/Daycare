@@ -1,0 +1,27 @@
+/* Page reset, body grid, and scrollbars. */
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: var(--fs)/1.45 var(--sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+}
+html[data-font="inter"] body { font-feature-settings: "cv11", "ss03", "calt"; }
+
+body { display: grid; grid-template-columns: var(--sidebar-w) 1fr; }
+body.resizing { cursor: col-resize; user-select: none; }
+body.resizing-row { cursor: row-resize; user-select: none; }
+body.resizing .pane, body.resizing-row .pane { pointer-events: none; }
+
+::selection { background: rgba(122, 162, 255, 0.35); }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: transparent; border-radius: 10px; border: 3px solid transparent; background-clip: padding-box; }
+:hover::-webkit-scrollbar-thumb, ::-webkit-scrollbar-thumb:hover { background-color: var(--line-strong); }
+::-webkit-scrollbar-track { background: transparent; }

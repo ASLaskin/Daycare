@@ -1,0 +1,101 @@
+/* Stage, groups, and layout presets. */
+
+.work { flex: 1; display: flex; min-width: 0; min-height: 0; }
+.stage { position: relative; flex: 1; min-width: 0; min-height: 0; padding: 0 var(--stage-gap) var(--stage-gap); }
+
+.empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  gap: 10px;
+  color: var(--muted);
+  animation: fade var(--t-slow) var(--ease) both;
+}
+.empty h1 { color: var(--text); font-size: 20px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+.empty p { margin: 0 0 10px; max-width: 380px; line-height: 1.5; }
+.empty-locations { display: flex; flex-direction: column; gap: 6px; width: 340px; justify-self: center; }
+.loc-button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  text-align: left;
+  color: var(--text);
+}
+.loc-button:hover { background: var(--panel-2); border-color: var(--line-strong); }
+
+/* --split is the master's share. */
+.group {
+  --split: 44%;
+  --cols: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--stage-gap);
+  min-height: 0;
+  min-width: 0;
+}
+.group.hidden { display: none; }
+
+.master-slot { flex: 1 1 100%; min-height: 0; min-width: 0; display: flex; }
+.worker-grid {
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  display: grid;
+  gap: var(--stage-gap);
+  grid-auto-rows: minmax(0, 1fr);
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+}
+.group:not(.has-workers) .worker-grid, .group:not(.has-workers) .split-handle { display: none; }
+
+.split-handle { flex: none; position: relative; z-index: 2; margin: calc(var(--stage-gap) * -1) 0; height: var(--stage-gap); cursor: row-resize; }
+.split-handle::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 48px;
+  height: 4px;
+  border-radius: 2px;
+  transform: translate(-50%, -50%);
+  background: var(--line-strong);
+  opacity: 0;
+  transition: opacity var(--t) var(--ease), background var(--t) var(--ease);
+}
+.split-handle:hover::after, .split-handle.dragging::after { opacity: 1; transition-delay: 100ms; }
+.split-handle.dragging::after { background: var(--accent); }
+
+/* stack: master on top */
+.group[data-layout="stack"].has-workers .master-slot { flex: 0 0 var(--split); }
+
+/* side: master left, workers right */
+.group[data-layout="side"] { flex-direction: row; }
+.group[data-layout="side"].has-workers .master-slot { flex: 0 0 var(--split); }
+.group[data-layout="side"] .worker-grid { grid-template-columns: minmax(0, 1fr); }
+.group[data-layout="side"] .split-handle, .group[data-layout="columns"] .split-handle { margin: 0 calc(var(--stage-gap) * -1); height: auto; width: var(--stage-gap); cursor: col-resize; }
+.group[data-layout="side"] .split-handle::after, .group[data-layout="columns"] .split-handle::after { width: 4px; height: 48px; }
+
+/* columns: every pane side by side */
+.group[data-layout="columns"] { flex-direction: row; }
+.group[data-layout="columns"].has-workers .master-slot { flex: 0 0 var(--split); }
+.group[data-layout="columns"] .worker-grid { grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); }
+
+/* grid: master is just another cell */
+.group[data-layout="grid"].has-workers { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); }
+.group[data-layout="grid"].has-workers .master-slot, .group[data-layout="grid"].has-workers .worker-grid { display: contents; }
+.group[data-layout="grid"] .split-handle { display: none; }
+
+/* zoomed: one pane fills the stage */
+.group.zoomed { display: flex !important; }
+.group.zoomed .master-slot, .group.zoomed .worker-grid { display: contents; }
+.group.zoomed .split-handle { display: none; }
+.group.zoomed .pane:not(.zoomed) { display: none; }
+.group.zoomed .pane.zoomed { animation: zoom-in var(--t-slow) var(--ease-out) both; }
+@keyframes zoom-in { from { opacity: 0.6; transform: scale(0.992); } }
