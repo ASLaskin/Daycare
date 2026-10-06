@@ -29,7 +29,7 @@ export class Updater extends Context.Service<
       // The packaged app records which checkout built it; in dev the checkout is right here.
       const info = Effect.sync((): BuildInfo | null => {
         try {
-          return JSON.parse(fs.readFileSync(path.join(appRoot, "build-info.json"), "utf8"))
+          return JSON.parse(fs.readFileSync(path.join(appRoot, "dist", "build-info.json"), "utf8"))
         } catch {
           return app.isPackaged ? null : { sourceDir: appRoot, commit: null, builtAt: null }
         }
