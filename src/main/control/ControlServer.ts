@@ -1,26 +1,15 @@
-// Hooks and MCP; token via env, never argv.
+// Local HTTP server for hooks and the master's MCP tools.
 
 import { NodeHttpServer } from "@effect/platform-node"
 import { Context, Effect, Layer, Schema } from "effect"
-import { HttpRouter, HttpServer, HttpServerRequest, HttpServerResponse } from "effect/http"
+import { HttpRouter, HttpServer, type HttpServerRequest, HttpServerResponse } from "effect/http"
 import { randomBytes } from "node:crypto"
 import { createServer } from "node:http"
-import { handleMessage, type ToolError } from "./mcp.ts"
-import type { ToolCall } from "./tools.ts"
-
-export const TOKEN_HEADER = "x-daycare-token"
-
-// Other hook fields are ignored.
-export const HookPayload = Schema.Struct({
-  hook_event_name: Schema.String,
-  session_id: Schema.optionalKey(Schema.String),
-  transcript_path: Schema.optionalKey(Schema.String),
-  tool_name: Schema.optionalKey(Schema.String),
-  tool_input: Schema.optionalKey(Schema.Unknown),
-  message: Schema.optionalKey(Schema.String),
-  last_assistant_message: Schema.optionalKey(Schema.String),
-})
-export type HookPayload = typeof HookPayload.Type
+import { asSessionId, type SessionId } from "../../shared/ids.ts"
+import { type Json, parseJson } from "../../shared/json.ts"
+import { ControlHandlers } from "./ControlHandlers.ts"
+import { HookPayload, TOKEN_HEADER } from "./hook.ts"
+import { handleMessage } from "./mcp.ts"
 
 export class ControlEndpoint extends Context.Service<ControlEndpoint, { readonly url: string; readonly token: string }>()(
   "daycare/ControlEndpoint",
@@ -30,20 +19,13 @@ export class ControlEndpoint extends Context.Service<ControlEndpoint, { readonly
     Effect.gen(function* () {
       const server = yield* HttpServer.HttpServer
       const address = server.address
-      if (address._tag !== "InetAddressV4") return yield* Effect.die("the control server must listen on 127.0.0.1")
+      if (address._tag !== "InetAddressV4") {
+        return yield* Effect.die("the control server must listen on 127.0.0.1")
+      }
       return ControlEndpoint.of({ url: `http://127.0.0.1:${address.port}`, token: randomBytes(24).toString("hex") })
     }),
   )
 }
-
-// Its own service so tests can fake it.
-export class ControlHandlers extends Context.Service<
-  ControlHandlers,
-  {
-    readonly hook: (id: string, payload: HookPayload) => Effect.Effect<void>
-    readonly tool: (masterId: string, call: ToolCall) => Effect.Effect<unknown, ToolError>
-  }
->()("daycare/ControlHandlers") {}
 
 const forbidden = HttpServerResponse.empty({ status: 403 })
 
@@ -53,16 +35,18 @@ const Routes = HttpRouter.use((router) =>
     const handlers = yield* ControlHandlers
 
     const guarded =
-      (f: (id: string, body: unknown) => Effect.Effect<HttpServerResponse.HttpServerResponse>) =>
+      (f: (id: SessionId, body: Json) => Effect.Effect<HttpServerResponse.HttpServerResponse>) =>
       (request: HttpServerRequest.HttpServerRequest) =>
         Effect.gen(function* () {
-          if (request.headers[TOKEN_HEADER] !== token) return forbidden
+          if (request.headers[TOKEN_HEADER] !== token) {
+            return forbidden
+          }
           const { id } = yield* HttpRouter.params
-          const body = yield* request.json.pipe(Effect.orElseSucceed(() => null))
-          return yield* f(id ?? "", body)
+          const text = yield* request.text.pipe(Effect.orElseSucceed(() => ""))
+          return yield* f(asSessionId(id ?? ""), parseJson(text))
         })
 
-    // Claude reads anything else as error.
+    // Hooks always get 200, even on bad input
     yield* router.add(
       "POST",
       "/hook/:id",
@@ -79,20 +63,20 @@ const Routes = HttpRouter.use((router) =>
       "POST",
       "/mcp/:id",
       guarded((id, body) =>
-        handleMessage(body as any, (call) => handlers.tool(id, call)).pipe(
+        handleMessage(body, (call) => handlers.tool(id, call)).pipe(
           Effect.map((response) => (response ? HttpServerResponse.jsonUnsafe(response) : HttpServerResponse.empty({ status: 202 }))),
         ),
       ),
     )
 
-    // No server streams, no MCP sessions.
+    // No server streams or MCP sessions
     yield* router.add("GET", "/mcp/:id", HttpServerResponse.empty({ status: 405 }))
     yield* router.add("DELETE", "/mcp/:id", HttpServerResponse.empty({ status: 405 }))
   }),
 )
 
-// Port 0 picks a free one.
+// Loopback server on a free port
 export const ControlHttpServer = NodeHttpServer.layer(createServer, { port: 0, host: "127.0.0.1" })
 
-// Needs ControlHandlers, so built after Sessions.
+// Routes, built once ControlHandlers exists
 export const ControlRoutes = HttpRouter.serve(Routes, { disableLogger: true, disableListenLog: true })

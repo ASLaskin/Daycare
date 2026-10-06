@@ -1,8 +1,9 @@
-// Dev: control server alone; arg is MCP config path.
+// Dev only: control server alone, writes an MCP config.
 
 import { Effect, Layer } from "effect"
 import fs from "node:fs"
-import { ControlEndpoint, ControlHandlers, ControlHttpServer, ControlRoutes } from "../src/main/control/ControlServer.ts"
+import { ControlHandlers } from "../src/main/control/ControlHandlers.ts"
+import { ControlEndpoint, ControlHttpServer, ControlRoutes } from "../src/main/control/ControlServer.ts"
 
 const Logging = Layer.succeed(
   ControlHandlers,

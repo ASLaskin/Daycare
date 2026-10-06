@@ -1,6 +1,7 @@
-// One Schema per tool: listing and decoding.
+// The master's MCP tools, one Schema each.
 
 import { Schema } from "effect"
+import { DirPath } from "../../shared/ids.ts"
 
 const desc = (description: string) => ({ description })
 
@@ -8,7 +9,7 @@ export const SpawnSubagent = Schema.Struct({
   name: Schema.String.annotate(desc('Short display name, e.g. "video-3-script"')),
   task: Schema.String.annotate(desc("Complete instructions for the worker")),
   model: Schema.optionalKey(Schema.String.annotate(desc('Optional model override, e.g. "opus" or "sonnet"'))),
-  cwd: Schema.optionalKey(Schema.String.annotate(desc("Optional working directory; defaults to the master's"))),
+  cwd: Schema.optionalKey(DirPath.annotate(desc("Optional working directory; defaults to the master's"))),
 })
 
 export const ListSubagents = Schema.Struct({})
@@ -57,7 +58,7 @@ export type ToolInput<N extends ToolName> = (typeof Tools)[N]["input"]["Type"]
 
 export type ToolCall = { [N in ToolName]: { readonly name: N; readonly input: ToolInput<N> } }[ToolName]
 
-// Empty Structs lack type; MCP requires object.
+// Tool listing with object input schemas
 export const toolList = Object.entries(Tools).map(([name, tool]) => ({
   name,
   description: tool.description,
