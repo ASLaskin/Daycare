@@ -5,7 +5,7 @@
 // plain browser bundle built from its HTML.
 // Run: bun scripts/build.ts
 
-import { rmSync } from "node:fs"
+import { cpSync, mkdirSync, readdirSync, rmSync } from "node:fs"
 import path from "node:path"
 
 const root = path.resolve(import.meta.dir, "..")
@@ -45,4 +45,12 @@ for (const build of builds) {
     process.exit(1)
   }
 }
+// Sprites are picked by name at runtime, so copied, not bundled.
+const icons = path.join(root, "assets/icons")
+const iconsOut = path.join(out, "renderer/icons")
+mkdirSync(iconsOut, { recursive: true })
+for (const file of readdirSync(icons)) {
+  if (/\.(gif|png)$/.test(file)) cpSync(path.join(icons, file), path.join(iconsOut, file))
+}
+
 console.log(`Built ${builds.flatMap((b) => b.outputs).length} files into dist/`)
