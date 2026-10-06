@@ -1,4 +1,4 @@
-// Main is ESM for import.meta; preload must be CJS.
+// Bundles main, preload and renderer into dist.
 
 import { cpSync, mkdirSync, readdirSync, rmSync } from "node:fs"
 import path from "node:path"
@@ -34,18 +34,18 @@ const builds = await Promise.all([
   }),
 ])
 
-for (const build of builds) {
-  if (!build.success) {
-    for (const log of build.logs) console.error(log)
-    process.exit(1)
-  }
+const failed = builds.filter((build) => !build.success)
+if (failed.length) {
+  failed.flatMap((build) => build.logs).forEach((log) => console.error(log))
+  process.exit(1)
 }
-// Sprites load by name, so copied.
+
+// Copy sprites into the renderer output
 const icons = path.join(root, "assets/icons")
 const iconsOut = path.join(out, "renderer/icons")
 mkdirSync(iconsOut, { recursive: true })
-for (const file of readdirSync(icons)) {
-  if (/\.(gif|png)$/.test(file)) cpSync(path.join(icons, file), path.join(iconsOut, file))
-}
+readdirSync(icons)
+  .filter((file) => /\.(gif|png)$/.test(file))
+  .forEach((file) => cpSync(path.join(icons, file), path.join(iconsOut, file)))
 
 console.log(`Built ${builds.flatMap((b) => b.outputs).length} files into dist/`)

@@ -1,4 +1,4 @@
-// Builds Daycare.app; --no-install skips /Applications.
+// Builds Daycare.app and installs it unless --no-install.
 
 import { packager, type SupportedArch } from "@electron/packager"
 import { execFileSync } from "node:child_process"
@@ -8,7 +8,7 @@ import path from "node:path"
 const root = path.resolve(import.meta.dir, "..")
 const install = !process.argv.includes("--no-install")
 
-// Lets Settings > Update find this checkout.
+// Record the source checkout and commit
 const commit = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: root, encoding: "utf8" }).trim()
 writeFileSync(
   path.join(root, "dist/build-info.json"),
@@ -26,17 +26,16 @@ const [outDir] = await packager({
   arch: process.arch as SupportedArch,
   out: path.join(root, "out"),
   overwrite: true,
-  // Only node-pty loads at runtime.
   prune: false,
-  // Native code cannot load from asar.
+  // Keep node-pty outside the asar
   asar: { unpack: "**/node_modules/node-pty/**" },
   ignore: [
     /^\/(?!(dist|assets|node_modules|package\.json)(\/|$))/,
     /^\/node_modules\/(?!node-pty(\/|$))/,
-    // Only this Mac's node-pty build.
+    // Drop node-pty builds for other platforms
     new RegExp(`^/node_modules/node-pty/prebuilds/(?!darwin-${process.arch}($|/))`),
     /^\/node_modules\/node-pty\/(third_party|deps|src)($|\/)/,
-    // Renderer bundles its own fonts, sprites.
+    // Drop assets the renderer already bundles
     /^\/assets\/(?!brand(\/|$))/,
     /^\/assets\/brand\/(render\.js$|logos\/.*\.svg$)/,
   ],
@@ -44,7 +43,7 @@ const [outDir] = await packager({
 })
 
 const built = path.join(outDir!, "Daycare.app")
-// Repackaging breaks the signature; Apple Silicon needs one.
+// Ad hoc sign the bundle
 execFileSync("codesign", ["--force", "--deep", "--sign", "-", built], { stdio: "inherit" })
 
 if (!install) {
@@ -52,13 +51,16 @@ if (!install) {
   process.exit(0)
 }
 
-// Rename swap keeps a running copy working.
+// Swap the new bundle into /Applications by rename
 const installed = "/Applications/Daycare.app"
 const staged = `${installed}.new`
 const old = `${installed}.old`
-for (const p of [staged, old]) rmSync(p, { recursive: true, force: true })
+const leftovers = [staged, old]
+leftovers.forEach((p) => rmSync(p, { recursive: true, force: true }))
 cpSync(built, staged, { recursive: true, verbatimSymlinks: true })
-if (existsSync(installed)) renameSync(installed, old)
+if (existsSync(installed)) {
+  renameSync(installed, old)
+}
 renameSync(staged, installed)
 rmSync(old, { recursive: true, force: true })
 console.log(`Installed ${installed}`)
