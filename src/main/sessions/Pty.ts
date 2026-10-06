@@ -1,4 +1,4 @@
-// A service because node-pty targets Electron's ABI.
+// Pseudo terminal spawning, faked in tests.
 
 import { Context } from "effect"
 

@@ -3,10 +3,12 @@ import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import { contextTokens, firstLine, lastAssistantText } from "../src/main/sessions/transcripts.ts"
+import { asFilePath } from "../src/shared/ids.ts"
+import type { Json } from "../src/shared/json.ts"
 
-const J = (o: unknown) => JSON.stringify(o) + "\n"
+const J = (o: Json) => JSON.stringify(o) + "\n"
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "daycare-transcripts-"))
-const file = path.join(dir, "t.jsonl")
+const file = asFilePath(path.join(dir, "t.jsonl"))
 fs.writeFileSync(
   file,
   J({ type: "assistant", message: { content: [{ type: "text", text: "Older" }], usage: { input_tokens: 1, output_tokens: 1 } } }) +
@@ -18,7 +20,7 @@ fs.writeFileSync(
 
 test("lastAssistantText skips tool-only and broken lines", () => {
   expect(lastAssistantText(file)).toBe("Newest reply\nsecond line")
-  expect(lastAssistantText(path.join(dir, "missing"))).toBe("")
+  expect(lastAssistantText(asFilePath(path.join(dir, "missing")))).toBe("")
   expect(lastAssistantText(null)).toBe("")
 })
 

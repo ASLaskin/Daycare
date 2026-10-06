@@ -1,25 +1,29 @@
-// Fakes at the edges, real services between.
+// Sessions service with fakes at its edges.
 
 import { afterAll, beforeEach, describe, expect, test } from "bun:test"
-import { Effect, Layer, ManagedRuntime } from "effect"
+import { Effect, Layer, ManagedRuntime, Result } from "effect"
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import { AppPaths } from "../src/main/AppPaths.ts"
+import { Ui } from "../src/main/Ui.ts"
 import { Chat } from "../src/main/chat/Chat.ts"
-import { ControlEndpoint, ControlHandlers, type HookPayload } from "../src/main/control/ControlServer.ts"
+import { ControlHandlers } from "../src/main/control/ControlHandlers.ts"
+import { ControlEndpoint } from "../src/main/control/ControlServer.ts"
+import type { HookPayload } from "../src/main/control/hook.ts"
 import type { ToolCall } from "../src/main/control/tools.ts"
-import { Power, PowerBlocker } from "../src/main/power/Power.ts"
+import { Power } from "../src/main/power/Power.ts"
+import { PowerBlocker } from "../src/main/power/PowerBlocker.ts"
 import { ClaudeBinary } from "../src/main/sessions/Claude.ts"
 import { Pty, type PtyOptions } from "../src/main/sessions/Pty.ts"
 import { Sessions } from "../src/main/sessions/Sessions.ts"
 import { SettingsStore } from "../src/main/settings/SettingsStore.ts"
-import { Ui } from "../src/main/Ui.ts"
-import { Usage, UsageSource } from "../src/main/usage/Usage.ts"
+import { Usage } from "../src/main/usage/Usage.ts"
+import { UsageSource } from "../src/main/usage/UsageSource.ts"
+import { asClaudeSessionId, asDirPath, asFilePath, asSessionId, type SessionId } from "../src/shared/ids.ts"
 import type { EventChannel, Events } from "../src/shared/ipc.ts"
+import { arr, at, type Json, type JsonObject, obj, parseJson, str } from "../src/shared/json.ts"
 import type { SessionView } from "../src/shared/session.ts"
-
-// ---------- fakes ----------
 
 interface FakeProc {
   readonly file: string
@@ -60,7 +64,10 @@ const FakePty = Layer.succeed(
   }),
 )
 
-const sent: Array<{ channel: EventChannel; payload: unknown }> = []
+const sent: Array<{ channel: EventChannel; payload: Events[EventChannel] }> = []
+
+// Session id carried by an event payload
+const payloadId = (p: Events[EventChannel]) => (typeof p === "object" && p !== null && "id" in p ? p.id : null)
 let confirmAnswer = true
 const FakeUi = Layer.succeed(
   Ui,
@@ -74,11 +81,11 @@ const FakeUi = Layer.succeed(
 const FakeBlocker = Layer.succeed(PowerBlocker, PowerBlocker.of({ start: () => 1, stop: () => {}, isStarted: () => false }))
 const QuietUsage = Layer.succeed(UsageSource, UsageSource.of({ fetch: Effect.succeed([]) }))
 
-const root = fs.mkdtempSync(path.join(os.tmpdir(), "daycare-sessions-"))
-const userData = path.join(root, "userData")
-const work = path.join(root, "work")
+const root = asDirPath(fs.mkdtempSync(path.join(os.tmpdir(), "daycare-sessions-")))
+const userData = asDirPath(path.join(root, "userData"))
+const work = asDirPath(path.join(root, "work"))
 fs.mkdirSync(work, { recursive: true })
-const FAKE_CLAUDE = path.join(import.meta.dir, "fixtures", "fake-claude.js")
+const FAKE_CLAUDE = asFilePath(path.join(import.meta.dir, "fixtures", "fake-claude.js"))
 
 const makeRuntime = () => {
   const paths = Layer.succeed(AppPaths, AppPaths.of({ userData, appRoot: root, home: root }))
@@ -93,7 +100,7 @@ const makeRuntime = () => {
     Usage.layer.pipe(Layer.provide(QuietUsage)),
     FakeUi,
     FakePty,
-    Layer.succeed(ClaudeBinary, { path: "/fake/claude" }),
+    Layer.succeed(ClaudeBinary, { path: asFilePath("/fake/claude") }),
     endpoint,
   ).pipe(Layer.provideMerge(paths))
   return ManagedRuntime.make(Sessions.layer.pipe(Layer.provide(deps)))
@@ -101,9 +108,38 @@ const makeRuntime = () => {
 
 let runtime = makeRuntime()
 const sessions = <A, E>(f: (s: Sessions["Service"]) => Effect.Effect<A, E>) => runtime.runPromise(Sessions.use(f))
-const hook = (id: string, payload: HookPayload) => runtime.runPromise(ControlHandlers.use((h) => h.hook(id, payload)))
-const tool = (masterId: string, call: ToolCall) => runtime.runPromise(ControlHandlers.use((h) => Effect.result(h.tool(masterId, call))))
-const get = (id: string) => sessions((s) => s.get(id)) as Promise<SessionView>
+const hook = (id: SessionId, payload: HookPayload) => runtime.runPromise(ControlHandlers.use((h) => h.hook(id, payload)))
+const tool = (masterId: SessionId, call: ToolCall) => runtime.runPromise(ControlHandlers.use((h) => Effect.result(h.tool(masterId, call))))
+const get = (id: SessionId) => sessions((s) => s.get(id)) as Promise<SessionView>
+
+// Successful tool result, failing the test otherwise
+const ok = async (call: ReturnType<typeof tool>): Promise<Json> => {
+  const result = await call
+  if (Result.isFailure(result)) {
+    throw new Error(result.failure.message)
+  }
+  return result.success
+}
+
+// Tool failure message, failing the test on success
+const failure = async (call: ReturnType<typeof tool>): Promise<string> => {
+  const result = await call
+  if (Result.isSuccess(result)) {
+    throw new Error("Expected a tool failure")
+  }
+  return result.failure.message
+}
+
+const spawnWorker = async (masterId: SessionId, name: string, task: string) => {
+  const w = obj(await ok(tool(masterId, { name: "spawn_subagent", input: { name, task } }))) ?? {}
+  return { name: str(w["name"]), id: asSessionId(String(w["id"])) }
+}
+
+const readJsonFile = (file: string): Json | null => parseJson(fs.readFileSync(file, "utf8"))
+
+// Saved sessions.json record for one session
+const savedRecord = (id: SessionId): JsonObject | null =>
+  obj(arr(readJsonFile(path.join(userData, "sessions.json")) ?? undefined).find((r) => at(r, "id") === id))
 const tick = () => Bun.sleep(5)
 const procOf = (id: string) => procs.findLast((p) => p.args.join(" ").includes(`/hook/${id}`))!
 
@@ -119,18 +155,16 @@ beforeEach(() => {
 const newMaster = (task = "") =>
   sessions((s) => s.createMaster({ task, kind: "terminal", cwd: work, model: "sonnet", permissionMode: "default" }))
 
-// ---------- tests ----------
-
 describe("launching a terminal master", () => {
   test("spawns claude with HTTP hooks, an MCP config file, and the master prompt", async () => {
     const m = await newMaster("split this up")
     const p = procOf(m.id)
     expect(p.file).toBe("/fake/claude")
     const args = p.args
-    const settings = JSON.parse(args[args.indexOf("--settings") + 1]!)
-    const pre = settings.hooks.PreToolUse[0]
-    expect(pre.matcher).toBe("*")
-    expect(pre.hooks[0]).toEqual({
+    const settings = parseJson(args[args.indexOf("--settings") + 1]!) ?? undefined
+    const pre = arr(at(settings, "hooks", "PreToolUse"))[0]
+    expect(at(pre, "matcher")).toBe("*")
+    expect(arr(at(pre, "hooks"))[0]).toEqual({
       type: "http",
       url: `http://127.0.0.1:9/hook/${m.id}`,
       headers: { "x-daycare-token": "$DAYCARE_TOKEN" },
@@ -142,13 +176,13 @@ describe("launching a terminal master", () => {
     expect(p.options.env["DAYCARE_TOKEN"]).toBe("secret-token")
     const mcpFile = args[args.indexOf("--mcp-config") + 1]!
     expect(fs.statSync(mcpFile).mode & 0o777).toBe(0o600)
-    const mcp = JSON.parse(fs.readFileSync(mcpFile, "utf8")).mcpServers.daycare
+    const mcp = at(readJsonFile(mcpFile) ?? undefined, "mcpServers", "daycare")
     expect(mcp).toEqual({ type: "http", url: `http://127.0.0.1:9/mcp/${m.id}`, headers: { "x-daycare-token": "secret-token" }, timeout: 1800000 })
     expect(args).toContain("--session-id")
     expect(args.slice(args.indexOf("--disallowedTools"), args.indexOf("--disallowedTools") + 3)).toEqual(["--disallowedTools", "Agent", "Task"])
     expect(args.at(-1)).toBe("split this up")
     expect(m.status).toBe("starting")
-    expect(sent.some((e) => e.channel === "session:created" && (e.payload as SessionView).id === m.id)).toBe(true)
+    expect(sent.some((e) => e.channel === "session:created" && payloadId(e.payload) === m.id)).toBe(true)
   })
 
   test("a master without a task starts at rest", async () => {
@@ -180,60 +214,56 @@ describe("hooks drive terminal status", () => {
 
   test("a new transcript path is remembered", async () => {
     const m = await newMaster()
-    await hook(m.id, { hook_event_name: "SessionStart", transcript_path: "/t/x.jsonl", session_id: "claude-1" })
-    const saved = JSON.parse(fs.readFileSync(path.join(userData, "sessions.json"), "utf8"))
-    expect(saved.find((r: any) => r.id === m.id)).toMatchObject({ transcriptPath: "/t/x.jsonl", claudeSessionId: "claude-1" })
+    await hook(m.id, { hook_event_name: "SessionStart", transcript_path: asFilePath("/t/x.jsonl"), session_id: asClaudeSessionId("claude-1") })
+    expect(savedRecord(m.id)).toMatchObject({ transcriptPath: "/t/x.jsonl", claudeSessionId: "claude-1" })
   })
 })
 
 describe("a master steering workers over MCP", () => {
   test("spawn, list, send, wait, read", async () => {
     const m = await newMaster()
-    const spawned = (await tool(m.id, { name: "spawn_subagent", input: { name: "w1", task: "do a thing" } })) as any
-    const w = spawned.success
+    const w = await spawnWorker(m.id, "w1", "do a thing")
     expect(w.name).toBe("w1")
     const wp = procOf(w.id)
     expect(wp.args.at(-1)).toBe("do a thing")
     expect(wp.args).not.toContain("--mcp-config")
 
-    const list = (await tool(m.id, { name: "list_subagents", input: {} })) as any
-    expect(list.success.map((x: any) => x.name)).toEqual(["w1"])
+    const list = await ok(tool(m.id, { name: "list_subagents", input: {} }))
+    expect(arr(list).map((x) => at(x, "name"))).toEqual(["w1"])
 
     await hook(w.id, { hook_event_name: "UserPromptSubmit" })
     const waiting = tool(m.id, { name: "wait_for_subagents", input: { workers: ["W1"] } })
     await tick()
     await hook(w.id, { hook_event_name: "Stop", last_assistant_message: "Finished it" })
-    const waited = ((await waiting) as any).success
-    expect(waited.timedOut).toBe(false)
-    expect(waited.workers[0]).toMatchObject({ name: "w1", status: "done", summary: "Finished it" })
+    const waited = await ok(waiting)
+    expect(at(waited, "timedOut")).toBe(false)
+    expect(arr(at(waited, "workers"))[0]).toMatchObject({ name: "w1", status: "done", summary: "Finished it" })
 
-    const sentMsg = (await tool(m.id, { name: "send_to_subagent", input: { worker: "w1", message: "again" } })) as any
-    expect(sentMsg.success).toEqual({ ok: true, name: "w1" })
+    const sentMsg = await ok(tool(m.id, { name: "send_to_subagent", input: { worker: "w1", message: "again" } }))
+    expect(sentMsg).toEqual({ ok: true, name: "w1" })
     expect(wp.written[0]).toBe("\x1b[200~again\x1b[201~")
     await Bun.sleep(150)
     expect(wp.written[1]).toBe("\r")
 
-    const read = (await tool(m.id, { name: "read_subagent", input: { worker: "w1" } })) as any
-    expect(read.success.finalMessage).toBe("Finished it")
+    const read = await ok(tool(m.id, { name: "read_subagent", input: { worker: "w1" } }))
+    expect(at(read, "finalMessage")).toBe("Finished it")
   })
 
   test("waiting times out, and unknown workers and non-masters are errors", async () => {
     const m = await newMaster()
-    const w = ((await tool(m.id, { name: "spawn_subagent", input: { name: "slow", task: "t" } })) as any).success
+    const w = await spawnWorker(m.id, "slow", "t")
     await hook(w.id, { hook_event_name: "UserPromptSubmit" })
-    const waited = ((await tool(m.id, { name: "wait_for_subagents", input: { timeout_seconds: 1 } })) as any).success
-    expect(waited.timedOut).toBe(true)
-    const missing = (await tool(m.id, { name: "read_subagent", input: { worker: "nope" } })) as any
-    expect(missing.failure.message).toBe('No worker "nope". Known workers: slow')
-    const fromWorker = (await tool(w.id, { name: "list_subagents", input: {} })) as any
-    expect(fromWorker.failure.message).toBe("Only a master session can orchestrate workers")
+    const waited = await ok(tool(m.id, { name: "wait_for_subagents", input: { timeout_seconds: 1 } }))
+    expect(at(waited, "timedOut")).toBe(true)
+    expect(await failure(tool(m.id, { name: "read_subagent", input: { worker: "nope" } }))).toBe('No worker "nope". Known workers: slow')
+    expect(await failure(tool(w.id, { name: "list_subagents", input: {} }))).toBe("Only a master session can orchestrate workers")
   })
 })
 
 describe("lifecycle", () => {
   test("closing keeps a master and its workers listed, reopening resumes them", async () => {
     const m = await newMaster()
-    const w = ((await tool(m.id, { name: "spawn_subagent", input: { name: "kid", task: "t" } })) as any).success
+    const w = await spawnWorker(m.id, "kid", "t")
     await sessions((s) => s.close(m.id))
     await tick()
     expect([(await get(m.id)).status, (await get(w.id)).status]).toEqual(["closed", "closed"])
@@ -246,7 +276,7 @@ describe("lifecycle", () => {
 
   test("claude exiting leaves a shell; the shell exiting removes the session and its workers", async () => {
     const m = await newMaster()
-    const w = ((await tool(m.id, { name: "spawn_subagent", input: { name: "kid", task: "t" } })) as any).success
+    const w = await spawnWorker(m.id, "kid", "t")
     procOf(m.id).exit()
     expect((await get(m.id)).status).toBe("exited")
     const shell = procs.at(-1)!
@@ -255,7 +285,7 @@ describe("lifecycle", () => {
     await tick()
     expect(await get(m.id)).toBeNull()
     expect(await get(w.id)).toBeNull()
-    expect(sent.some((e) => e.channel === "session:removed" && (e.payload as any).id === w.id)).toBe(true)
+    expect(sent.some((e) => e.channel === "session:removed" && payloadId(e.payload) === w.id)).toBe(true)
   })
 
   test("delete asks first", async () => {
@@ -274,10 +304,12 @@ describe("chat sessions", () => {
     const m = await sessions((s) => s.createMaster({ task: "", kind: "chat", cwd: work, model: "", permissionMode: "default" }))
     await sessions((s) => s.chatSend(m.id, "hello"))
     expect((await get(m.id)).status).toBe("working")
-    // Unrequested exit, so the session leaves.
-    for (let i = 0; i < 100 && (await get(m.id)); i++) await Bun.sleep(20)
+    // Wait for the unrequested exit to remove it
+    for (let i = 0; i < 100 && (await get(m.id)); i++) {
+      await Bun.sleep(20)
+    }
     expect(await get(m.id)).toBeNull()
-    expect(sent.some((e) => e.channel === "chat:event" && (e.payload as any).id === m.id)).toBe(true)
+    expect(sent.some((e) => e.channel === "chat:event" && payloadId(e.payload) === m.id)).toBe(true)
   })
 })
 
@@ -286,14 +318,13 @@ describe("persistence", () => {
     const m = await newMaster()
     await sessions((s) => s.rename(m.id, "  Keeper  "))
     await runtime.dispose()
-    const saved = JSON.parse(fs.readFileSync(path.join(userData, "sessions.json"), "utf8"))
-    expect(saved.find((r: any) => r.id === m.id)).toMatchObject({ name: "Keeper", closed: false })
+    expect(savedRecord(m.id)).toMatchObject({ name: "Keeper", closed: false })
 
     runtime = makeRuntime()
     await sessions((s) => s.restore)
     const back = await get(m.id)
     expect([back.name, back.status]).toEqual(["Keeper", "idle"])
-    // No transcript, so fresh under the same id.
+    // Fresh start under the same id
     expect(procOf(m.id).args).toContain("--session-id")
   })
 
