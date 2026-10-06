@@ -1,25 +1,27 @@
-// Fake home in a temp dir; cases share state.
+// Skills service against a fake home; cases share state.
 
 import { afterAll, test } from "bun:test"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 import assert from "node:assert"
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import { Skills } from "../src/main/skills/Skills.ts"
-import type { SkillsListing, SkillState } from "../src/shared/skills.ts"
+import { asDirPath, asSkillId } from "../src/shared/ids.ts"
+import type { SkillRow, SkillsListing, SkillState } from "../src/shared/skills.ts"
 
-// Service as promises, failing with the message.
+// Skills service as promises that reject with the message
 const client = (home: string) => {
   const svc = Effect.runSync(Effect.gen(function* () { return yield* Skills }).pipe(Effect.provide(Skills.layerFor(home))))
   const run = <A>(e: Effect.Effect<A, { message: string }>) =>
     Effect.runPromise(e.pipe(Effect.mapError((err) => new Error(err.message))))
   return {
-    list: (dirs: ReadonlyArray<string>) => Effect.runPromise(svc.list(dirs)),
-    setState: (input: { id: string; state: string }, dirs: ReadonlyArray<string>) =>
-      run(svc.setState(input as { id: string; state: SkillState }, dirs)),
-    setPlugin: (input: { id: string; enabled: boolean }, dirs: ReadonlyArray<string>) => run(svc.setPlugin(input, dirs)),
-    restore: (input: { id: string }, dirs: ReadonlyArray<string>) => run(svc.restore(input, dirs)),
+    list: (dirs: ReadonlyArray<string>) => Effect.runPromise(svc.list(dirs.map(asDirPath))),
+    setState: (input: { id: string; state: SkillState }, dirs: ReadonlyArray<string>) =>
+      run(svc.setState({ id: asSkillId(input.id), state: input.state }, dirs.map(asDirPath))),
+    setPlugin: (input: { id: string; enabled: boolean }, dirs: ReadonlyArray<string>) =>
+      run(svc.setPlugin({ id: asSkillId(input.id), enabled: input.enabled }, dirs.map(asDirPath))),
+    restore: (input: { id: string }, dirs: ReadonlyArray<string>) => run(svc.restore({ id: asSkillId(input.id) }, dirs.map(asDirPath))),
   }
 }
 
@@ -32,9 +34,24 @@ const write = (file: string, text: string) => {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, text);
 };
-const readJson = (file: string): any => JSON.parse(fs.readFileSync(file, 'utf8'));
+// Settings file fields the tests read
+const SettingsFile = Schema.Struct({
+  model: Schema.optionalKey(Schema.String),
+  skillOverrides: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
+  enabledPlugins: Schema.optionalKey(Schema.Record(Schema.String, Schema.Boolean)),
+  permissions: Schema.optionalKey(Schema.Json),
+})
+const readJson = (file: string) => Schema.decodeUnknownSync(Schema.fromJsonString(SettingsFile))(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, ''));
 const skill = (dir: string, front: string | null, body = 'Body text.\n') => write(path.join(dir, 'SKILL.md'), front === null ? body : `---\n${front}\n---\n${body}`);
-const find = (res: SkillsListing, id: string): any => res.skills.find((s) => s.id === id);
+const lookup = (res: SkillsListing, id: string): SkillRow | undefined => res.skills.find((s) => s.id === id);
+// Row by id, failing the test when missing
+const find = (res: SkillsListing, id: string): SkillRow => {
+  const row = lookup(res, id);
+  if (!row) {
+    throw new Error(`No row ${id}`);
+  }
+  return row;
+};
 
 // personal
 skill(path.join(claude, 'skills', 'pr-review'), 'name: pr-review\ndescription: Review pull requests\nwhen_to_use: When asked to review a PR');
@@ -63,7 +80,7 @@ write(path.join(claude, 'plugins', 'installed_plugins.json'), JSON.stringify({
     'other@mkt': [{ scope: 'user', installPath: path.join(claude, 'plugins', 'cache', 'mkt', 'other', '1.0.0'), version: '1.0.0' }],
   },
 }));
-// Unrelated keys survive; both scopes override pr-review.
+// User and project settings with pr-review overrides
 write(path.join(claude, 'settings.json'), JSON.stringify({
   model: 'opus',
   skillOverrides: { 'pr-review': 'name-only' },
@@ -121,9 +138,9 @@ test('(d) setState off writes override, keeps unrelated keys, tokens and totals 
   const next = await skills1.setState({ id: 'personal:folded', state: 'off' }, opts.projectDirs);
   const json = readJson(path.join(claude, 'settings.json'));
   assert.strictEqual(json.model, 'opus');
-  assert.strictEqual(json.skillOverrides.folded, 'off');
-  assert.strictEqual(json.skillOverrides['pr-review'], 'name-only');
-  assert.deepStrictEqual(json.enabledPlugins['unrelated@x'], true);
+  assert.strictEqual(json.skillOverrides?.folded, 'off');
+  assert.strictEqual(json.skillOverrides?.['pr-review'], 'name-only');
+  assert.deepStrictEqual(json.enabledPlugins?.['unrelated@x'], true);
   const row = find(next, 'personal:folded');
   assert.deepStrictEqual([row.state, row.listingTokens], ['off', 0]);
   assert.strictEqual(next.totals.listingTokens, before.totals.listingTokens - target.listingTokens);
@@ -136,7 +153,7 @@ test('(d2) project skill writes to settings.local.json, not the user file', asyn
   const next = await skills1.setState({ id: `project:${proj}:deploy`, state: 'user-invocable-only' }, []);
   const row = find(next, `project:${proj}:deploy`);
   assert.deepStrictEqual([row.state, row.modelInvocable, row.userInvocable, row.listingTokens], ['user-invocable-only', false, true, 0]);
-  assert.strictEqual(readJson(path.join(proj, '.claude', 'settings.local.json')).skillOverrides.deploy, 'user-invocable-only');
+  assert.strictEqual(readJson(path.join(proj, '.claude', 'settings.local.json')).skillOverrides?.deploy, 'user-invocable-only');
   assert.ok(!('deploy' in (readJson(path.join(claude, 'settings.json')).skillOverrides || {})));
   await skills1.setState({ id: `project:${proj}:deploy`, state: 'on' }, []);
 });
@@ -144,12 +161,12 @@ test('(d2) project skill writes to settings.local.json, not the user file', asyn
 test('(e) setState on removes key and the emptied skillOverrides', async () => {
   await skills1.setState({ id: 'personal:pr-review', state: 'on' }, []);
   let json = readJson(path.join(claude, 'settings.json'));
-  assert.deepStrictEqual(Object.keys(json.skillOverrides), ['folded']);
+  assert.deepStrictEqual(Object.keys(json.skillOverrides ?? {}), ['folded']);
   await skills1.setState({ id: 'personal:folded', state: 'on' }, []);
   json = readJson(path.join(claude, 'settings.json'));
   assert.ok(!('skillOverrides' in json));
   assert.strictEqual(json.model, 'opus');
-  assert.strictEqual(json.enabledPlugins['tools@mkt'], true);
+  assert.strictEqual(json.enabledPlugins?.['tools@mkt'], true);
   const local = path.join(proj, '.claude', 'settings.local.json');
   await skills1.setState({ id: `project:${proj}:pr-review`, state: 'on' }, []);
   const lj = readJson(local);
@@ -162,7 +179,7 @@ test('(f) setPlugin flips one enabledPlugins key only', async () => {
   assert.deepStrictEqual(json.enabledPlugins, { 'tools@mkt': false, 'other@mkt': false, 'unrelated@x': true });
   assert.strictEqual(find(next, 'plugin:tools@mkt:lint').state, 'off');
   await skills1.setPlugin({ id: 'other@mkt', enabled: true }, []);
-  assert.strictEqual(readJson(path.join(claude, 'settings.json')).enabledPlugins['other@mkt'], true);
+  assert.strictEqual(readJson(path.join(claude, 'settings.json')).enabledPlugins?.['other@mkt'], true);
   await assert.rejects(() => skills1.setState({ id: 'plugin:tools@mkt:lint', state: 'off' }, []), /plugin/i);
   await assert.rejects(() => skills1.setPlugin({ id: 'nope@x', enabled: true }, []), /not found/);
 });
@@ -206,7 +223,7 @@ test('(j) broken link and link loop warn and are skipped', async () => {
   const joined = r.warnings.join('\n');
   assert.match(joined, /dead-link: broken link/);
   assert.match(joined, /loop-a: link loops back/);
-  assert.ok(!find(r, 'personal:dead-link') && !find(r, 'personal:loop-a'));
+  assert.ok(!lookup(r, 'personal:dead-link') && !lookup(r, 'personal:loop-a'));
 });
 
 test('(k) commands from home and project are discovered and toggleable', async () => {
@@ -226,9 +243,9 @@ test('(k) commands from home and project are discovered and toggleable', async (
   r = await skills1.setState({ id: 'command:conductor-add', state: 'off' }, []);
   assert.strictEqual(find(r, 'command:conductor-add').state, 'off');
   assert.strictEqual(find(r, 'command:conductor-add').userInvocable, false);
-  assert.strictEqual(readJson(path.join(claude, 'settings.json')).skillOverrides['conductor-add'], 'off');
+  assert.strictEqual(readJson(path.join(claude, 'settings.json')).skillOverrides?.['conductor-add'], 'off');
   r = await skills1.setState({ id: `project-command:${proj}:ship`, state: 'name-only' }, []);
-  assert.strictEqual(readJson(path.join(proj, '.claude', 'settings.local.json')).skillOverrides['ship-it'], 'name-only');
+  assert.strictEqual(readJson(path.join(proj, '.claude', 'settings.local.json')).skillOverrides?.['ship-it'], 'name-only');
   assert.strictEqual(find(r, `project-command:${proj}:ship`).settingsFile, path.join(proj, '.claude', 'settings.local.json'));
   await skills1.setState({ id: 'command:conductor-add', state: 'on' }, []);
   await skills1.setState({ id: `project-command:${proj}:ship`, state: 'on' }, []);
@@ -237,7 +254,7 @@ test('(k) commands from home and project are discovered and toggleable', async (
 
 test('(l) stale plugin cache versions are not duplicated; newest lastUpdated entry wins', async () => {
   const cache = path.join(claude, 'plugins', 'cache', 'mkt', 'multi');
-  for (const v of ['0.1.0', '0.2.0', '0.3.0', '1.0.0', '2.0.0']) skill(path.join(cache, v, 'skills', `s-${v}`), `description: version ${v}`);
+  ['0.1.0', '0.2.0', '0.3.0', '1.0.0', '2.0.0'].forEach((v) => skill(path.join(cache, v, 'skills', `s-${v}`), `description: version ${v}`));
   write(path.join(claude, 'plugins', 'installed_plugins.json'), JSON.stringify({
     version: 2,
     plugins: {
@@ -248,7 +265,7 @@ test('(l) stale plugin cache versions are not duplicated; newest lastUpdated ent
       'bare@mkt': [{ scope: 'user', version: '1.0.0' }],
     },
   }));
-  // Sibling plugin in the checkout must not leak.
+  // Marketplace checkout with an installed and an unlisted plugin
   skill(path.join(claude, 'plugins', 'marketplaces', 'mkt', 'plugins', 'bare', 'skills', 'from-market'), 'description: market');
   skill(path.join(claude, 'plugins', 'marketplaces', 'mkt', 'plugins', 'unlisted', 'skills', 'nope'), 'description: not installed');
   const r = await skills1.list(opts.projectDirs);
@@ -269,12 +286,12 @@ const skills2 = client(home2);
 test('(m) the listing is priced against the caps Claude Code applies, not a raw sum', async () => {
   // One huge description plus enough to overflow.
   skill(path.join(claude2, 'skills', 'verbose'), `name: verbose\ndescription: ${'d'.repeat(4000)}`);
-  for (let i = 0; i < 20; i++) {
+  Array.from({ length: 20 }, (_, i) => i).forEach((i) => {
     skill(path.join(claude2, 'skills', `bulk-${i}`), `name: bulk-${i}\ndescription: ${'e'.repeat(400)}`);
-  }
+  });
   const r = await skills2.list(opts2.projectDirs);
   const v = find(r, 'personal:verbose');
-  // Listing line; description cut at 1536.
+  // Listing line with the description cut at 1536
   assert.strictEqual(v.listingChars, 'verbose'.length + 4 + 1536, 'long description is capped');
   assert.ok(v.listingChars < 4000, 'the cap is what keeps it from being priced at its full length');
   assert.ok(r.totals.overBudget, 'this many skills is over the listing budget');
@@ -287,7 +304,9 @@ test('(m) the listing is priced against the caps Claude Code applies, not a raw 
   assert.ok(r.totals.listingTokens > r.totals.effectiveTokens, 'the uncapped sum is reported separately');
 
   // Turning skills off fits it again.
-  for (let i = 0; i < 20; i++) await skills2.setState({ id: `personal:bulk-${i}`, state: 'off' }, []);
+  for (let i = 0; i < 20; i++) {
+    await skills2.setState({ id: `personal:bulk-${i}`, state: 'off' }, []);
+  }
   const r2 = await skills2.list(opts2.projectDirs);
   assert.ok(!r2.totals.overBudget, 'pruning brings the listing back under budget');
   assert.strictEqual(r2.totals.effectiveTokens, r2.totals.listingTokens, 'under budget the sum is the cost');
@@ -302,8 +321,8 @@ test('(n) turning a skill back on beats an override in a lower settings file', a
   const row = find(after, `project:${proj2}:shared`);
   assert.strictEqual(row.state, 'on', 'the row really reads as on, not snapped back by the user file');
   const local = readJson(path.join(proj2, '.claude', 'settings.local.json'));
-  assert.strictEqual(local.skillOverrides.shared, 'on', 'an explicit on is written to outrank the lower file');
-  assert.strictEqual(readJson(path.join(claude2, 'settings.json')).skillOverrides.shared, 'off', 'the other file is left alone');
+  assert.strictEqual(local.skillOverrides?.shared, 'on', 'an explicit on is written to outrank the lower file');
+  assert.strictEqual(readJson(path.join(claude2, 'settings.json')).skillOverrides?.shared, 'off', 'the other file is left alone');
 });
 
 test('(o) a settings file with a byte order mark or no content is still usable', async () => {
@@ -313,11 +332,11 @@ test('(o) a settings file with a byte order mark or no content is still usable',
   assert.ok(!r.warnings.some((w) => /settings\.json is not valid JSON/.test(w)), 'a byte order mark is not a parse error');
   await skills2.setState({ id: 'personal:bom-test', state: 'off' }, []);
   assert.strictEqual(readJson(path.join(claude2, 'settings.json')).model, 'opus', 'unrelated keys survive');
-  assert.strictEqual(readJson(path.join(claude2, 'settings.json')).skillOverrides['bom-test'], 'off');
+  assert.strictEqual(readJson(path.join(claude2, 'settings.json')).skillOverrides?.['bom-test'], 'off');
 
   write(path.join(claude2, 'settings.json'), '   \n');
   await skills2.setState({ id: 'personal:bom-test', state: 'off' }, []);
-  assert.strictEqual(readJson(path.join(claude2, 'settings.json')).skillOverrides['bom-test'], 'off', 'an empty file is an empty object');
+  assert.strictEqual(readJson(path.join(claude2, 'settings.json')).skillOverrides?.['bom-test'], 'off', 'an empty file is an empty object');
 });
 
 test('(p) a project file that overrides a personal skill or a plugin is called out', async () => {
@@ -350,8 +369,8 @@ test('(h) missing SKILL.md, oversized file, bad JSON warn without throwing', asy
   assert.match(joined, /huge[\\/]SKILL\.md: larger than 1 MB/);
   assert.match(joined, /settings\.json is not valid JSON/);
   assert.match(joined, /missing-project/);
-  assert.ok(!find(r, 'personal:huge') && !find(r, 'personal:empty-dir'));
-  // a malformed settings file is never rewritten
+  assert.ok(!lookup(r, 'personal:huge') && !lookup(r, 'personal:empty-dir'));
+  // Malformed settings file is never rewritten
   write(path.join(proj, '.claude', 'settings.local.json'), '{ nope');
   await assert.rejects(() => skills1.setState({ id: `project:${proj}:deploy`, state: 'off' }, []), /left unchanged/);
   assert.strictEqual(fs.readFileSync(path.join(proj, '.claude', 'settings.local.json'), 'utf8'), '{ nope');

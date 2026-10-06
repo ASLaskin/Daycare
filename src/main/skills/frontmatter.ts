@@ -1,4 +1,4 @@
-// Tiny YAML subset; unreadable keys are ignored.
+// Parses a small YAML subset from markdown frontmatter.
 
 export type FrontmatterValue = string | ReadonlyArray<string>
 export type Frontmatter = Readonly<Record<string, FrontmatterValue>>
@@ -8,7 +8,9 @@ const unquote = (raw: string): string => {
   if (v.length >= 2 && v.startsWith('"') && v.endsWith('"')) {
     return v.slice(1, -1).replace(/\\(["\\nt])/g, (_, c: string) => (c === "n" ? "\n" : c === "t" ? "\t" : c))
   }
-  if (v.length >= 2 && v.startsWith("'") && v.endsWith("'")) return v.slice(1, -1).replace(/''/g, "'")
+  if (v.length >= 2 && v.startsWith("'") && v.endsWith("'")) {
+    return v.slice(1, -1).replace(/''/g, "'")
+  }
   return v
 }
 
@@ -29,9 +31,10 @@ const isBlankOrIndented = (line: string) => line.trim() === "" || /^\s/.test(lin
 
 export const parseFrontmatter = (text: string): { readonly data: Frontmatter; readonly hasFrontmatter: boolean } => {
   const lines = text.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").split("\n")
-  if (lines[0]?.trim() !== "---") return { data: {}, hasFrontmatter: false }
   const end = lines.findIndex((line, i) => i > 0 && line.trim() === "---")
-  if (end === -1) return { data: {}, hasFrontmatter: false }
+  if (lines[0]?.trim() !== "---" || end === -1) {
+    return { data: {}, hasFrontmatter: false }
+  }
 
   const data: Record<string, FrontmatterValue> = {}
   const block = lines.slice(1, end)
@@ -40,19 +43,25 @@ export const parseFrontmatter = (text: string): { readonly data: Frontmatter; re
     const line = block[i]!
     const m = /^([A-Za-z0-9_][\w.-]*)\s*:(.*)$/.exec(line)
     i++
-    if (!m || /^\s/.test(line) || /^\s*#/.test(line)) continue
+    if (!m || /^\s/.test(line) || /^\s*#/.test(line)) {
+      continue
+    }
     const key = m[1]!
     const rest = m[2]!.trim()
 
     const blockMatch = /^([>|])([+-]?)\d*\s*$/.exec(rest)
     if (blockMatch) {
       const body: Array<string> = []
-      while (i < block.length && isBlankOrIndented(block[i]!)) body.push(block[i++]!)
-      while (body.length && body[body.length - 1]!.trim() === "") body.pop()
+      while (i < block.length && isBlankOrIndented(block[i]!)) {
+        body.push(block[i++]!)
+      }
+      while (body.length && body[body.length - 1]!.trim() === "") {
+        body.pop()
+      }
       const indents = body.filter((l) => l.trim() !== "").map(indentOf)
       const indent = indents.length ? Math.min(...indents) : 0
       const cut = body.map((l) => (l.trim() === "" ? "" : l.slice(indent))).join("\n")
-      // Folded: newlines become spaces.
+      // Folded style joins lines with spaces.
       data[key] = blockMatch[1] === ">" ? cut.replace(/([^\n])\n(?=[^\n])/g, "$1 ").replace(/\n{2}/g, "\n") : cut
       continue
     }
@@ -61,14 +70,16 @@ export const parseFrontmatter = (text: string): { readonly data: Frontmatter; re
       const items: Array<string> = []
       while (i < block.length && (block[i]!.trim() === "" || /^\s*-(\s|$)/.test(block[i]!))) {
         const item = /^\s*-\s*(.*)$/.exec(block[i]!)
-        if (item) items.push(unquote(item[1]!))
+        if (item) {
+          items.push(unquote(item[1]!))
+        }
         i++
       }
       data[key] = items.length ? items : ""
       continue
     }
 
-    // Possibly wrapped onto indented lines.
+    // Scalar, joined with any indented continuation lines.
     let value = rest
     const quote = value[0] === '"' || value[0] === "'" ? value[0] : ""
     const closed = (v: string) => v.length >= 2 && v.endsWith(quote) && !v.endsWith("\\" + quote)
