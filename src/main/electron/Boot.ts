@@ -82,7 +82,9 @@ const devHooks = Effect.gen(function* () {
   const dir = env["DAYCARE_SNAPSHOT"]
   if (dir) {
     let n = 0
-    setInterval(async () => {
+    const timer = setInterval(async () => {
+      // The window goes away on quit.
+      if (win.isDestroyed()) return clearInterval(timer)
       const img = await win.webContents.capturePage()
       fs.writeFileSync(path.join(dir, `shot-${n++}.png`), img.toPNG())
       fs.writeFileSync(path.join(dir, "state.json"), JSON.stringify(await Effect.runPromise(sessions.list), null, 2))
