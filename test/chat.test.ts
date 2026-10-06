@@ -1,4 +1,4 @@
-// Fake claude replays stream-json; cases run in order.
+// Chat service against a fake claude; cases run in order.
 
 import { afterAll, describe, expect, test } from "bun:test"
 import { Deferred, Effect, ManagedRuntime, Stream } from "effect"
@@ -8,23 +8,22 @@ import path from "node:path"
 import { Chat } from "../src/main/chat/Chat.ts"
 import { historyFromTranscript } from "../src/main/chat/transcript.ts"
 import type { ChatEvent } from "../src/shared/chat.ts"
+import { asDirPath, asFilePath, asRequestId, asSessionId, type FilePath } from "../src/shared/ids.ts"
+import { at, type Json, parseJson, str, strings } from "../src/shared/json.ts"
 
 const FAKE = path.join(import.meta.dir, "fixtures", "fake-claude.js")
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "chat-test-"))
-const J = (o: unknown) => JSON.stringify(o) + "\n"
+const J = (o: Json) => JSON.stringify(o) + "\n"
 
-// Filled by one runtime long subscription.
+// Events per chat id from one subscription
 const events = new Map<string, Array<ChatEvent>>()
 
 const makeRuntime = (claudePath: string) => {
-  const runtime = ManagedRuntime.make(Chat.layer(claudePath))
-  return runtime
+  return ManagedRuntime.make(Chat.layer(asFilePath(claudePath)))
 }
 let runtime = makeRuntime(FAKE)
 const run = <A>(f: (chat: Chat["Service"]) => Effect.Effect<A>) =>
-  runtime.runSync(
-    Chat.use(f),
-  )
+  runtime.runSync(Chat.use(f))
 
 const listen = (rt: ReturnType<typeof makeRuntime>) =>
   rt.runPromise(
@@ -51,8 +50,8 @@ const listen = (rt: ReturnType<typeof makeRuntime>) =>
   )
 
 let n = 0
-const launch = (scenario: Array<unknown>, extra: Array<string> = [], transcriptPath: string | null = null) => {
-  const id = `t${++n}`
+const launch = (scenario: ReadonlyArray<Json>, extra: Array<string> = [], transcriptPath: FilePath | null = null) => {
+  const id = asSessionId(`t${++n}`)
   const files = {
     scenario: path.join(dir, `${id}.json`),
     log: path.join(dir, `${id}.log`),
@@ -62,12 +61,12 @@ const launch = (scenario: Array<unknown>, extra: Array<string> = [], transcriptP
   fs.writeFileSync(files.scenario, JSON.stringify(scenario))
   fs.writeFileSync(files.log, "")
   events.set(id, [])
-  // This runner may itself be under Claude Code.
+  // Environment without CLAUDE_CODE_ variables
   const base = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("CLAUDE_CODE_")))
   run((chat) =>
     chat.start({
       id,
-      cwd: dir,
+      cwd: asDirPath(dir),
       args: extra,
       transcriptPath,
       env: { ...base, SCENARIO: files.scenario, LOG: files.log, ARGV: files.argv, ENVF: files.env },
@@ -77,24 +76,39 @@ const launch = (scenario: Array<unknown>, extra: Array<string> = [], transcriptP
     id,
     files,
     ev: () => events.get(id) ?? [],
-    stdin: (): Array<any> =>
-      fs.readFileSync(files.log, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)),
+    stdin: (): Array<Json> =>
+      fs
+        .readFileSync(files.log, "utf8")
+        .split("\n")
+        .filter(Boolean)
+        .map((l) => parseJson(l)),
   }
 }
 
 const until = async (pred: () => boolean, ms = 8000) => {
   const end = Date.now() + ms
   while (Date.now() < end) {
-    if (pred()) return true
+    if (pred()) {
+      return true
+    }
     await Bun.sleep(10)
   }
   return false
 }
 
 const kinds = <K extends ChatEvent["kind"]>(ev: ReadonlyArray<ChatEvent>, k: K) =>
-  ev.filter((e): e is Extract<ChatEvent, { kind: K }> => e.kind === k) as Array<any>
+  ev.filter((e): e is Extract<ChatEvent, { kind: K }> => e.kind === k)
 
-// Subscribe before the first child starts.
+// Item at an index, failing the test when missing
+const item = <T>(xs: ReadonlyArray<T>, i = 0): T => {
+  const x = xs[i]
+  if (x === undefined) {
+    throw new Error(`No item at ${i}`)
+  }
+  return x
+}
+
+// Subscribe before the first child starts
 await listen(runtime)
 
 afterAll(async () => {
@@ -106,9 +120,9 @@ const delta = (t: string, index = 1) => J({ type: 'stream_event', event: { type:
 const deltaLine = delta('Hel');
 const cut = Math.floor(deltaLine.length / 2);
 const usage = { input_tokens: 10, cache_creation_input_tokens: 200, cache_read_input_tokens: 3000, output_tokens: 40 };
-// usage sums the turn; iterations holds the last call.
+// Turn usage summed, with the last call in iterations
 const summed = { input_tokens: 34, cache_creation_input_tokens: 9164, cache_read_input_tokens: 37296, output_tokens: 663, iterations: [{ input_tokens: 8, cache_creation_input_tokens: 136, cache_read_input_tokens: 22478, output_tokens: 81, type: 'message' }] };
-const result = (cost: number, u: object = usage) => J({ type: 'result', subtype: 'success', is_error: false, result: 'Hello', stop_reason: 'end_turn', total_cost_usd: cost, usage: u, modelUsage: { 'claude-sonnet-4-5': { contextWindow: 200000 } }, num_turns: 1, duration_ms: 1234, session_id: 'S1' });
+const result = (cost: number, u: Json = usage) => J({ type: 'result', subtype: 'success', is_error: false, result: 'Hello', stop_reason: 'end_turn', total_cost_usd: cost, usage: u, modelUsage: { 'claude-sonnet-4-5': { contextWindow: 200000 } }, num_turns: 1, duration_ms: 1234, session_id: 'S1' });
 
 const scenarioA = [
   { stderr: 'error: boom\nsecond line\n' },
@@ -149,7 +163,7 @@ describe("one long scenario", () => {
 
   test("init yields ready with session id, model, cwd, tools", async () => {
     expect(await until(() => kinds(a.ev(), "ready").length === 1)).toBe(true)
-    const ready = kinds(a.ev(), "ready")[0]
+    const ready = item(kinds(a.ev(), "ready"))
     expect([ready.claudeSessionId, ready.model, ready.cwd, ready.tools.length, ready.slashCommands[0]]).toEqual([
       "S1",
       "claude-sonnet-4-5",
@@ -161,12 +175,12 @@ describe("one long scenario", () => {
 
   test("the child is told to emit session state events", async () => {
     expect(await until(() => fs.existsSync(a.files.env))).toBe(true)
-    expect(JSON.parse(fs.readFileSync(a.files.env, "utf8")).CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS).toBe("1")
+    expect(at(parseJson(fs.readFileSync(a.files.env, "utf8")) ?? undefined, "CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS")).toBe("1")
   })
 
   test("argv carries base flags and extra args", () => {
-    const argv: Array<string> = JSON.parse(fs.readFileSync(a.files.argv, "utf8"))
-    for (const f of ["-p", "--verbose", "--include-partial-messages"]) expect(argv).toContain(f)
+    const argv = strings(parseJson(fs.readFileSync(a.files.argv, "utf8")) ?? undefined)
+    expect(argv).toEqual(expect.arrayContaining(["-p", "--verbose", "--include-partial-messages"]))
     expect(argv.join(" ")).toContain("--permission-prompt-tool stdio")
     expect(argv.join(" ")).toContain("--input-format stream-json")
     expect(argv.slice(-2)).toEqual(["--model", "sonnet"])
@@ -175,17 +189,17 @@ describe("one long scenario", () => {
   test("deltas split mid-line arrive in order and are replaced by the final text", async () => {
     await until(() => kinds(a.ev(), "text").length === 1)
     const deltas = kinds(a.ev(), "text-delta")
-    const text = kinds(a.ev(), "text")[0]
+    const text = item(kinds(a.ev(), "text"))
     expect(deltas.map((d) => d.text)).toEqual(["Hel", "lo"])
     expect(text.text).toBe("Hello")
     expect(deltas.every((d) => d.block === text.block)).toBe(true)
   })
 
   test("thinking comes from the assistant line with the estimated token count", () => {
-    const thinking = kinds(a.ev(), "thinking")[0]
+    const thinking = item(kinds(a.ev(), "thinking"))
     expect(thinking.text).toBe("hmm")
     expect(thinking.tokens).toBe(384)
-    expect(thinking.block).not.toBe(kinds(a.ev(), "text")[0].block)
+    expect(thinking.block).not.toBe(item(kinds(a.ev(), "text")).block)
   })
 
   test("a malformed line and unknown types do not stop later events", async () => {
@@ -194,17 +208,20 @@ describe("one long scenario", () => {
   })
 
   test("tool_use and tool_result pair up", () => {
-    const [s1, s2] = kinds(a.ev(), "tool-start")
-    expect([s1.toolUseId, s1.name, s1.input.command, s1.title, s1.parentToolUseId]).toEqual(["toolu_1", "Bash", "ls", "Bash: ls", null])
-    expect(s2.title).toBe("Read: b.txt")
-    const [e1, e2] = kinds(a.ev(), "tool-end")
-    expect([e1.toolUseId, e1.isError, e1.structured.stdout]).toEqual(["toolu_1", false, "a.txt"])
+    const starts = kinds(a.ev(), "tool-start")
+    const s1 = item(starts, 0)
+    expect([s1.toolUseId, s1.name, at(s1.input, "command"), s1.title, s1.parentToolUseId]).toEqual(["toolu_1", "Bash", "ls", "Bash: ls", null])
+    expect(item(starts, 1).title).toBe("Read: b.txt")
+    const ends = kinds(a.ev(), "tool-end")
+    const e1 = item(ends, 0)
+    const e2 = item(ends, 1)
+    expect([e1.toolUseId, e1.isError, at(e1.structured ?? undefined, "stdout")]).toEqual(["toolu_1", false, "a.txt"])
     expect([e2.toolUseId, e2.isError, e2.content]).toEqual(["toolu_2", true, "nope"])
-    expect(kinds(a.ev(), "state")[0].state).toBe("running")
+    expect(item(kinds(a.ev(), "state")).state).toBe("running")
   })
 
   test("permissions: prompt, answer once, interrupt", async () => {
-    const perm = kinds(a.ev(), "permission")[0]
+    const perm = item(kinds(a.ev(), "permission"))
     expect([perm.requestId, perm.toolUseId, perm.name, perm.title, perm.description, perm.suggestions.length]).toEqual([
       "req_1",
       "toolu_3",
@@ -213,10 +230,10 @@ describe("one long scenario", () => {
       "Remove x",
       1,
     ])
-    expect(run((chat) => chat.respond(a.id, "does-not-exist", { allow: true }))).toBe(false)
-    run((chat) => chat.respond(a.id, "req_1", { allow: true }))
-    // Already answered, so ignored.
-    run((chat) => chat.respond(a.id, "req_1", { allow: false }))
+    expect(run((chat) => chat.respond(a.id, asRequestId("does-not-exist"), { allow: true }))).toBe(false)
+    run((chat) => chat.respond(a.id, asRequestId("req_1"), { allow: true }))
+    // Second answer to the same request is ignored
+    run((chat) => chat.respond(a.id, asRequestId("req_1"), { allow: false }))
     run((chat) => chat.interrupt(a.id))
     await until(() => a.stdin().length >= 2)
     const lines = a.stdin()
@@ -225,18 +242,21 @@ describe("one long scenario", () => {
       response: { subtype: "success", request_id: "req_1", response: { behavior: "allow", updatedInput: { command: "rm x" } } },
     })
     const resolved = kinds(a.ev(), "permission-resolved").filter((e) => e.requestId === "req_1")
-    expect(resolved).toEqual([{ kind: "permission-resolved", requestId: "req_1", allowed: true }])
-    expect(lines[1].type).toBe("control_request")
-    expect(lines[1].request_id.length).toBeGreaterThan(0)
-    expect(lines[1].request).toEqual({ subtype: "interrupt" })
+    expect(resolved).toEqual([{ kind: "permission-resolved", requestId: asRequestId("req_1"), allowed: true }])
+    const interrupt = item(lines, 1)
+    expect(at(interrupt, "type")).toBe("control_request")
+    expect(str(at(interrupt, "request_id"))?.length).toBeGreaterThan(0)
+    expect(at(interrupt, "request")).toEqual({ subtype: "interrupt" })
     expect(lines.length).toBe(2)
-    // The third stdin line releases the scenario.
+    // Third stdin line releases the scenario
     run((chat) => chat.send(a.id, "go on"))
   })
 
   test("turn-end: context from the last iteration, cumulative cost", async () => {
     await until(() => kinds(a.ev(), "turn-end").length === 2)
-    const [t1, t2] = kinds(a.ev(), "turn-end")
+    const ends = kinds(a.ev(), "turn-end")
+    const t1 = item(ends, 0)
+    const t2 = item(ends, 1)
     expect(t1.contextTokens).toBe(22703)
     expect(t2.contextTokens).toBe(3250)
     expect([t1.text, t1.stopReason, t1.numTurns, t1.durationMs, t1.isError]).toEqual(["Hello", "end_turn", 1, 1234, false])
@@ -248,17 +268,19 @@ describe("one long scenario", () => {
   test("task lifecycle, rate limit percent, cancelled permission, idle", () => {
     const tasks = kinds(a.ev(), "task")
     expect(tasks.map((t) => t.status)).toEqual(["running", "running", "completed", "completed"])
-    expect([tasks[1].lastTool, tasks[1].usage.tool_uses]).toEqual(["Read", 2])
-    expect([tasks[3].summary, tasks[3].description, tasks[3].subagentType]).toEqual(["Found it", "Explore repo", "Explore"])
-    expect(kinds(a.ev(), "rate-limit")[0].percent).toBe(42)
+    const progress = item(tasks, 1)
+    const done = item(tasks, 3)
+    expect([progress.lastTool, at(progress.usage ?? undefined, "tool_uses")]).toEqual(["Read", 2])
+    expect([done.summary, done.description, done.subagentType]).toEqual(["Found it", "Explore repo", "Explore"])
+    expect(item(kinds(a.ev(), "rate-limit")).percent).toBe(42)
     const cancelled = kinds(a.ev(), "permission-resolved").find((e) => e.requestId === "req_2")
-    expect([cancelled.allowed, cancelled.reason]).toEqual([false, "cancelled"])
+    expect(cancelled).toMatchObject({ allowed: false, reason: "cancelled" })
     expect(kinds(a.ev(), "state").map((s) => s.state)).toEqual(["running", "idle"])
   })
 
   test("exit carries the code and stderr tail; history keeps finals but not deltas", async () => {
     expect(await until(() => kinds(a.ev(), "exit").length === 1)).toBe(true)
-    const exit = kinds(a.ev(), "exit")[0]
+    const exit = item(kinds(a.ev(), "exit"))
     expect(exit.code).toBe(3)
     expect(exit.stderrTail).toContain("boom")
     expect(exit.stderrTail).toContain("second line")
@@ -276,9 +298,9 @@ test("turns sent before the child spawns are flushed in order, surviving backpre
   run((chat) => chat.send(m.id, "first"))
   run((chat) => chat.send(m.id, "second"))
   const big = "y".repeat(100 * 1024)
-  for (let i = 0; i < 50; i++) run((chat) => chat.send(m.id, `${i}:${big}`))
+  Array.from({ length: 50 }, (_, i) => i).forEach((i) => run((chat) => chat.send(m.id, `${i}:${big}`)))
   expect(await until(() => kinds(m.ev(), "exit").length === 1)).toBe(true)
-  const got = m.stdin().map((l) => l.message.content)
+  const got = m.stdin().map((l) => at(l, "message", "content"))
   expect(got.length).toBe(52)
   expect(got.slice(0, 2)).toEqual(["first", "second"])
   expect(got.slice(2).every((t, i) => t === `${i}:${big}`)).toBe(true)
@@ -321,7 +343,7 @@ test("stop closes stdin and a healthy child exits 0 promptly", async () => {
   const t0 = Date.now()
   run((chat) => chat.stop(s1.id))
   await until(() => kinds(s1.ev(), "exit").length === 1)
-  expect(kinds(s1.ev(), "exit")[0].code).toBe(0)
+  expect(item(kinds(s1.ev(), "exit")).code).toBe(0)
   expect(Date.now() - t0).toBeLessThan(1500)
   expect(run((chat) => chat.has(s1.id))).toBe(false)
 })
@@ -335,7 +357,7 @@ test(
     run((chat) => chat.stop(s2.id))
     await until(() => kinds(s2.ev(), "exit").length === 1, 9000)
     const dt = Date.now() - t1
-    expect(kinds(s2.ev(), "exit")[0].code).toBe(null)
+    expect(item(kinds(s2.ev(), "exit")).code).toBe(null)
     expect(dt).toBeGreaterThanOrEqual(4500)
     expect(dt).toBeLessThan(7500)
   },
@@ -350,13 +372,13 @@ test("a real denial carries no cancellation reason", async () => {
     { exit: 0 },
   ])
   await until(() => kinds(d.ev(), "permission").length === 1)
-  run((chat) => chat.respond(d.id, "req_d", { allow: false }))
+  run((chat) => chat.respond(d.id, asRequestId("req_d"), { allow: false }))
   await until(() => kinds(d.ev(), "permission-resolved").length === 1)
-  expect(kinds(d.ev(), "permission-resolved")[0]).toEqual({ kind: "permission-resolved", requestId: "req_d", allowed: false })
+  expect(item(kinds(d.ev(), "permission-resolved"))).toEqual({ kind: "permission-resolved", requestId: asRequestId("req_d"), allowed: false })
 })
 
 describe("transcript replay", () => {
-  const tp = path.join(dir, "transcript.jsonl")
+  const tp = asFilePath(path.join(dir, "transcript.jsonl"))
   const U = "toolu_01Ph2mhcst3kipaet5tvjBg1"
   fs.writeFileSync(
     tp,
@@ -372,44 +394,44 @@ describe("transcript replay", () => {
       J({ type: "assistant", isSidechain: false, uuid: "u7", message: { id: "msg_2", role: "assistant", content: [{ type: "text", text: "Done." }] } }),
     ].join(""),
   )
-  const rebuilt = historyFromTranscript(tp) as Array<any>
+  const rebuilt = historyFromTranscript(tp)
 
   test("yields the live event kinds and shapes in order", () => {
     expect(rebuilt.map((e) => e.kind)).toEqual(["user", "thinking", "tool-start", "tool-end", "text"])
-    expect(rebuilt[0].text).toBe("list the files")
-    expect(rebuilt[1].tokens).toBe(317)
-    expect([rebuilt[2].toolUseId, rebuilt[2].title, rebuilt[2].parentToolUseId]).toEqual([U, "Bash: ls", null])
-    expect([rebuilt[3].content, rebuilt[3].structured.stdout, rebuilt[3].isError]).toEqual(["a.txt", "a.txt", false])
-    expect(rebuilt[4].text).toBe("Done.")
+    expect(item(rebuilt, 0)).toMatchObject({ text: "list the files" })
+    expect(item(rebuilt, 1)).toMatchObject({ tokens: 317 })
+    expect(item(rebuilt, 2)).toMatchObject({ toolUseId: U, title: "Bash: ls", parentToolUseId: null })
+    expect(item(rebuilt, 3)).toMatchObject({ content: "a.txt", structured: { stdout: "a.txt" }, isError: false })
+    expect(item(rebuilt, 4)).toMatchObject({ text: "Done." })
   })
 
   test("skips sidechain and meta entries and keeps block ids distinct", () => {
     expect(JSON.stringify(rebuilt)).not.toContain("subagent chatter")
     expect(JSON.stringify(rebuilt)).not.toContain("Image")
-    expect(new Set(rebuilt.filter((e) => e.block).map((e) => e.block)).size).toBe(2)
+    expect(new Set(rebuilt.flatMap((e) => ("block" in e ? [e.block] : []))).size).toBe(2)
   })
 
   test("a missing transcript is not an error, and replay is capped", () => {
-    expect(historyFromTranscript(path.join(dir, "nope.jsonl"))).toEqual([])
+    expect(historyFromTranscript(asFilePath(path.join(dir, "nope.jsonl")))).toEqual([])
     expect(historyFromTranscript(null)).toEqual([])
-    const capped = path.join(dir, "long.jsonl")
+    const capped = asFilePath(path.join(dir, "long.jsonl"))
     fs.writeFileSync(
       capped,
       J({ type: "user", message: { role: "user", content: "first" }, uuid: "u0" }) +
         J({ type: "user", message: { role: "user", content: "tail" }, uuid: "u1" }).repeat(2100),
     )
-    const long = historyFromTranscript(capped) as Array<any>
+    const long = historyFromTranscript(capped)
     expect(long.length).toBe(2000)
-    expect(long[0].text).toBe("tail")
+    expect(item(long)).toMatchObject({ text: "tail" })
   })
 
   test("a session started with a transcript serves it as history", async () => {
     const tr = launch([{ write: J({ type: "system", subtype: "init", session_id: "S9", cwd: dir, tools: [], model: "claude-sonnet-4-5" }) }, { delay: 30 }, { exit: 0 }], [], tp)
     await until(() => kinds(tr.ev(), "exit").length === 1)
-    const seeded = run((chat) => chat.history(tr.id)) as Array<any>
+    const seeded = run((chat) => chat.history(tr.id))
     expect(seeded.length).toBe(rebuilt.length + 2)
-    expect(seeded[0].text).toBe("list the files")
-    expect(seeded[rebuilt.length].kind).toBe("ready")
+    expect(item(seeded)).toMatchObject({ text: "list the files" })
+    expect(item(seeded, rebuilt.length).kind).toBe("ready")
   })
 })
 
@@ -427,7 +449,7 @@ test("closing the scope kills a stuck child at once", async () => {
   }
   expect(alive()).toBe(true)
   await runtime.dispose()
-  // No timer runs after quit, so kill now.
+  // Child killed right away on quit
   expect(await until(() => !alive(), 1000)).toBe(true)
 })
 

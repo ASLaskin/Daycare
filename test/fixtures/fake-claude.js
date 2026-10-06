@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
-// Stand-in for the claude binary in the chat tests. Replays a scenario file and
-// appends every stdin line to a log.
-// Steps: {write}, {delay}, {waitStdin: total lines}, {exit}, {stubborn}, {stderr}, {big}, {pauseStdin}.
+// Fake claude for chat tests: replays a scenario, logs stdin lines.
+// Steps: write, delay, waitStdin, exit, stubborn, stderr, big, pauseStdin.
 const fs = require('node:fs');
 const { SCENARIO, LOG, ARGV, ENVF } = process.env;
 fs.writeFileSync(ARGV, JSON.stringify(process.argv.slice(2)));
@@ -23,17 +22,41 @@ process.stdin.on('data', (d) => {
   }
   waiters.filter((w) => lines >= w.n).forEach((w) => w.resolve());
 });
-process.stdin.on('end', () => { ended = true; if (!steps.some((s) => s.stubborn)) process.exit(0); });
+process.stdin.on('end', () => {
+  ended = true;
+  if (!steps.some((s) => s.stubborn)) {
+    process.exit(0);
+  }
+});
 const wait = (n) => (lines >= n ? Promise.resolve() : new Promise((resolve) => waiters.push({ n, resolve })));
 (async () => {
   for (const s of steps) {
-    if (s.delay) await new Promise((r) => setTimeout(r, s.delay));
-    if (s.pauseStdin) { process.stdin.pause(); setTimeout(() => process.stdin.resume(), s.pauseStdin); }
-    if (s.waitStdin) await wait(s.waitStdin);
-    if (s.stderr) process.stderr.write(s.stderr);
-    if (s.write) process.stdout.write(s.write);
-    if (s.big) process.stdout.write('x'.repeat(s.big));
-    if (s.stubborn) { process.on('SIGTERM', () => {}); setInterval(() => {}, 1000); }
-    if (s.exit !== undefined) process.stdout.write('', () => process.exit(s.exit)); // let the pipe drain first
+    if (s.delay) {
+      await new Promise((r) => setTimeout(r, s.delay));
+    }
+    if (s.pauseStdin) {
+      process.stdin.pause();
+      setTimeout(() => process.stdin.resume(), s.pauseStdin);
+    }
+    if (s.waitStdin) {
+      await wait(s.waitStdin);
+    }
+    if (s.stderr) {
+      process.stderr.write(s.stderr);
+    }
+    if (s.write) {
+      process.stdout.write(s.write);
+    }
+    if (s.big) {
+      process.stdout.write('x'.repeat(s.big));
+    }
+    if (s.stubborn) {
+      process.on('SIGTERM', () => {});
+      setInterval(() => {}, 1000);
+    }
+    if (s.exit !== undefined) {
+      // Exit after stdout drains
+      process.stdout.write('', () => process.exit(s.exit));
+    }
   }
 })();

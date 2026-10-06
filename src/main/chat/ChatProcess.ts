@@ -2,6 +2,8 @@
 
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process"
 import type { ChatEvent } from "../../shared/chat.ts"
+import type { DirPath, FilePath, SessionId } from "../../shared/ids.ts"
+import type { Json } from "../../shared/json.ts"
 import { LineFramer, parseLine } from "./framing.ts"
 import { StreamNormalizer } from "./normalize.ts"
 import { HISTORY_MAX, historyFromTranscript } from "./transcript.ts"
@@ -12,15 +14,14 @@ const BASE_ARGS = [
   "stream-json",
   "--output-format",
   "stream-json",
-  // stream-json output requires --verbose.
   "--verbose",
   "--include-partial-messages",
-  // Undocumented; routes permission prompts to stdout.
+  // Permission prompts as stdout control requests.
   "--permission-prompt-tool",
   "stdio",
 ]
 
-// Without it, no session_state_changed events.
+// Enables session_state_changed events.
 const ENV_FORCED = { CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS: "1" }
 
 const STDERR_MAX = 4096
@@ -28,12 +29,12 @@ const TERM_AFTER_MS = 2000
 const KILL_AFTER_MS = 5000
 
 export interface ChatStart {
-  readonly id: string
-  readonly cwd: string
+  readonly id: SessionId
+  readonly cwd: DirPath
   readonly env: NodeJS.ProcessEnv
   readonly args?: ReadonlyArray<string>
-  // Set only when resuming.
-  readonly transcriptPath?: string | null
+  // Transcript to replay when resuming.
+  readonly transcriptPath?: FilePath | null
 }
 
 export class ChatProcess {
@@ -52,9 +53,9 @@ export class ChatProcess {
   private skipped = 0
 
   constructor(
-    readonly id: string,
+    readonly id: SessionId,
     opts: ChatStart,
-    claudePath: string,
+    claudePath: FilePath,
     private readonly publish: (event: ChatEvent) => void,
     private readonly onGone: () => void,
   ) {
@@ -71,12 +72,16 @@ export class ChatProcess {
     this.child.stderr.on("data", (chunk: string) => {
       this.stderr = (this.stderr + chunk).slice(-STDERR_MAX)
     })
-    // Pipe errors must never crash the app.
-    for (const s of [this.child.stdin, this.child.stdout, this.child.stderr]) s.on("error", () => {})
+    // Ignore pipe errors.
+    const pipes = [this.child.stdin, this.child.stdout, this.child.stderr]
+    pipes.forEach((s) => s.on("error", () => {}))
     this.child.on("spawn", () => {
       this.spawned = true
-      if (this.stopping) this.child.stdin.end()
-      else this.flush()
+      if (this.stopping) {
+        this.child.stdin.end()
+        return
+      }
+      this.flush()
     })
     this.child.on("error", (err: NodeJS.ErrnoException) =>
       this.emit({ kind: "error", message: `Could not run claude: ${err.code ?? err.message}` }),
@@ -85,29 +90,35 @@ export class ChatProcess {
   }
 
   emitAll(events: ReadonlyArray<ChatEvent>) {
-    for (const event of events) this.emit(event)
+    events.forEach((event) => this.emit(event))
   }
 
-  write(obj: unknown) {
-    this.outbox.push(`${JSON.stringify(obj)}\n`)
+  write(message: Json) {
+    this.outbox.push(`${JSON.stringify(message)}\n`)
     this.flush()
   }
 
-  // Timers handle a stuck child.
+  // Ends stdin, then escalates to SIGTERM and SIGKILL.
   stop() {
-    if (this.exited || this.stopping) return
+    if (this.exited || this.stopping) {
+      return
+    }
     this.stopping = true
     this.outbox.length = 0
-    if (this.spawned) this.child.stdin.end()
+    if (this.spawned) {
+      this.child.stdin.end()
+    }
     this.timers.push(
       setTimeout(() => this.child.kill("SIGTERM"), TERM_AFTER_MS),
       setTimeout(() => this.child.kill("SIGKILL"), KILL_AFTER_MS),
     )
   }
 
-  // No later tick on quit, so SIGKILL now.
+  // Kills immediately, for app quit.
   kill() {
-    if (this.exited) return
+    if (this.exited) {
+      return
+    }
     this.stopping = true
     this.outbox.length = 0
     this.clearTimers()
@@ -117,17 +128,19 @@ export class ChatProcess {
   }
 
   private emit(event: ChatEvent) {
-    // Final text supersedes deltas on replay.
+    // History keeps everything except text deltas.
     if (event.kind !== "text-delta") {
       this.events.push(event)
-      if (this.events.length >= HISTORY_MAX + 200) this.events.splice(0, this.events.length - HISTORY_MAX)
+      if (this.events.length >= HISTORY_MAX + 200) {
+        this.events.splice(0, this.events.length - HISTORY_MAX)
+      }
     }
     this.publish(event)
   }
 
   private onData(chunk: string) {
     const { lines, dropped } = this.framer.push(chunk)
-    for (const line of lines) this.onLine(line)
+    lines.forEach((line) => this.onLine(line))
     if (dropped) {
       this.skipped++
       this.emit({ kind: "error", message: "Dropped an oversized line from claude" })
@@ -135,7 +148,9 @@ export class ChatProcess {
   }
 
   private onLine(line: string) {
-    if (!line.trim()) return
+    if (!line.trim()) {
+      return
+    }
     const msg = parseLine(line)
     if (!msg) {
       this.skipped++
@@ -148,10 +163,12 @@ export class ChatProcess {
     }
   }
 
-  // Waits for spawn and pipe drain.
+  // Writes queued lines once spawned and drained.
   private flush() {
     const stdin = this.child.stdin
-    if (!this.spawned || this.draining || this.exited || !stdin.writable) return
+    if (!this.spawned || this.draining || this.exited || !stdin.writable) {
+      return
+    }
     while (this.outbox.length) {
       if (!stdin.write(this.outbox.shift()!)) {
         this.draining = true
@@ -170,15 +187,20 @@ export class ChatProcess {
   }
 
   private onClose(code: number | null) {
-    if (this.exited) return
+    if (this.exited) {
+      return
+    }
     this.onLine(this.framer.end())
     this.exited = true
     this.normalizer.state = "exited"
     this.outbox.length = 0
     this.clearTimers()
-    for (const requestId of [...this.normalizer.permissions.keys()]) this.emitAll(this.normalizer.resolvePermission(requestId, false))
+    const pending = [...this.normalizer.permissions.keys()]
+    pending.forEach((requestId) => this.emitAll(this.normalizer.resolvePermission(requestId, false)))
     console.log(`[chat ${this.id}] exit code=${code} pid=${this.child.pid} skipped=${this.skipped}`)
     this.emit({ kind: "exit", code, stderrTail: this.stderr.trim() })
-    if (this.stopping) this.onGone()
+    if (this.stopping) {
+      this.onGone()
+    }
   }
 }

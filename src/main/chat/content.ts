@@ -1,53 +1,61 @@
 // Pure helpers over stream-json content.
 
 import path from "node:path"
+import { arr, at, type Json, type JsonObject, num, obj, str } from "../../shared/json.ts"
 
 const TEXT_MAX = 20000 // per tool result
 const STRUCTURED_MAX = 50000
 
-export type Json = Record<string, any>
-export const isObject = (v: unknown): v is Json => typeof v === "object" && v !== null
-
-// The last iteration, not the turn's sum.
-export const usageTokens = (u: unknown): number => {
-  if (!isObject(u)) return 0
-  const iters = Array.isArray(u["iterations"]) ? u["iterations"] : []
-  const last = iters[iters.length - 1]
-  const n = isObject(last) ? last : u
-  return (n["input_tokens"] || 0) + (n["cache_creation_input_tokens"] || 0) + (n["cache_read_input_tokens"] || 0) + (n["output_tokens"] || 0)
+// Context tokens from the last iteration of a turn.
+export const usageTokens = (u: Json | undefined): number => {
+  const usage = obj(u)
+  if (!usage) {
+    return 0
+  }
+  const last = arr(usage["iterations"]).at(-1)
+  const n = obj(last) ?? usage
+  const tokens = (key: string) => num(n[key]) || 0
+  return tokens("input_tokens") + tokens("cache_creation_input_tokens") + tokens("cache_read_input_tokens") + tokens("output_tokens")
 }
 
 export const cap = (text: string) => (text.length > TEXT_MAX ? `${text.slice(0, TEXT_MAX)}... [truncated]` : text)
 
-export const flatten = (content: unknown): string => {
-  if (typeof content === "string") return cap(content)
-  if (!Array.isArray(content)) return ""
+export const flatten = (content: Json | undefined): string => {
+  if (typeof content === "string") {
+    return cap(content)
+  }
   return cap(
-    content
-      .map((p) => (isObject(p) && typeof p["text"] === "string" ? p["text"] : ""))
+    arr(content)
+      .map((p) => str(at(p, "text")) ?? "")
       .filter(Boolean)
       .join("\n"),
   )
 }
 
-export const structuredOf = (v: unknown): unknown => {
-  if (v === undefined) return null
-  try {
-    return JSON.stringify(v).length > STRUCTURED_MAX ? { truncated: true } : v
-  } catch {
+export const structuredOf = (v: Json | undefined): Json | null => {
+  if (v === undefined) {
     return null
   }
+  return JSON.stringify(v).length > STRUCTURED_MAX ? { truncated: true } : v
 }
 
-export const toolTitle = (name: string, input: unknown): string => {
-  const i = isObject(input) ? input : {}
-  const short = (v: unknown) => String(v).replace(/\s+/g, " ").slice(0, 80)
-  if (i["command"]) return `${name}: ${short(i["command"])}`
-  if (i["file_path"]) return `${name}: ${path.basename(String(i["file_path"]))}`
-  if (i["pattern"]) return `${name}: ${short(i["pattern"])}`
-  if (i["url"]) return `${name}: ${short(i["url"])}`
-  return name
+const TITLE_FIELDS: ReadonlyArray<readonly [string, (v: Json) => string]> = [
+  ["command", (v) => short(v)],
+  ["file_path", (v) => path.basename(String(v))],
+  ["pattern", (v) => short(v)],
+  ["url", (v) => short(v)],
+]
+
+const short = (v: Json) => String(v).replace(/\s+/g, " ").slice(0, 80)
+
+export const toolTitle = (name: string, input: Json | undefined): string => {
+  const i = obj(input) ?? {}
+  const hit = TITLE_FIELDS.find(([key]) => i[key])
+  return hit ? `${name}: ${hit[1](i[hit[0]]!)}` : name
 }
 
-export const toolResults = (content: ReadonlyArray<unknown>) =>
-  content.filter((p): p is Json => isObject(p) && p["type"] === "tool_result" && !!p["tool_use_id"])
+export const toolResults = (content: ReadonlyArray<Json>): ReadonlyArray<JsonObject> =>
+  content.flatMap((p) => {
+    const part = obj(p)
+    return part && part["type"] === "tool_result" && part["tool_use_id"] ? [part] : []
+  })
