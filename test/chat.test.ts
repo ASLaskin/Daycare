@@ -25,9 +25,7 @@ const makeRuntime = (claudePath: string) => {
 let runtime = makeRuntime(FAKE)
 const run = <A>(f: (chat: Chat["Service"]) => Effect.Effect<A>) =>
   runtime.runSync(
-    Effect.gen(function* () {
-      return yield* f(yield* Chat)
-    }),
+    Chat.use(f),
   )
 
 const listen = (rt: ReturnType<typeof makeRuntime>) =>

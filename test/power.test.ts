@@ -58,9 +58,7 @@ const fresh = () => {
   const runtime = ManagedRuntime.make(Power.layer(config).pipe(Layer.provide(FakeBlocker)))
   const use = <A>(f: (p: Power["Service"]) => Effect.Effect<A>) =>
     runtime.runPromise(
-      Effect.gen(function* () {
-        return yield* f(yield* Power)
-      }),
+      Power.use(f),
     )
   return {
     runtime,
