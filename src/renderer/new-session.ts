@@ -1,8 +1,9 @@
-// Location pickers, kind buttons, and starting sessions.
+// Location pickers and starting sessions.
 
-import type { SessionKind } from "../shared/session.ts"
 import { api } from "./api.ts"
 import { $, el } from "./dom.ts"
+import { getActiveMaster } from "./focus.ts"
+import { relocateMaster } from "./session-actions.ts"
 import { closeSettings } from "./settings-view.ts"
 import { openSheet } from "./sheet.ts"
 import { settings } from "./store.ts"
@@ -20,9 +21,6 @@ export const clampLocation = () => {
     currentLoc = Math.min(s.defaultLocation, s.locations.length - 1)
   }
 }
-
-export const defaultKind = (): SessionKind => settings().sessionKind
-export const otherKind = (): SessionKind => (defaultKind() === "chat" ? "terminal" : "chat")
 
 export const locationOptions = (select: HTMLSelectElement, selected: number) => {
   select.replaceChildren(
@@ -49,14 +47,7 @@ export const renderLocationPickers = () => {
   )
 }
 
-export const renderKindButtons = () => {
-  $("#new-master").textContent = `New ${defaultKind()}`
-  const alt = $("#new-master-alt")
-  alt.textContent = `New ${otherKind()}`
-  alt.title = `Open a ${otherKind()} session instead (⇧⌘N)`
-}
-
-export const newSession = (locIndex = currentLoc, kind = defaultKind()) => {
+export const newSession = (locIndex = currentLoc) => {
   const s = settings()
   const loc = s.locations[locIndex]
   if (!loc) {
@@ -66,16 +57,25 @@ export const newSession = (locIndex = currentLoc, kind = defaultKind()) => {
   $<HTMLSelectElement>("#location").value = String(locIndex)
   closeSettings()
   if (s.askOnNew) {
-    openSheet(locIndex, kind)
+    openSheet(locIndex)
     return
   }
-  api.createMaster({ task: "", kind, cwd: loc.path, model: s.model, permissionMode: s.permissionMode })
+  api.createMaster({ task: "", cwd: loc.path, model: s.model, permissionMode: s.permissionMode })
+}
+
+// Moves an untouched active master to the picked location.
+const relocateActive = () => {
+  const id = getActiveMaster()
+  const loc = settings().locations[currentLoc]
+  if (id && loc) {
+    relocateMaster(id, loc.path)
+  }
 }
 
 export const initNewSession = () => {
   $<HTMLSelectElement>("#location").onchange = (e) => {
     currentLoc = Number((e.target as HTMLSelectElement).value)
+    relocateActive()
   }
   $("#new-master").onclick = () => newSession()
-  $("#new-master-alt").onclick = () => newSession(currentLoc, otherKind())
 }

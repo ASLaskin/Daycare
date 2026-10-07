@@ -1,7 +1,6 @@
 // Draggable gap between master and workers.
 
 import { currentLayout, relayoutAll } from "./layout.ts"
-import { fitAll } from "./state.ts"
 import { saveSettings, settings } from "./store.ts"
 
 interface Drag {
@@ -45,7 +44,6 @@ export const wireSplitHandle = (g: HTMLElement, handle: HTMLElement) => {
     drag = null
     handle.classList.remove("dragging")
     document.body.classList.remove("resizing", "resizing-row")
-    fitAll()
     if (pct != null) {
       saveSettings({ splits: { ...settings().splits, [currentLayout()]: pct } })
     }

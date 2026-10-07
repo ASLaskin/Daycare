@@ -105,21 +105,12 @@ export interface InvokeResult {
   "chat:history": ReadonlyArray<ChatEvent>
 }
 
-export const Send = {
-  "pty:write": Schema.Struct({ id: Id, data: Schema.String }),
-  "pty:resize": Schema.Struct({ id: Id, cols: Schema.Int, rows: Schema.Int }),
-} as const
-
-export type SendChannel = keyof typeof Send
-export type SendPayload<C extends SendChannel> = (typeof Send)[C]["Type"]
-
 export interface Events {
   "session:created": SessionView
   "session:update": SessionView
   "session:removed": { readonly id: SessionId; readonly parentId: SessionId | null }
   "session:begin-rename": { readonly id: SessionId }
   "shortcut:close": undefined
-  "pty:data": { readonly id: SessionId; readonly data: string }
   "chat:event": { readonly id: SessionId; readonly event: ChatEvent }
   "usage:update": Usage
   "power:update": PowerStatus
@@ -131,6 +122,5 @@ export type EventChannel = keyof Events
 // Bridge exposed as window.daycare
 export interface Bridge {
   readonly invoke: <C extends InvokeChannel>(channel: C, payload: InvokePayload<C>) => Promise<InvokeResult[C]>
-  readonly send: <C extends SendChannel>(channel: C, payload: SendPayload<C>) => void
   readonly on: <C extends EventChannel>(channel: C, listener: (payload: Events[C]) => void) => () => void
 }

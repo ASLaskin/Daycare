@@ -1,5 +1,5 @@
 import type { ChatEvent, ChatEventOf } from "../../shared/chat.ts"
-import { el } from "../dom.ts"
+import { el, tildify } from "../dom.ts"
 import { prune } from "./caps.ts"
 import { renderFoot } from "./foot.ts"
 import { cap } from "./format.ts"
@@ -25,7 +25,7 @@ const ready = (s: ChatSession, ev: ChatEventOf<"ready">) => {
   }
   const sub = s.emptyEl?.querySelector(".chat-empty-sub")
   if (sub) {
-    sub.textContent = s.cwd
+    sub.textContent = tildify(s.cwd)
   }
   renderFoot(s)
 }

@@ -2,7 +2,6 @@
 
 import type { Layout } from "../shared/settings.ts"
 import { renderLayoutPicker } from "./layout-picker.ts"
-import { fitAll } from "./state.ts"
 import { saveSettings, settings } from "./store.ts"
 import { toast } from "./toast.ts"
 
@@ -57,7 +56,6 @@ export const applyLayout = (g: HTMLElement) => {
 export const relayoutAll = () => {
   document.querySelectorAll<HTMLElement>(".group").forEach(applyLayout)
   document.documentElement.style.setProperty("--stage-gap", `${settings().stageGap || 10}px`)
-  fitAll()
   renderLayoutPicker()
 }
 

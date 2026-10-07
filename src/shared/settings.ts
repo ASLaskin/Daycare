@@ -3,7 +3,7 @@
 import { Option, Schema } from "effect"
 import { DirPath } from "./ids.ts"
 import { isJsonObject, type Json } from "./json.ts"
-import { PermissionMode, SessionKind } from "./session.ts"
+import { PermissionMode } from "./session.ts"
 
 export const Location = Schema.Struct({ label: Schema.String, path: DirPath })
 export type Location = typeof Location.Type
@@ -26,7 +26,6 @@ export const Settings = Schema.Struct({
   defaultLocation: Schema.Int,
   model: Schema.String,
   permissionMode: PermissionMode,
-  sessionKind: SessionKind,
   keepAwake: KeepAwake,
   keepAwakeLidClosed: Schema.Boolean,
   appIcon: AppIcon,
@@ -36,7 +35,6 @@ export const Settings = Schema.Struct({
   motion: Motion,
   font: Font,
   monoFont: MonoFont,
-  termFontSize: Schema.Finite,
   layout: Layout,
   // Master share per layout preset, in percent
   splits: Schema.Record(Schema.String, Schema.Finite),
@@ -58,7 +56,6 @@ export const baseSettings: Omit<Settings, "locations"> = {
   defaultLocation: 0,
   model: "opus",
   permissionMode: "default",
-  sessionKind: "terminal",
   keepAwake: "while-running",
   keepAwakeLidClosed: false,
   appIcon: "random",
@@ -68,7 +65,6 @@ export const baseSettings: Omit<Settings, "locations"> = {
   motion: "normal",
   font: "system",
   monoFont: "system",
-  termFontSize: 12.5,
   layout: "stack",
   splits: {},
   sidebarWidth: 264,

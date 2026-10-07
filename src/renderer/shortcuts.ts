@@ -1,8 +1,8 @@
-// App keyboard shortcuts, captured before terminals see them.
+// App keyboard shortcuts, captured before inputs see them.
 
 import { api } from "./api.ts"
 import { closeActiveMaster } from "./focus.ts"
-import { newSession, otherKind } from "./new-session.ts"
+import { newSession } from "./new-session.ts"
 import { closeSettings, isSettingsOpen, toggleSettings } from "./settings-view.ts"
 import { closeSheet, isSheetOpen, submitSheet } from "./sheet.ts"
 import { saveSettings, settings } from "./store.ts"
@@ -62,11 +62,6 @@ const onCommandKey = (e: KeyboardEvent, k: string) => {
 
 const onKey = (e: KeyboardEvent) => {
   const k = e.key.toLowerCase()
-  if (e.metaKey && e.shiftKey && !e.altKey && k === "n") {
-    handled(e)
-    newSession(undefined, otherKind())
-    return
-  }
   if (e.metaKey && !e.shiftKey && !e.altKey) {
     onCommandKey(e, k)
     return

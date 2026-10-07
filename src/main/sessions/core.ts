@@ -12,10 +12,7 @@ import type { ControlEndpoint } from "../control/ControlServer.ts"
 import type { Power } from "../power/Power.ts"
 import type { SettingsStore } from "../settings/SettingsStore.ts"
 import type { Usage } from "../usage/Usage.ts"
-import type { ClaudeBinary } from "./Claude.ts"
-import type { Pty } from "./Pty.ts"
 import { isSettled, record, type Session, view } from "./model.ts"
-import { contextTokens } from "./transcripts.ts"
 
 export interface SessionDeps {
   readonly chat: Chat["Service"]
@@ -23,8 +20,6 @@ export interface SessionDeps {
   readonly settings: SettingsStore["Service"]
   readonly usage: Usage["Service"]
   readonly ui: Ui["Service"]
-  readonly pty: Pty["Service"]
-  readonly claude: ClaudeBinary["Service"]
   readonly endpoint: ControlEndpoint["Service"]
   readonly paths: AppPaths["Service"]
 }
@@ -53,7 +48,6 @@ export interface Core {
   readonly flushWaiters: () => void
   readonly update: (s: Session) => void
   readonly setStatus: (s: Session, status: SessionStatus, activity?: string) => void
-  readonly refreshContext: (s: Session) => void
 }
 
 export const later = (ms: number, f: () => void) => setTimeout(f, ms).unref()
@@ -77,7 +71,7 @@ export const makeCore = (deps: SessionDeps): Core => {
     const s = sessions.get(id)
     return s?.role === "master" ? s : null
   }
-  const isRunning = (s: Session) => (s.kind === "chat" ? run(chat.has(s.id)) : !!s.proc)
+  const isRunning = (s: Session) => run(chat.has(s.id))
 
   // Write sessions.json atomically
   const persist = () => {
@@ -92,7 +86,7 @@ export const makeCore = (deps: SessionDeps): Core => {
   // Keep the Mac awake while any session is busy
   const syncPower = () => {
     const live = all().filter(isRunning)
-    const busy = live.filter((s) => !s.shell && !isSettled(s))
+    const busy = live.filter((s) => !isSettled(s))
     const current = run(settings.get)
     run(power.apply({ mode: current.keepAwake, lidClosed: current.keepAwakeLidClosed, activeCount: live.length, busyCount: busy.length }))
   }
@@ -127,15 +121,6 @@ export const makeCore = (deps: SessionDeps): Core => {
     schedulePowerSync()
   }
 
-  const refreshContext = (s: Session) => {
-    const tokens = contextTokens(s.transcriptPath)
-    if (!tokens || tokens === s.context) {
-      return
-    }
-    s.context = tokens
-    update(s)
-  }
-
   return {
     deps,
     sessions,
@@ -157,6 +142,5 @@ export const makeCore = (deps: SessionDeps): Core => {
     flushWaiters,
     update,
     setStatus,
-    refreshContext,
   }
 }

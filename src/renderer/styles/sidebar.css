@@ -41,6 +41,10 @@
 .master-item .delete { padding: 2px 7px; font-size: 11.5px; opacity: 0; }
 .master-item .delete:hover { color: var(--exited); }
 .master-item.closed:hover .delete, .master-item.closed:focus-within .delete { opacity: 1; }
+.master-item .item-actions { display: flex; gap: 2px; margin-top: 6px; margin-left: 26px; }
+.master-item.no-avatar .item-actions { margin-left: -7px; }
+.master-item .item-actions .ghost { padding: 2px 7px; font-size: 11.5px; }
+.master-item .item-actions .danger:hover { color: var(--exited); background: color-mix(in srgb, var(--exited) 10%, transparent); }
 .list-heading {
   color: var(--faint);
   font-size: 11px;
@@ -78,6 +82,7 @@
 .sidebar-foot .ghost:hover svg { color: var(--text); }
 
 .sidebar-handle {
+  -webkit-app-region: no-drag;
   position: absolute;
   top: 0;
   right: -4px;

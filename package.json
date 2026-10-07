@@ -10,22 +10,17 @@
     "start": "bun run build && electron .",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
-    "rebuild": "electron-rebuild -f -w node-pty",
     "package": "bun run build && bun scripts/package.ts"
   },
   "dependencies": {
     "@effect/platform-node": "4.0.1",
-    "@xterm/addon-fit": "0.11.0",
-    "@xterm/xterm": "6.0.0",
-    "effect": "4.0.1",
-    "node-pty": "1.1.0"
+    "effect": "4.0.1"
   },
   "devDependencies": {
     "@electron/packager": "20.3.0",
-    "@electron/rebuild": "4.2.0",
     "@types/bun": "1.4.2",
     "electron": "44.5.1",
     "typescript": "7.0.2"
   },
-  "trustedDependencies": ["electron", "node-pty"]
+  "trustedDependencies": ["electron"]
 }

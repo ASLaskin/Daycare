@@ -16,7 +16,6 @@ import { ElectronPowerBlocker } from "./power/ElectronPowerBlocker.ts"
 import { defaultPowerConfig } from "./power/config.ts"
 import { Power } from "./power/Power.ts"
 import { ClaudeBinary } from "./sessions/Claude.ts"
-import { NodePty } from "./sessions/NodePty.ts"
 import { Sessions } from "./sessions/Sessions.ts"
 import { SettingsStore } from "./settings/SettingsStore.ts"
 import { Skills } from "./skills/Skills.ts"
@@ -26,7 +25,7 @@ import { UsageSource } from "./usage/UsageSource.ts"
 
 app.setName("Daycare")
 
-const Platform = Layer.mergeAll(ElectronPaths, ClaudeBinary.layer, NodePty, Skills.layer)
+const Platform = Layer.mergeAll(ElectronPaths, ClaudeBinary.layer, Skills.layer)
 
 const Window = ElectronUi.pipe(Layer.provideMerge(MainWindow.layer))
 

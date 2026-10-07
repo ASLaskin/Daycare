@@ -4,14 +4,13 @@ import type { Settings } from "../shared/settings.ts"
 import { $ } from "./dom.ts"
 import { input, onSelect, onToggle, select } from "./fields.ts"
 import { renderLocationRows, wireLocations } from "./locations-view.ts"
-import { defaultKind, locationOptions, setCurrentLocation } from "./new-session.ts"
+import { locationOptions, setCurrentLocation } from "./new-session.ts"
 import { saveSettings, settings } from "./store.ts"
 
 export const renderGeneral = () => {
   const s = settings()
   input("set-ask").checked = s.askOnNew
   input("set-random-names").checked = s.randomNames
-  select("set-session-kind").value = defaultKind()
   select("set-keep-awake").value = s.keepAwake
   input("set-keep-awake-lid").checked = s.keepAwakeLidClosed
   $("#keep-awake-lid-row").classList.toggle("collapsed", s.keepAwake === "off")
@@ -32,6 +31,5 @@ export const wireGeneral = () => {
   })
   onSelect("set-model", (model) => saveSettings({ model }))
   onSelect("set-permission", (v) => saveSettings({ permissionMode: v as Settings["permissionMode"] }))
-  onSelect("set-session-kind", (v) => saveSettings({ sessionKind: v as Settings["sessionKind"] }))
   onSelect("set-keep-awake", (v) => saveSettings({ keepAwake: v as Settings["keepAwake"] }))
 }

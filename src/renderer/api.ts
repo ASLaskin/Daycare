@@ -55,10 +55,6 @@ export const api = {
   onBeginRename: on("session:begin-rename"),
   onCloseShortcut: on("shortcut:close"),
 
-  write: (id: SessionId, data: string) => bridge.send("pty:write", { id, data }),
-  resize: (id: SessionId, cols: number, rows: number) => bridge.send("pty:resize", { id, cols, rows }),
-  onData: on("pty:data"),
-
   powerStatus: ask("power:status"),
   powerRestore: ask("power:restore"),
   powerDismissError: ask("power:dismiss-error"),

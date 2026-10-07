@@ -38,7 +38,7 @@ const renderRailHead = () => {
   session.classList.toggle("quiet", !f)
   if (!f) {
     session.append(el("span", "sr-session-name", "Focus a session"))
-    session.title = "Click a terminal or chat first, then pick a skill."
+    session.title = "Click a chat first, then pick a skill."
     return
   }
   session.append(el("span", "sr-session-label", "Typing into"), el("span", "sr-session-name", f.name || "Session"))

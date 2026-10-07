@@ -15,7 +15,7 @@ const builds = await Promise.all([
     naming: "[name].mjs",
     target: "node",
     format: "esm",
-    external: ["electron", "node-pty"],
+    external: ["electron"],
     sourcemap: "linked",
   }),
   Bun.build({

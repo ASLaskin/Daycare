@@ -2,7 +2,6 @@
 
 import { SIDEBAR_WIDTH } from "./appearance.ts"
 import { $ } from "./dom.ts"
-import { fitAll } from "./state.ts"
 import { saveSettings } from "./store.ts"
 
 export const initSidebarResize = () => {
@@ -33,12 +32,11 @@ export const initSidebarResize = () => {
     drag = null
     handle.classList.remove("dragging")
     document.body.classList.remove("resizing")
-    fitAll()
     if (w != null) {
       saveSettings({ sidebarWidth: w })
     }
   }
   handle.addEventListener("pointerup", end)
   handle.addEventListener("pointercancel", end)
-  handle.addEventListener("dblclick", () => saveSettings({ sidebarWidth: SIDEBAR_WIDTH }).then(fitAll))
+  handle.addEventListener("dblclick", () => saveSettings({ sidebarWidth: SIDEBAR_WIDTH }))
 }

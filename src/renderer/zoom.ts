@@ -4,7 +4,7 @@ import type { SessionId } from "../shared/ids.ts"
 import * as chat from "./chat/index.ts"
 import { el } from "./dom.ts"
 import { focusSession } from "./focus.ts"
-import { fitAll, type Pane, panes } from "./state.ts"
+import { type Pane, panes } from "./state.ts"
 
 // Static SVG markup for the zoom button.
 const ICONS = {
@@ -40,7 +40,6 @@ export const toggleZoom = (id: SessionId) => {
     p.pane.classList.add("zoomed")
     setIcon(p, "unzoom", UNZOOM_TITLE)
   }
-  fitAll()
   focusSession(id)
 }
 
@@ -61,7 +60,7 @@ export const unzoom = () => {
   if (!zoomedId) {
     return
   }
-  if (panes.get(zoomedId)?.isChat && chat.isRunning(zoomedId)) {
+  if (chat.isRunning(zoomedId)) {
     return
   }
   toggleZoom(zoomedId)

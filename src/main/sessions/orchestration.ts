@@ -40,7 +40,6 @@ export const makeToolHandler = (core: Core, lifecycle: Lifecycle) => {
   const spawn = (master: Session, input: ToolInput<"spawn_subagent">) => {
     const w = lifecycle.createSession({
       role: "worker",
-      kind: master.kind,
       name: input.name,
       task: input.task,
       cwd: input.cwd || master.cwd,

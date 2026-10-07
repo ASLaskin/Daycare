@@ -1,6 +1,5 @@
-// One session pane: header plus terminal or chat.
+// One session pane: header plus chat.
 
-import { FitAddon } from "@xterm/addon-fit"
 import type { SessionId } from "../shared/ids.ts"
 import type { SessionView } from "../shared/session.ts"
 import { api } from "./api.ts"
@@ -10,20 +9,13 @@ import { $, el } from "./dom.ts"
 import { setFocused } from "./focus.ts"
 import { applyLayout } from "./layout.ts"
 import { beginRename } from "./rename.ts"
+import { masterActions } from "./session-actions.ts"
 import { renderSidebar } from "./sidebar.ts"
 import { wireSplitHandle } from "./split-handle.ts"
-import { type Pane, panes, scheduleFit } from "./state.ts"
+import { type Pane, panes } from "./state.ts"
 import { STATUS_LABEL } from "./status.ts"
 import { settings } from "./store.ts"
-import { createTerminal } from "./terminal.ts"
 import { toggleZoom, zoomButton } from "./zoom.ts"
-
-// Output that arrived before its pane existed.
-const pending = new Map<SessionId, Array<string>>()
-
-export const bufferOutput = (id: SessionId, data: string) => {
-  pending.set(id, [...(pending.get(id) ?? []), data])
-}
 
 const groupFor = (masterId: SessionId) => {
   const existing = document.getElementById(`group-${masterId}`)
@@ -41,25 +33,10 @@ const groupFor = (masterId: SessionId) => {
   return g
 }
 
-const actionButton = (label: string, cls: string, title: string, action: () => void) => {
-  const b = el("button", cls, label)
-  b.title = title
-  b.onclick = (e) => {
-    e.stopPropagation()
-    action()
-  }
-  return b
-}
-
-const masterActions = (id: SessionId) => [
-  actionButton("Close", "ghost", "Close this master and its workers, keeping them to reopen later (⌘W)", () => api.closeSession(id)),
-  actionButton("Delete", "ghost danger", "End this master and its workers and remove them", () => api.deleteSession(id)),
-]
-
-const buildHead = (info: SessionView, isChat: boolean) => {
+const buildHead = (info: SessionView) => {
   const head = el("div", "pane-head")
   const title = el("span", "title", info.name)
-  const role = el("span", "role", `${info.role === "master" ? "Master" : "Worker"}${isChat ? " chat" : ""}`)
+  const role = el("span", "role", info.role === "master" ? "Master" : "Worker")
   const status = el("span", "status")
   const activity = el("span", "activity")
   const ctx = el("span", "ctx")
@@ -89,22 +66,6 @@ const place = (info: SessionView, pane: HTMLElement) => {
   applyLayout(g)
 }
 
-const mountTerminal = (p: Pane, host: HTMLElement) => {
-  const { term } = p
-  if (!term) {
-    return
-  }
-  term.open(host)
-  term.onData((d) => api.write(p.info.id, d))
-  term.textarea?.addEventListener("focus", () => setFocused(p.info.id))
-  new ResizeObserver(() => scheduleFit(p)).observe(host)
-  const buffered = pending.get(p.info.id)
-  if (buffered) {
-    term.write(buffered.join(""))
-    pending.delete(p.info.id)
-  }
-}
-
 // Replays the conversation after a reload.
 const mountChat = (info: SessionView, host: HTMLElement) => {
   chat.mount(info, host)
@@ -119,20 +80,14 @@ const mountChat = (info: SessionView, host: HTMLElement) => {
 }
 
 export const createPane = (info: SessionView) => {
-  const isChat = info.kind === "chat"
-  const pane = el("div", `pane enter${isChat ? " chat-pane" : ""}`)
+  const pane = el("div", "pane enter")
   pane.dataset["id"] = info.id
-  const { head, els } = buildHead(info, isChat)
-  const host = el("div", "term")
+  const { head, els } = buildHead(info)
+  const host = el("div", "pane-body")
   pane.append(head, host)
   pane.addEventListener("animationend", () => pane.classList.remove("enter"), { once: true })
 
-  const term = isChat ? null : createTerminal()
-  const fit = term ? new FitAddon() : null
-  if (term && fit) {
-    term.loadAddon(fit)
-  }
-  const p: Pane = { info, term, fit, pane, isChat, els }
+  const p: Pane = { info, pane, els }
   panes.set(info.id, p)
   els.title.ondblclick = (e) => {
     e.stopPropagation()
@@ -140,10 +95,7 @@ export const createPane = (info: SessionView) => {
   }
   place(info, pane)
 
-  if (isChat) {
-    mountChat(info, host)
-  }
-  mountTerminal(p, host)
+  mountChat(info, host)
   pane.addEventListener("mousedown", () => setFocused(info.id))
   pane.addEventListener("focusin", () => setFocused(info.id))
   applyStatus(p)

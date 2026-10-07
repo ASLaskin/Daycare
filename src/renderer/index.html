@@ -34,8 +34,7 @@
         <div id="layout-picker" class="seg" role="group" aria-label="Layout"></div>
         <span class="divider"></span>
         <select id="location" title="Where new sessions open"></select>
-        <button id="new-master" class="primary small" title="New session (⌘N)">New session</button>
-        <button id="new-master-alt" class="ghost" title="New session of the other kind (⇧⌘N)"></button>
+        <button id="new-master" class="primary small" title="New chat (⌘N)">New chat</button>
         <button id="toggle-rail" class="ghost" title="Skills (⌘/)">Skills</button>
       </div>
     </header>
@@ -43,8 +42,8 @@
     <div class="work">
       <main id="stage" class="stage">
         <div id="empty" class="empty">
-          <h1>Open a session</h1>
-          <p>A master can split work into workers. Each worker gets its own session you can talk to directly.</p>
+          <h1>Start a chat</h1>
+          <p>Pick a folder to chat with Claude there. A master can split work into workers, each with its own chat you can talk to directly.</p>
           <div id="empty-locations" class="empty-locations"></div>
         </div>
       </main>
@@ -88,12 +87,6 @@
               <input type="checkbox" id="set-random-names" class="switch" />
             </label>
             <div class="field-grid">
-              <label>Interface
-                <select id="set-session-kind">
-                  <option value="terminal">Terminal</option>
-                  <option value="chat">Chat</option>
-                </select>
-              </label>
               <label>Default location
                 <select id="set-default-location"></select>
               </label>
@@ -113,7 +106,6 @@
                 </select>
               </label>
             </div>
-            <div class="hint">A terminal is the real Claude Code interface. A chat session runs the same Claude Code headless and draws the conversation natively, with tool calls and permission prompts as cards. ⇧⌘N opens the other kind.</div>
           </div>
 
           <div class="card">
@@ -160,13 +152,8 @@
           <div class="card">
             <div class="card-title">Font</div>
             <div id="font-picker" class="choice-grid two" role="group" aria-label="Interface font"></div>
-            <div class="card-title" style="margin-top: 4px">Terminal and code font</div>
+            <div class="card-title" style="margin-top: 4px">Code font</div>
             <div id="mono-picker" class="choice-grid two" role="group" aria-label="Monospace font"></div>
-            <div class="slider-row">
-              <label class="hint" for="set-term-size">Terminal font size</label>
-              <span class="val" id="term-size-val"></span>
-            </div>
-            <input type="range" id="set-term-size" class="range" min="10" max="18" step="0.5" />
           </div>
 
           <div class="card">
@@ -280,19 +267,13 @@
 
   <div id="sheet" class="sheet hidden">
     <form id="master-form" class="sheet-card">
-      <h2>New session</h2>
+      <h2>New chat</h2>
       <label>Task <span class="optional">optional</span>
-        <textarea name="task" rows="5" placeholder="Leave empty for a plain session, or describe work for the master to split into workers."></textarea>
+        <textarea name="task" rows="5" placeholder="Leave empty to start with a blank chat, or describe work for the master to split into workers."></textarea>
       </label>
       <div class="row">
         <label>Name
           <input name="name" placeholder="Automatic" />
-        </label>
-        <label>Interface
-          <select name="kind">
-            <option value="terminal">Terminal</option>
-            <option value="chat">Chat</option>
-          </select>
         </label>
         <label>Model
           <select name="model">

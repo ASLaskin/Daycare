@@ -6,7 +6,7 @@ import { clearFocus, releaseMaster } from "./focus.ts"
 import { applyLayout } from "./layout.ts"
 import { renderProjectActions } from "./project-actions.ts"
 import { renderSidebar } from "./sidebar.ts"
-import { panes, scheduleFit, workersOf } from "./state.ts"
+import { panes, workersOf } from "./state.ts"
 import { releaseZoom } from "./zoom.ts"
 
 const removePane = (id: SessionId) => {
@@ -15,10 +15,7 @@ const removePane = (id: SessionId) => {
     return
   }
   releaseZoom(p)
-  if (p.isChat) {
-    chat.dispose(id)
-  }
-  p.term?.dispose()
+  chat.dispose(id)
   p.pane.remove()
   panes.delete(id)
   clearFocus(id)
@@ -39,7 +36,6 @@ const removeWorker = (id: SessionId, parentId: string | null) => {
   }
   g.classList.toggle("has-workers", g.querySelector(".worker-grid")!.children.length > 0)
   applyLayout(g)
-  ;[...panes.values()].filter((x) => x.info.id === parentId || x.info.parentId === parentId).forEach(scheduleFit)
 }
 
 export const removeSessionUI = ({ id, parentId }: { readonly id: SessionId; readonly parentId: SessionId | null }) => {

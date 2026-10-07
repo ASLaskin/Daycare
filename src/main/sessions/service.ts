@@ -20,8 +20,6 @@ export interface SessionsShape {
   readonly close: (id: SessionId) => Effect.Effect<void>
   readonly reopen: (id: SessionId) => Effect.Effect<void>
   readonly remove: (id: SessionId) => Effect.Effect<void>
-  readonly write: (id: SessionId, data: string) => Effect.Effect<void>
-  readonly resize: (id: SessionId, cols: number, rows: number) => Effect.Effect<void>
   readonly chatSend: (id: SessionId, text: string) => Effect.Effect<void>
   readonly chatInterrupt: (id: SessionId) => Effect.Effect<void>
   readonly chatRespond: (id: SessionId, requestId: RequestId, decision: PermissionDecision) => Effect.Effect<boolean>
@@ -83,7 +81,6 @@ export const makeService = (core: Core, lifecycle: Lifecycle): SessionsShape => 
     lifecycle.createSession(
       {
         role: r.role,
-        kind: r.kind,
         cwd: r.cwd,
         model: r.model,
         permissionMode: r.permissionMode,
@@ -106,7 +103,6 @@ export const makeService = (core: Core, lifecycle: Lifecycle): SessionsShape => 
         view(
           lifecycle.createSession({
             role: "master",
-            kind: options.kind,
             cwd: options.cwd,
             model: options.model,
             permissionMode: options.permissionMode,
@@ -137,36 +133,28 @@ export const makeService = (core: Core, lifecycle: Lifecycle): SessionsShape => 
         if (!master) {
           return
         }
-        const ok = yield* ui.confirm({
+        const pristine = !master.hadTurn && core.childrenOf(master.id).length === 0
+        const ok = pristine || (yield* ui.confirm({
           message: `Delete ${master.name}?`,
           detail: deleteDetail(core.childrenOf(master.id).length),
           confirmLabel: "Delete",
-        })
+        }))
         if (!ok) {
           return
         }
         lifecycle.removeSession(master)
         lifecycle.killSession(master)
       }),
-    write: (id, data) => Effect.sync(() => sessions.get(id)?.proc?.write(data)),
-    resize: (id, cols, rows) =>
-      Effect.sync(() => {
-        const s = sessions.get(id)
-        if (!s || !(cols > 0 && rows > 0)) {
-          return
-        }
-        s.cols = cols
-        s.rows = rows
-        s.proc?.resize(cols, rows)
-      }),
     chatSend: (id, text) =>
       Effect.sync(() => {
         const s = sessions.get(id)
-        if (!s || s.kind !== "chat") {
+        if (!s) {
           return
         }
+        s.hadTurn = true
         run(chat.send(id, text))
         core.setStatus(s, "working", "thinking")
+        core.persist()
       }),
     chatInterrupt: (id) => chat.interrupt(id),
     chatRespond: (id, requestId, decision) => chat.respond(id, requestId, decision),

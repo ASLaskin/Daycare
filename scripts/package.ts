@@ -27,14 +27,9 @@ const [outDir] = await packager({
   out: path.join(root, "out"),
   overwrite: true,
   prune: false,
-  // Keep node-pty outside the asar
-  asar: { unpack: "**/node_modules/node-pty/**" },
+  asar: true,
   ignore: [
-    /^\/(?!(dist|assets|node_modules|package\.json)(\/|$))/,
-    /^\/node_modules\/(?!node-pty(\/|$))/,
-    // Drop node-pty builds for other platforms
-    new RegExp(`^/node_modules/node-pty/prebuilds/(?!darwin-${process.arch}($|/))`),
-    /^\/node_modules\/node-pty\/(third_party|deps|src)($|\/)/,
+    /^\/(?!(dist|assets|package\.json)(\/|$))/,
     // Drop assets the renderer already bundles
     /^\/assets\/(?!brand(\/|$))/,
     /^\/assets\/brand\/(render\.js$|logos\/.*\.svg$)/,

@@ -2,14 +2,14 @@
 
 import type { SessionId } from "../shared/ids.ts"
 import type { SessionView } from "../shared/session.ts"
-import { api } from "./api.ts"
 import * as chat from "./chat/index.ts"
 import { $ } from "./dom.ts"
 import { renderProjectActions } from "./project-actions.ts"
 import { isRenaming } from "./rename.ts"
+import { dismissMaster } from "./session-actions.ts"
 import { closeSettings } from "./settings-view.ts"
 import { renderSidebar } from "./sidebar.ts"
-import { type Pane, panes, scheduleFit } from "./state.ts"
+import { panes } from "./state.ts"
 import { fireFocusChanged } from "./store.ts"
 
 let activeMaster: SessionId | null = null
@@ -27,12 +27,7 @@ export const insertIntoFocused = (text: string): boolean => {
   if (!p) {
     return false
   }
-  if (p.isChat) {
-    return chat.insert(p.info.id, text) !== false
-  }
-  api.write(p.info.id, text)
-  p.term?.focus()
-  return true
+  return chat.insert(p.info.id, text) !== false
 }
 
 export const setFocused = (id: SessionId) => {
@@ -63,16 +58,7 @@ export const showMaster = (id: SessionId | null) => {
   document.querySelectorAll(".group").forEach((g) => g.classList.toggle("hidden", g.id !== `group-${id}`))
   $("#empty").style.display = "none"
   renderProjectActions()
-  ;[...panes.values()].filter((p) => p.info.id === id || p.info.parentId === id).forEach(scheduleFit)
   renderSidebar()
-}
-
-const focusInput = (p: Pane) => {
-  if (p.isChat) {
-    chat.focus(p.info.id)
-    return
-  }
-  p.term?.focus()
 }
 
 export const focusSession = (id: SessionId) => {
@@ -84,7 +70,7 @@ export const focusSession = (id: SessionId) => {
   showMaster(p.info.role === "master" ? p.info.id : p.info.parentId)
   requestAnimationFrame(() => {
     if (!isRenaming()) {
-      focusInput(p)
+      chat.focus(id)
     }
     setFocused(id)
   })
@@ -106,6 +92,6 @@ export const releaseMaster = (id: SessionId) => {
 
 export const closeActiveMaster = () => {
   if (activeMaster) {
-    api.closeSession(activeMaster)
+    dismissMaster(activeMaster)
   }
 }

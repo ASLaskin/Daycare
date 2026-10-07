@@ -1,5 +1,5 @@
 import type { SessionView } from "../../shared/session.ts"
-import { el } from "../dom.ts"
+import { el, tildify } from "../dom.ts"
 import { button, wireToggle } from "./controls.ts"
 
 // Static send icon markup
@@ -40,7 +40,7 @@ const composer = () => {
   const box = el("div", "chat-box")
   const input = el("textarea", "chat-input")
   input.rows = 1
-  input.placeholder = "Message this session"
+  input.placeholder = "Ask Claude anything"
   input.setAttribute("aria-label", "Message")
   const stop = button("chat-stop")
   stop.hidden = true
@@ -62,7 +62,7 @@ const composer = () => {
 // Placeholder shown until the first real content
 const emptyState = (info: SessionView) => {
   const empty = el("div", "chat-empty")
-  empty.append(el("div", "chat-empty-title", info.name ? `New chat in ${info.name}` : "New chat"), el("div", "chat-empty-sub", info.cwd))
+  empty.append(el("div", "chat-empty-title", "New chat"), el("div", "chat-empty-sub", tildify(info.cwd)))
   return empty
 }
 

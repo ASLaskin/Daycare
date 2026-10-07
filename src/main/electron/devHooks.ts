@@ -5,7 +5,7 @@ import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import { asDirPath, DirPath } from "../../shared/ids.ts"
-import { PermissionMode, SessionKind } from "../../shared/session.ts"
+import { PermissionMode } from "../../shared/session.ts"
 import { Sessions } from "../sessions/Sessions.ts"
 import { MainWindow } from "./Window.ts"
 
@@ -15,7 +15,6 @@ const SNAPSHOT_EVERY_MS = 5000
 
 const Autostart = Schema.Struct({
   task: Schema.optionalKey(Schema.String),
-  kind: Schema.optionalKey(SessionKind),
   cwd: Schema.optionalKey(DirPath),
   model: Schema.optionalKey(Schema.String),
   permissionMode: Schema.optionalKey(PermissionMode),
@@ -24,8 +23,6 @@ const Autostart = Schema.Struct({
 
 const Demo = Schema.Struct({
   workers: Schema.optionalKey(Schema.Int),
-  kind: Schema.optionalKey(SessionKind),
-  workerKind: Schema.optionalKey(SessionKind),
   cwd: Schema.optionalKey(DirPath),
   name: Schema.optionalKey(Schema.String),
 })
@@ -46,7 +43,6 @@ export const devHooks = Effect.gen(function* () {
     const auto = fromEnv(Autostart, autostart)
     const options = {
       task: "",
-      kind: "terminal" as const,
       model: "sonnet",
       permissionMode: "default" as const,
       cwd: asDirPath(os.homedir()),
@@ -62,9 +58,9 @@ export const devHooks = Effect.gen(function* () {
     const d = fromEnv(Demo, demo)
     const cwd = d.cwd || asDirPath(os.homedir())
     const startDemo = Effect.gen(function* () {
-      const m = yield* sessions.createMaster({ task: "", kind: d.kind || "terminal", cwd, model: "sonnet", permissionMode: "default", ...(d.name ? { name: d.name } : {}) })
+      const m = yield* sessions.createMaster({ task: "", cwd, model: "sonnet", permissionMode: "default", ...(d.name ? { name: d.name } : {}) })
       yield* Effect.forEach(Array.from({ length: d.workers || 0 }, (_, i) => i + 1), (n) =>
-        sessions.create({ role: "worker", name: `Worker ${n}`, kind: d.workerKind || d.kind || "terminal", cwd, model: "sonnet", permissionMode: "default", parentId: m.id }),
+        sessions.create({ role: "worker", name: `Worker ${n}`, cwd, model: "sonnet", permissionMode: "default", parentId: m.id }),
       )
     })
     setTimeout(() => run(startDemo), DEMO_DELAY_MS)

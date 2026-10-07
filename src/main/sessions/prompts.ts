@@ -5,7 +5,7 @@ export const MASTER_PROMPT = [
   "Split the work into independent units and hand each one to a worker with the",
   "mcp__daycare__spawn_subagent tool instead of doing the work yourself. Never use",
   "built-in subagents or background agents for this. Every worker",
-  "is a full Claude Code session in its own terminal that the user can talk to",
+  "is a full Claude Code session in its own chat pane that the user can talk to",
   "directly, so give each one a short name and a self-contained task.",
   "Use wait_for_subagents to block until workers finish, read_subagent to read a",
   "worker's final report, and send_to_subagent to give a worker follow-up",

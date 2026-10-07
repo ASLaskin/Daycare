@@ -1,6 +1,6 @@
 // Sessions service: wires state, handlers and background work.
 
-import { Context, Effect, Layer, Schedule, Stream } from "effect"
+import { Context, Effect, Layer, Stream } from "effect"
 import { AppPaths } from "../AppPaths.ts"
 import { Chat } from "../chat/Chat.ts"
 import { ControlHandlers } from "../control/ControlHandlers.ts"
@@ -10,12 +10,10 @@ import { SettingsStore } from "../settings/SettingsStore.ts"
 import { Ui } from "../Ui.ts"
 import { Usage } from "../usage/Usage.ts"
 import { makeChatEventHandler } from "./chatEvents.ts"
-import { ClaudeBinary } from "./Claude.ts"
 import { makeCore } from "./core.ts"
 import { makeHookHandler } from "./hooks.ts"
 import { makeLifecycle } from "./lifecycle.ts"
 import { makeToolHandler } from "./orchestration.ts"
-import { Pty } from "./Pty.ts"
 import { makeService, type SessionsShape } from "./service.ts"
 
 export type { SessionsShape }
@@ -27,8 +25,6 @@ const make = Effect.gen(function* () {
     settings: yield* SettingsStore,
     usage: yield* Usage,
     ui: yield* Ui,
-    pty: yield* Pty,
-    claude: yield* ClaudeBinary,
     endpoint: yield* ControlEndpoint,
     paths: yield* AppPaths,
   })
@@ -42,22 +38,16 @@ const make = Effect.gen(function* () {
     Effect.forkScoped,
   )
 
-  // Poll context of working terminals between hooks
-  yield* Effect.sync(() =>
-    [...core.sessions.values()].filter((s) => s.status === "working" && s.kind !== "chat").forEach(core.refreshContext),
-  ).pipe(Effect.repeat(Schedule.spaced("2 seconds")), Effect.forkScoped)
-
   yield* settings.changes.pipe(
     Effect.flatMap((changes) => Stream.runForEach(changes, () => Effect.sync(core.syncPower))),
     Effect.forkScoped,
   )
 
-  // Save and stop terminals on quit
+  // Save sessions on quit
   yield* Effect.addFinalizer(() =>
     Effect.sync(() => {
       core.quit()
       core.persist()
-      ;[...core.sessions.values()].filter((s) => s.kind === "terminal").forEach((s) => s.proc?.kill())
     }),
   )
 

@@ -16,9 +16,8 @@ const HOOK_TIMEOUT_SECONDS = 10
 
 // HTTP hook settings, token read from DAYCARE_TOKEN
 const hookSettings = (endpoint: Endpoint, id: SessionId) => {
-  const entry = (matcher?: string) => [
+  const entry = () => [
     {
-      ...(matcher ? { matcher } : {}),
       hooks: [
         {
           type: "http",
@@ -34,8 +33,6 @@ const hookSettings = (endpoint: Endpoint, id: SessionId) => {
     hooks: {
       SessionStart: entry(),
       UserPromptSubmit: entry(),
-      PreToolUse: entry("*"),
-      Notification: entry(),
       Stop: entry(),
     },
   }
@@ -78,16 +75,11 @@ const roleArgs = (s: Session, mcpDir: string, endpoint: Endpoint) => {
 }
 
 // Arguments to start or resume a session
-export const claudeArgs = (s: Session, resume: boolean, mcpDir: string, endpoint: Endpoint) => {
-  const terminal = s.kind !== "chat"
-  return [
-    "--settings",
-    JSON.stringify(hookSettings(endpoint, s.id)),
-    ...(terminal ? ["--name", s.name] : []),
-    ...(resume && canResume(s) ? ["--resume", s.claudeSessionId] : ["--session-id", s.claudeSessionId]),
-    ...(s.model ? ["--model", s.model] : []),
-    ...(s.permissionMode !== "default" ? ["--permission-mode", s.permissionMode] : []),
-    ...roleArgs(s, mcpDir, endpoint),
-    ...(s.task && terminal && !resume ? [s.task] : []),
-  ]
-}
+export const claudeArgs = (s: Session, resume: boolean, mcpDir: string, endpoint: Endpoint) => [
+  "--settings",
+  JSON.stringify(hookSettings(endpoint, s.id)),
+  ...(resume && canResume(s) ? ["--resume", s.claudeSessionId] : ["--session-id", s.claudeSessionId]),
+  ...(s.model ? ["--model", s.model] : []),
+  ...(s.permissionMode !== "default" ? ["--permission-mode", s.permissionMode] : []),
+  ...roleArgs(s, mcpDir, endpoint),
+]

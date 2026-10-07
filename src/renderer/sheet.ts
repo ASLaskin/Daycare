@@ -1,7 +1,7 @@
 // New session popup form.
 
 import { asDirPath } from "../shared/ids.ts"
-import type { NewMaster, PermissionMode, SessionKind } from "../shared/session.ts"
+import type { NewMaster, PermissionMode } from "../shared/session.ts"
 import { api } from "./api.ts"
 import { $, baseName, el, tildify } from "./dom.ts"
 import { settings } from "./store.ts"
@@ -15,7 +15,6 @@ const form = () => {
     form: f,
     task: field<HTMLTextAreaElement>("task"),
     name: field<HTMLInputElement>("name"),
-    kind: field<HTMLSelectElement>("kind"),
     cwd: field<HTMLSelectElement>("cwd"),
     model: field<HTMLSelectElement>("model"),
     permissionMode: field<HTMLSelectElement>("permissionMode"),
@@ -32,10 +31,9 @@ const folderOption = (label: string, path: string) => {
   return o
 }
 
-export const openSheet = (locIndex: number, kind: SessionKind) => {
+export const openSheet = (locIndex: number) => {
   const s = settings()
   const f = form()
-  f.kind.value = kind
   f.cwd.replaceChildren(...s.locations.map((l, i) => folderOption(`${i + 1}   ${l.label}`, l.path)))
   f.cwd.value = s.locations[locIndex]?.path ?? ""
   f.model.value = s.model
@@ -49,7 +47,6 @@ const readForm = (): NewMaster => {
   const name = f.name.value.trim()
   return {
     task: f.task.value.trim(),
-    kind: f.kind.value as SessionKind,
     model: f.model.value,
     permissionMode: f.permissionMode.value as PermissionMode,
     cwd: asDirPath(f.cwd.value),

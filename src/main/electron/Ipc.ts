@@ -4,7 +4,7 @@ import { Effect, Layer, Schema } from "effect"
 import { dialog, ipcMain, shell } from "electron"
 import { execFile } from "node:child_process"
 import { asDirPath, type DirPath } from "../../shared/ids.ts"
-import { Invoke, type InvokeChannel, type InvokePayload, type InvokeResult, Send, type SendChannel, type SendPayload } from "../../shared/ipc.ts"
+import { Invoke, type InvokeChannel, type InvokePayload, type InvokeResult } from "../../shared/ipc.ts"
 import { AppPaths } from "../AppPaths.ts"
 import { Ui } from "../Ui.ts"
 import { Power } from "../power/Power.ts"
@@ -18,7 +18,6 @@ import { MainWindow } from "./Window.ts"
 import { showSessionMenu } from "./sessionMenu.ts"
 
 type Handlers = { readonly [C in InvokeChannel]: (payload: InvokePayload<C>) => Effect.Effect<InvokeResult[C], { readonly message: string }> }
-type SendHandlers = { readonly [C in SendChannel]: (payload: SendPayload<C>) => Effect.Effect<void> }
 
 export const Ipc = Layer.effectDiscard(
   Effect.gen(function* () {
@@ -86,11 +85,6 @@ export const Ipc = Layer.effectDiscard(
       "chat:history": (id) => sessions.chatHistory(id),
     }
 
-    const sendHandlers: SendHandlers = {
-      "pty:write": ({ id, data }) => sessions.write(id, data),
-      "pty:resize": ({ id, cols, rows }) => sessions.resize(id, cols, rows),
-    }
-
     // Failures reject with their message
     const handleInvoke = <C extends InvokeChannel>(channel: C) => {
       const decode = Schema.decodeUnknownEffect(Invoke[channel])
@@ -100,30 +94,9 @@ export const Ipc = Layer.effectDiscard(
       )
     }
 
-    // Payloads that fail to decode are dropped
-    const handleSend = <C extends SendChannel>(channel: C) => {
-      const decode = Schema.decodeUnknownOption(Send[channel])
-      const handler: SendHandlers[C] = sendHandlers[channel]
-      const listener = (_event: Electron.IpcMainEvent, payload: unknown) => {
-        const decoded = decode(payload)
-        if (decoded._tag === "Some") {
-          Effect.runSync(handler(decoded.value))
-        }
-      }
-      ipcMain.on(channel, listener)
-      return [channel, listener] as const
-    }
-
     const invokeChannels = Object.keys(Invoke) as Array<InvokeChannel>
     invokeChannels.forEach(handleInvoke)
-    const sendChannels = Object.keys(Send) as Array<SendChannel>
-    const listeners = sendChannels.map(handleSend)
 
-    yield* Effect.addFinalizer(() =>
-      Effect.sync(() => {
-        invokeChannels.forEach((channel) => ipcMain.removeHandler(channel))
-        listeners.forEach(([channel, listener]) => ipcMain.removeListener(channel, listener))
-      }),
-    )
+    yield* Effect.addFinalizer(() => Effect.sync(() => invokeChannels.forEach((channel) => ipcMain.removeHandler(channel))))
   }),
 )

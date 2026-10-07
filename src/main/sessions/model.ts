@@ -4,13 +4,11 @@ import { Option, Schema } from "effect"
 import fs from "node:fs"
 import type { ClaudeSessionId, DirPath, FilePath, SessionId } from "../../shared/ids.ts"
 import { isJsonObject, type Json } from "../../shared/json.ts"
-import { type PermissionMode, type SessionKind, SessionRecord, type SessionRole, type SessionStatus, type SessionView } from "../../shared/session.ts"
-import type { PtyProcess } from "./Pty.ts"
+import { type PermissionMode, SessionRecord, type SessionRole, type SessionStatus, type SessionView } from "../../shared/session.ts"
 
 export interface Session {
   readonly id: SessionId
   readonly role: SessionRole
-  readonly kind: SessionKind
   readonly parentId: SessionId | null
   readonly cwd: DirPath
   readonly model: string
@@ -27,18 +25,12 @@ export interface Session {
   finishedTurns: number
   hadTurn: boolean
   context: number
-  // Terminal PTY, or the shell left after claude exits
-  proc: PtyProcess | null
-  shell: boolean
   // Closing from the app, so it stays listed
   closing: boolean
-  cols: number
-  rows: number
 }
 
 export interface CreateOptions {
   readonly role: SessionRole
-  readonly kind: SessionKind
   readonly cwd: DirPath
   readonly model: string
   readonly permissionMode: PermissionMode
@@ -52,22 +44,22 @@ export const view = (s: Session): SessionView => ({
   name: s.name,
   icon: s.icon,
   role: s.role,
-  kind: s.kind,
   parentId: s.parentId,
   status: s.status,
   activity: s.activity,
   model: s.model,
+  permissionMode: s.permissionMode,
   cwd: s.cwd,
   task: s.task,
   createdAt: s.createdAt,
   finishedTurns: s.finishedTurns,
+  hadTurn: s.hadTurn,
   context: s.context,
 })
 
 export const record = (s: Session): SessionRecord => ({
   id: s.id,
   role: s.role,
-  kind: s.kind,
   name: s.name,
   icon: s.icon,
   cwd: s.cwd,
@@ -82,7 +74,6 @@ export const record = (s: Session): SessionRecord => ({
 })
 
 const RECORD_DEFAULTS = {
-  kind: "terminal",
   model: "",
   permissionMode: "default",
   icon: null,

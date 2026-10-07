@@ -4,6 +4,5 @@ twin we need a read me, but i dont want the clanker to write it, or maybe he cou
 
 ```sh
 bun install
-bun run rebuild
 bun start
 ```

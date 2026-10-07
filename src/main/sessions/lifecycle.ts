@@ -4,10 +4,9 @@ import { randomUUID } from "node:crypto"
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
-import { asClaudeSessionId, asDirPath, asSessionId, type ClaudeSessionId, type DirPath } from "../../shared/ids.ts"
+import { asClaudeSessionId, asDirPath, asSessionId } from "../../shared/ids.ts"
 import type { SessionRecord } from "../../shared/session.ts"
-import type { PtyProcess } from "./Pty.ts"
-import { type Core, later } from "./core.ts"
+import type { Core } from "./core.ts"
 import { cleanEnv } from "./env.ts"
 import { claudeArgs, MCP_TIMEOUT_MS } from "./launch.ts"
 import { canResume, type CreateOptions, type Session, view } from "./model.ts"
@@ -23,59 +22,27 @@ export interface Lifecycle {
   readonly submitText: (s: Session, text: string) => boolean
 }
 
-const DEFAULT_COLS = 120
-const DEFAULT_ROWS = 32
-const SUBMIT_DELAY_MS = 120
-
-const shellNotice = (claudeSessionId: ClaudeSessionId) =>
-  `\r\n\x1b[2mClaude exited. Run claude --resume ${claudeSessionId} to pick it back up.\x1b[0m\r\n`
-
 export const makeLifecycle = (core: Core): Lifecycle => {
   const { sessions, deps, run } = core
-  const { chat, pty, claude, endpoint, ui, settings, usage } = deps
+  const { chat, endpoint, ui, settings, usage } = deps
 
   const childEnv = () => ({
     ...cleanEnv(process.env),
-    TERM: "xterm-256color",
-    COLORTERM: "truecolor",
     DAYCARE_TOKEN: endpoint.token,
     MCP_TOOL_TIMEOUT: String(MCP_TIMEOUT_MS),
   })
 
-  const startChat = (s: Session, resume: boolean, dir: DirPath, args: ReadonlyArray<string>) => {
-    run(chat.start({ id: s.id, cwd: dir, env: childEnv(), args, transcriptPath: resume && canResume(s) ? s.transcriptPath : null }))
-    if (s.task && !resume) {
-      run(chat.send(s.id, s.task))
-    }
-  }
-
-  const startTerminal = (s: Session, dir: DirPath, args: ReadonlyArray<string>) => {
-    const env = childEnv()
-    const proc = pty.spawn(claude.path, args, { cols: s.cols, rows: s.rows, cwd: dir, env })
-    s.proc = proc
-    proc.onData((data) => ui.send("pty:data", { id: s.id, data }))
-    proc.onExit(() => {
-      if (s.proc !== proc) {
-        return
-      }
-      s.proc = null
-      // Quitting claude drops to a shell
-      if (!s.closing && !core.isQuitting() && sessions.get(s.id) === s) {
-        startShell(s, dir, env)
-        return
-      }
-      sessionExited(s)
-    })
+  const sendText = (s: Session, text: string) => {
+    s.hadTurn = true
+    run(chat.send(s.id, text))
   }
 
   const startSession = (s: Session, resume: boolean) => {
-    s.shell = false
     const args = claudeArgs(s, resume, core.mcpDir, endpoint)
     const dir = fs.existsSync(s.cwd) ? s.cwd : asDirPath(os.homedir())
-    if (s.kind === "chat") {
-      startChat(s, resume, dir, args)
-    } else {
-      startTerminal(s, dir, args)
+    run(chat.start({ id: s.id, cwd: dir, env: childEnv(), args, transcriptPath: resume && canResume(s) ? s.transcriptPath : null }))
+    if (s.task && !resume) {
+      sendText(s, s.task)
     }
     // Initial status for sessions with no prompt yet
     if (resume || !s.task) {
@@ -87,35 +54,7 @@ export const makeLifecycle = (core: Core): Lifecycle => {
     core.syncPower()
   }
 
-  // Login shell left in the pane after claude exits
-  const startShell = (s: Session, dir: DirPath, env: NodeJS.ProcessEnv) => {
-    let proc: PtyProcess
-    try {
-      proc = pty.spawn(process.env["SHELL"] || "/bin/zsh", ["-l"], { cols: s.cols, rows: s.rows, cwd: dir, env })
-    } catch {
-      return sessionExited(s)
-    }
-    s.proc = proc
-    s.shell = true
-    ui.send("pty:data", { id: s.id, data: shellNotice(s.claudeSessionId) })
-    proc.onData((data) => ui.send("pty:data", { id: s.id, data }))
-    proc.onExit(() => {
-      if (s.proc !== proc) {
-        return
-      }
-      s.proc = null
-      sessionExited(s)
-    })
-    core.setStatus(s, "exited", "shell")
-  }
-
-  const killSession = (s: Session) => {
-    if (s.kind === "chat") {
-      run(chat.stop(s.id))
-      return
-    }
-    s.proc?.kill()
-  }
+  const killSession = (s: Session) => run(chat.stop(s.id))
 
   // Closed sessions stay listed, others are removed
   const sessionExited = (s: Session) => {
@@ -185,7 +124,6 @@ export const makeLifecycle = (core: Core): Lifecycle => {
     const s: Session = {
       id: restored?.id ?? asSessionId(randomUUID()),
       role: options.role,
-      kind: options.kind,
       parentId: options.parentId ?? null,
       cwd: options.cwd,
       model: options.model,
@@ -202,11 +140,7 @@ export const makeLifecycle = (core: Core): Lifecycle => {
       finishedTurns: 0,
       hadTurn: restored?.hadTurn ?? false,
       context: restored ? contextTokens(restored.transcriptPath) : 0,
-      proc: null,
-      shell: false,
       closing: false,
-      cols: DEFAULT_COLS,
-      rows: DEFAULT_ROWS,
     }
     sessions.set(s.id, s)
     ui.send("session:created", view(s))
@@ -217,21 +151,12 @@ export const makeLifecycle = (core: Core): Lifecycle => {
     return s
   }
 
-  // Paste and submit text like a user
+  // Send text like a user
   const submitText = (s: Session, text: string) => {
-    if (s.kind === "chat") {
-      if (!run(chat.has(s.id))) {
-        return false
-      }
-      run(chat.send(s.id, text))
-      return true
-    }
-    const proc = s.proc
-    if (!proc || s.shell) {
+    if (!run(chat.has(s.id))) {
       return false
     }
-    proc.write(`\x1b[200~${text}\x1b[201~`)
-    later(SUBMIT_DELAY_MS, () => s.proc === proc && proc.write("\r"))
+    sendText(s, text)
     return true
   }
 

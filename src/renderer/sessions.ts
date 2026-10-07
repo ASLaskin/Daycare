@@ -5,7 +5,7 @@ import type { SessionView } from "../shared/session.ts"
 import { api } from "./api.ts"
 import * as chat from "./chat/index.ts"
 import { focusSession, isFocused, showMaster } from "./focus.ts"
-import { applyStatus, bufferOutput, createPane } from "./pane.ts"
+import { applyStatus, createPane } from "./pane.ts"
 import { initProjectActions } from "./project-actions.ts"
 import { removeSessionUI } from "./removal.ts"
 import { beginRename } from "./rename.ts"
@@ -75,15 +75,6 @@ const onUpdate = (info: SessionView) => {
   }
 }
 
-const onData = ({ id, data }: { readonly id: SessionId; readonly data: string }) => {
-  const p = panes.get(id)
-  if (!p) {
-    bufferOutput(id, data)
-    return
-  }
-  p.term?.write(data)
-}
-
 // Restores open sessions, masters first.
 const restore = async () => {
   const list = [...(await api.listSessions())]
@@ -102,7 +93,6 @@ export const initSessions = async () => {
   api.onCreated(onCreated)
   api.onUpdate(onUpdate)
   api.onBeginRename(renameFromMenu)
-  api.onData(onData)
   api.onChatEvent(({ id, event }) => chat.event(id, event))
   await restore()
 }

@@ -19,3 +19,16 @@ export const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string |
 
 export const baseName = (p: string) => p.replace(/\/+$/, "").split("/").pop() || p
 export const tildify = (p: string) => p.replace(/^\/Users\/[^/]+/, "~")
+
+// Writes text only when it changed.
+export const setText = (node: HTMLElement, text: string) => {
+  if (node.textContent !== text) {
+    node.textContent = text
+  }
+}
+
+export const setClass = (node: Element, cls: string) => {
+  if (node.getAttribute("class") !== cls) {
+    node.setAttribute("class", cls)
+  }
+}

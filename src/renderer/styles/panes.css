@@ -50,6 +50,4 @@
 .pane-head .head-actions .ghost:hover { color: var(--text); }
 .pane-head .head-actions .ghost.danger:hover { color: var(--exited); background: color-mix(in srgb, var(--exited) 10%, transparent); }
 
-.term { flex: 1; min-height: 0; padding: 6px 4px 4px 10px; }
-.term .xterm { height: 100%; }
-.term .xterm-viewport { background: transparent !important; }
+.pane-body { flex: 1; min-height: 0; }

@@ -7,12 +7,11 @@ import os from "node:os"
 import path from "node:path"
 import { asDirPath, asFilePath, type DirPath } from "../src/shared/ids.ts"
 import type { EventChannel, Events } from "../src/shared/ipc.ts"
-import { Invoke, Send } from "../src/shared/ipc.ts"
+import { Invoke } from "../src/shared/ipc.ts"
 import type { Json } from "../src/shared/json.ts"
 
 type Handler = (event: object, payload?: Json) => Promise<Json> | undefined
 const handlers = new Map<string, Handler>()
-const listeners = new Map<string, Handler>()
 const icons: Array<string> = []
 const fakeApp = { isPackaged: false, quit: () => {}, dock: { setIcon: (file: string) => void icons.push(file) } }
 
@@ -21,8 +20,6 @@ mock.module("electron", () => ({
   ipcMain: {
     handle: (channel: string, fn: Handler) => void handlers.set(channel, fn),
     removeHandler: (channel: string) => void handlers.delete(channel),
-    on: (channel: string, fn: Handler) => void listeners.set(channel, fn),
-    removeListener: (channel: string) => void listeners.delete(channel),
   },
   dialog: {},
   shell: {},
@@ -67,8 +64,6 @@ describe("Ipc", () => {
   const FakeSessions = Layer.succeed(Sessions, {
     rename: record("rename"),
     close: record("close"),
-    write: record("write"),
-    resize: record("resize"),
     list: Effect.succeed([]),
   } as never)
   const none = <S>(tag: S) => Layer.succeed(tag as never, {} as never)
@@ -91,10 +86,8 @@ describe("Ipc", () => {
   test("registers every channel and removes them on close", async () => {
     await withIpc(async () => {
       expect([...handlers.keys()].sort()).toEqual(Object.keys(Invoke).sort())
-      expect([...listeners.keys()].sort()).toEqual(Object.keys(Send).sort())
     })
     expect(handlers.size).toBe(0)
-    expect(listeners.size).toBe(0)
   })
 
   test("decodes payloads before the handler runs", async () => {
@@ -104,15 +97,8 @@ describe("Ipc", () => {
       await handlers.get("session:rename")!({}, { id: "a", name: "New" })
       await expect(Promise.resolve(handlers.get("session:rename")!({}, { id: 1 }))).rejects.toThrow()
       await expect(Promise.resolve(handlers.get("session:close")!({}, 7))).rejects.toThrow()
-      listeners.get("pty:resize")!({}, { id: "a", cols: 80, rows: 24 })
-      listeners.get("pty:resize")!({}, { id: "a", cols: "wide" })
-      listeners.get("pty:write")!({}, { id: "a", data: "x" })
     })
-    expect(calls).toEqual([
-      ["rename", ["a", "New"]],
-      ["resize", ["a", 80, 24]],
-      ["write", ["a", "x"]],
-    ])
+    expect(calls).toEqual([["rename", ["a", "New"]]])
   })
 })
 

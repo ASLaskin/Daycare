@@ -12,7 +12,9 @@
   padding: 0 10px 0 14px;
   -webkit-app-region: drag;
 }
-.toolbar-controls { display: flex; gap: 6px; align-items: center; min-width: 0; -webkit-app-region: no-drag; }
+.toolbar-controls { display: flex; gap: 6px; align-items: center; min-width: 0; }
+/* Blank toolbar space drags the window; controls stay clickable. */
+.toolbar button, .toolbar select, .toolbar input, .toolbar .seg { -webkit-app-region: no-drag; }
 .toolbar-controls.project { flex: 1; }
 .toolbar-controls.project.hidden { visibility: hidden; display: flex !important; }
 .toolbar select { min-width: 180px; padding: 5px 26px 5px 10px; font-size: 12.5px; background-color: var(--panel); }

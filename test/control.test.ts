@@ -57,9 +57,9 @@ test("a request without the token is refused", async () => {
 })
 
 test("a hook is decoded and answered with an empty 200", async () => {
-  const res = await post("/hook/s1", { hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: { command: "ls" }, extra: 1 })
+  const res = await post("/hook/s1", { hook_event_name: "Stop", extra: 1 })
   expect([res.status, await res.text()]).toEqual([200, ""])
-  expect(hooks).toEqual([{ id: "s1", payload: { hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: { command: "ls" } } }])
+  expect(hooks).toEqual([{ id: "s1", payload: { hook_event_name: "Stop" } }])
 })
 
 test("a malformed hook is still a 200, so it never shows as a hook error", async () => {

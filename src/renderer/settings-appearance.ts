@@ -1,7 +1,7 @@
 // Settings appearance panel.
 
 import type { Settings } from "../shared/settings.ts"
-import { FONTS, MONOS, MOTIONS, termFontSize } from "./appearance.ts"
+import { FONTS, MONOS, MOTIONS } from "./appearance.ts"
 import { $, el } from "./dom.ts"
 import { choicePicker, input, onSelect, onToggle, segPicker, select } from "./fields.ts"
 import { showContext } from "./context-meter.ts"
@@ -25,8 +25,6 @@ const renderPickers = () => {
 export const renderAppearance = () => {
   const s = settings()
   renderPickers()
-  input("set-term-size").value = String(termFontSize())
-  $("#term-size-val").textContent = `${termFontSize()} px`
   input("set-show-icons").checked = s.showIcons
   input("set-show-context").checked = showContext()
   $("#context-options").classList.toggle("collapsed", !showContext())
@@ -36,11 +34,6 @@ export const renderAppearance = () => {
 }
 
 export const wireAppearance = () => {
-  const size = input("set-term-size")
-  size.oninput = () => {
-    $("#term-size-val").textContent = `${size.value} px`
-  }
-  size.onchange = () => saveSettings({ termFontSize: Number(size.value) })
   onToggle("set-show-icons", (showIcons) => saveSettings({ showIcons }).then(renderSidebar))
   onToggle("set-show-context", (showContext) => saveSettings({ showContext }).then(refreshContexts))
   onSelect("set-context-limit", (v) => saveSettings({ contextLimit: Number(v) }).then(refreshContexts))
