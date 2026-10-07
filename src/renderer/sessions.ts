@@ -27,7 +27,7 @@ const addSession = (info: SessionView) => {
 }
 
 const renameFromMenu = ({ id }: { readonly id: SessionId; }) => {
-  const nameEl = document.querySelector<HTMLElement>(`.master-item[data-id="${id}"] .name`)
+  const nameEl = document.querySelector<HTMLElement>(`.master-item[data-id="${id}"] .name, .worker-item[data-id="${id}"] .wname`)
   const info = panes.get(id)?.info ?? closedInfo.get(id)
   if (nameEl && info) {
     beginRename(nameEl, id, info.name)

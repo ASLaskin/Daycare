@@ -1,6 +1,7 @@
 // Sidebar row or dot for one worker under its master.
 
 import type { SessionView } from "../shared/session.ts"
+import { api } from "./api.ts"
 import { el } from "./dom.ts"
 import { focusSession } from "./focus.ts"
 import { type Row, syncChildren } from "./keyed.ts"
@@ -10,6 +11,7 @@ import { paintDot, statusDot, wirePeek } from "./status-dot.ts"
 export const workerRow = (first: SessionView): Row<SessionView> => {
   let w = first
   const row = el("div", "worker-item")
+  row.dataset["id"] = w.id
   const name = renamable("wname", () => w)
   const right = el("span", "wright")
   const ctx = el("span")
@@ -18,6 +20,11 @@ export const workerRow = (first: SessionView): Row<SessionView> => {
   row.onclick = (e) => {
     e.stopPropagation()
     focusSession(w.id)
+  }
+  row.oncontextmenu = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    api.sessionMenu(w.id)
   }
   const update = (next: SessionView) => {
     w = next

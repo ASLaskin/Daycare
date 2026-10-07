@@ -129,21 +129,22 @@ export const makeService = (core: Core, lifecycle: Lifecycle): SessionsShape => 
       }),
     remove: (id) =>
       Effect.gen(function* () {
-        const master = core.masterById(id)
-        if (!master) {
+        const s = sessions.get(id)
+        if (!s) {
           return
         }
-        const pristine = !master.hadTurn && core.childrenOf(master.id).length === 0
+        const workers = s.role === "master" ? core.childrenOf(s.id).length : 0
+        const pristine = s.role === "master" && !s.hadTurn && workers === 0
         const ok = pristine || (yield* ui.confirm({
-          message: `Delete ${master.name}?`,
-          detail: deleteDetail(core.childrenOf(master.id).length),
+          message: `Delete ${s.name}?`,
+          detail: deleteDetail(workers),
           confirmLabel: "Delete",
         }))
         if (!ok) {
           return
         }
-        lifecycle.removeSession(master)
-        lifecycle.killSession(master)
+        lifecycle.removeSession(s)
+        lifecycle.killSession(s)
       }),
     chatSend: (id, text) =>
       Effect.sync(() => {

@@ -58,6 +58,9 @@
   transition: opacity var(--t) var(--ease);
 }
 .usage.refreshing { opacity: 0.5; }
+.usage-head { display: flex; align-items: center; gap: 6px; color: var(--faint); font-size: 11px; font-weight: 600; }
+.usage-head svg { width: 14px; height: 14px; flex: none; }
+.usage-body { display: flex; flex-direction: column; gap: 10px; }
 .usage-row { display: flex; flex-direction: column; gap: 5px; }
 .usage-top { display: flex; justify-content: space-between; align-items: baseline; }
 .usage-label { color: var(--muted); font-size: 12px; font-weight: 600; }

@@ -62,9 +62,9 @@ const limitRow = (l: UsageLimit) => {
 }
 
 const renderUsage = () => {
-  const box = $("#usage")
+  const box = $("#usage-body")
   if (!usage || !usage.limits.length) {
-    box.replaceChildren(el("div", "usage-note", "Plan usage"))
+    box.replaceChildren(el("div", "usage-note", "Not loaded yet"))
     return
   }
   box.replaceChildren(...usage.limits.map(limitRow))

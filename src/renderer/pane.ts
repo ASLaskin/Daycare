@@ -11,7 +11,7 @@ import { renderContext } from "./context-meter.ts"
 import { $, el } from "./dom.ts"
 import { setFocused } from "./focus.ts"
 import { beginRename } from "./rename.ts"
-import { masterActions } from "./session-actions.ts"
+import { masterActions, workerActions } from "./session-actions.ts"
 import { renderSidebar } from "./sidebar.ts"
 import { wireSplitHandle } from "./split-handle.ts"
 import { type Pane, panes } from "./state.ts"
@@ -45,7 +45,7 @@ const buildHead = (info: SessionView) => {
   const ctx = el("span", "ctx")
   title.title = "Double-click to rename"
   const actions = el("div", "head-actions")
-  actions.append(collapseButton(info.id), zoomButton(info.id), ...(info.role === "master" ? masterActions(info.id) : []))
+  actions.append(collapseButton(info.id), zoomButton(info.id), ...(info.role === "master" ? masterActions(info.id) : workerActions(info.id)))
   head.append(title, role, status, activity, ctx, actions)
   head.ondblclick = (e) => {
     if ((e.target as HTMLElement).closest("button, input, .ctx")) {

@@ -60,8 +60,10 @@ export class Updater extends Context.Service<
           }
           const installed = log.match(/Installed (.+\.app)/)?.[1]
           if (app.isPackaged && installed) {
+            // Reopen once this process has fully quit
+            const reopen = 'while kill -0 "$0" 2>/dev/null; do sleep 0.2; done; /usr/bin/open -n "$1"'
             setTimeout(() => {
-              spawn("open", ["-n", installed], { detached: true, stdio: "ignore" }).unref()
+              spawn("/bin/sh", ["-c", reopen, String(process.pid), installed], { detached: true, stdio: "ignore" }).unref()
               app.quit()
             }, 800)
           }

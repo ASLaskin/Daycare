@@ -16,9 +16,15 @@
     <nav id="master-strip" class="master-strip" aria-label="Sessions"></nav>
     <div class="sidebar-foot">
       <div id="power-badge" class="power-badge hidden" title="Keep awake"></div>
-      <div id="usage" class="usage" title="Plan usage, same as /usage. Click to refresh."></div>
-      <button id="open-settings" class="ghost" title="Settings (⌘,)">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v1.6M8 12.6v1.6M1.8 8h1.6M12.6 8h1.6M3.6 3.6l1.1 1.1M11.3 11.3l1.1 1.1M3.6 12.4l1.1-1.1M11.3 4.7l1.1-1.1"/></svg>
+      <div id="usage" class="usage" title="Plan usage, same as /usage. Click to refresh.">
+        <div class="usage-head">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 11.5a5.5 5.5 0 0 1 11 0"/><path d="M8 11.5l2.6-3.4"/></svg>
+          <span>Plan usage</span>
+        </div>
+        <div id="usage-body" class="usage-body"></div>
+      </div>
+      <button id="open-settings" class="ghost" title="Settings (⌘,)" aria-label="Settings">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.59 6.27L14.27 6.73V9.27L12.59 9.73L12.46 10.02L13.33 11.54L11.54 13.33L10.02 12.46L9.73 12.59L9.27 14.27H6.73L6.27 12.59L5.98 12.46L4.46 13.33L2.67 11.54L3.54 10.02L3.41 9.73L1.73 9.27V6.73L3.41 6.27L3.54 5.98L2.67 4.46L4.46 2.67L5.98 3.54L6.27 3.41L6.73 1.73H9.27L9.73 3.41L10.02 3.54L11.54 2.67L13.33 4.46L12.46 5.98Z"/><circle cx="8" cy="8" r="2"/></svg>
         <span>Settings</span>
       </button>
     </div>

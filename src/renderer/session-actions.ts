@@ -1,4 +1,4 @@
-// Close, delete, and relocate actions for masters.
+// Close, delete, and relocate actions for sessions.
 
 import type { DirPath, SessionId } from "../shared/ids.ts"
 import type { SessionView } from "../shared/session.ts"
@@ -42,4 +42,8 @@ const actionButton = (label: string, cls: string, title: string, action: () => v
 export const masterActions = (id: SessionId) => [
   actionButton("Close", "ghost", "Close this master and its workers, keeping them to reopen later (⌘W)", () => api.closeSession(id)),
   actionButton("Delete", "ghost danger", "End this master and its workers and remove them", () => api.deleteSession(id)),
+]
+
+export const workerActions = (id: SessionId) => [
+  actionButton("Delete", "ghost danger", "End this worker and remove it", () => api.deleteSession(id)),
 ]
