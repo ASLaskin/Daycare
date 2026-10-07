@@ -37,11 +37,12 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: var(--stage-gap);
+  gap: 6px;
   min-height: 0;
   min-width: 0;
 }
 .group.hidden { display: none; }
+.group-body { flex: 1; display: flex; flex-direction: column; gap: var(--stage-gap); min-height: 0; min-width: 0; }
 
 .master-slot { flex: 1 1 100%; min-height: 0; min-width: 0; display: flex; }
 .worker-grid {
@@ -53,7 +54,8 @@
   grid-auto-rows: minmax(0, 1fr);
   grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
 }
-.group:not(.has-workers) .worker-grid, .group:not(.has-workers) .split-handle { display: none; }
+.group:not(.workers-shown) .worker-grid, .group:not(.workers-shown) .split-handle { display: none; }
+.group.master-hidden .master-slot, .group.master-hidden .split-handle { display: none; }
 
 .split-handle { flex: none; position: relative; z-index: 2; margin: calc(var(--stage-gap) * -1) 0; height: var(--stage-gap); cursor: row-resize; }
 .split-handle::after {
@@ -73,29 +75,39 @@
 .split-handle.dragging::after { background: var(--accent); }
 
 /* stack: master on top */
-.group[data-layout="stack"].has-workers .master-slot { flex: 0 0 var(--split); }
+.group[data-layout="stack"].workers-shown .master-slot { flex: 0 0 var(--split); }
 
 /* side: master left, workers right */
-.group[data-layout="side"] { flex-direction: row; }
-.group[data-layout="side"].has-workers .master-slot { flex: 0 0 var(--split); }
+.group[data-layout="side"] .group-body { flex-direction: row; }
+.group[data-layout="side"].workers-shown .master-slot { flex: 0 0 var(--split); }
 .group[data-layout="side"] .worker-grid { grid-template-columns: minmax(0, 1fr); }
 .group[data-layout="side"] .split-handle, .group[data-layout="columns"] .split-handle { margin: 0 calc(var(--stage-gap) * -1); height: auto; width: var(--stage-gap); cursor: col-resize; }
 .group[data-layout="side"] .split-handle::after, .group[data-layout="columns"] .split-handle::after { width: 4px; height: 48px; }
 
 /* columns: every pane side by side */
-.group[data-layout="columns"] { flex-direction: row; }
-.group[data-layout="columns"].has-workers .master-slot { flex: 0 0 var(--split); }
+.group[data-layout="columns"] .group-body { flex-direction: row; }
+.group[data-layout="columns"].workers-shown .master-slot { flex: 0 0 var(--split); }
 .group[data-layout="columns"] .worker-grid { grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); }
 
 /* grid: master is just another cell */
-.group[data-layout="grid"].has-workers { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); }
-.group[data-layout="grid"].has-workers .master-slot, .group[data-layout="grid"].has-workers .worker-grid { display: contents; }
+.group[data-layout="grid"].workers-shown .group-body { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); }
+.group[data-layout="grid"].workers-shown .master-slot, .group[data-layout="grid"].workers-shown .worker-grid { display: contents; }
 .group[data-layout="grid"] .split-handle { display: none; }
 
 /* zoomed: one pane fills the stage */
-.group.zoomed { display: flex !important; }
+.group.zoomed .group-body { display: flex !important; }
+.group.zoomed .group-tray { display: none; }
 .group.zoomed .master-slot, .group.zoomed .worker-grid { display: contents; }
 .group.zoomed .split-handle { display: none; }
 .group.zoomed .pane:not(.zoomed) { display: none; }
 .group.zoomed .pane.zoomed { animation: zoom-in var(--t-slow) var(--ease-out) both; }
 @keyframes zoom-in { from { opacity: 0.6; transform: scale(0.992); } }
+
+/* tray: collapsed panes as dots */
+.group-tray { display: none; flex: none; align-items: center; gap: 2px; height: 24px; min-width: 0; }
+.group.has-workers .group-tray { display: flex; }
+.tray-dots { flex: 1; display: flex; align-items: center; gap: 2px; min-width: 0; overflow: hidden; }
+.tray-dot { display: inline-grid; place-items: center; width: 20px; height: 20px; padding: 0; background: transparent; border-radius: var(--r); }
+.tray-dot:hover { background: var(--panel-3); }
+.tray-action { flex: none; padding: 2px 8px; font-size: 11.5px; color: var(--faint); }
+.tray-action[hidden] { display: none; }

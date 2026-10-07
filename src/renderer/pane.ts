@@ -4,10 +4,12 @@ import type { SessionId } from "../shared/ids.ts"
 import type { SessionView } from "../shared/session.ts"
 import { api } from "./api.ts"
 import * as chat from "./chat/index.ts"
+import { collapseButton } from "./collapse-button.ts"
+import { collapse, repaintCollapsed, syncGroup } from "./collapse.ts"
+import { buildTray } from "./collapse-tray.ts"
 import { renderContext } from "./context-meter.ts"
 import { $, el } from "./dom.ts"
 import { setFocused } from "./focus.ts"
-import { applyLayout } from "./layout.ts"
 import { beginRename } from "./rename.ts"
 import { masterActions } from "./session-actions.ts"
 import { renderSidebar } from "./sidebar.ts"
@@ -27,8 +29,9 @@ const groupFor = (masterId: SessionId) => {
   const handle = el("div", "split-handle")
   handle.title = "Drag to resize. Double-click to reset."
   wireSplitHandle(g, handle)
-  g.append(el("div", "master-slot"), handle, el("div", "worker-grid"))
-  applyLayout(g)
+  const body = el("div", "group-body")
+  body.append(el("div", "master-slot"), handle, el("div", "worker-grid"))
+  g.append(buildTray(masterId), body)
   $("#stage").append(g)
   return g
 }
@@ -42,10 +45,14 @@ const buildHead = (info: SessionView) => {
   const ctx = el("span", "ctx")
   title.title = "Double-click to rename"
   const actions = el("div", "head-actions")
-  actions.append(zoomButton(info.id), ...(info.role === "master" ? masterActions(info.id) : []))
+  actions.append(collapseButton(info.id), zoomButton(info.id), ...(info.role === "master" ? masterActions(info.id) : []))
   head.append(title, role, status, activity, ctx, actions)
   head.ondblclick = (e) => {
     if ((e.target as HTMLElement).closest("button, input, .ctx")) {
+      return
+    }
+    if (e.altKey) {
+      collapse(info.id)
       return
     }
     if (settings().zoomDblClick) {
@@ -56,14 +63,10 @@ const buildHead = (info: SessionView) => {
 }
 
 const place = (info: SessionView, pane: HTMLElement) => {
-  if (info.role === "master") {
-    groupFor(info.id).querySelector(".master-slot")!.append(pane)
-    return
-  }
-  const g = groupFor(info.parentId!)
-  g.querySelector(".worker-grid")!.append(pane)
-  g.classList.add("has-workers")
-  applyLayout(g)
+  const masterId = info.role === "master" ? info.id : info.parentId!
+  const slot = info.role === "master" ? ".master-slot" : ".worker-grid"
+  groupFor(masterId).querySelector(slot)!.append(pane)
+  syncGroup(masterId)
 }
 
 // Replays the conversation after a reload.
@@ -113,6 +116,7 @@ export const applyStatus = (p: Pane) => {
   p.els.activity.title = activity
   p.pane.classList.toggle("needs_you", status === "needs_you")
   renderContext(p.els.ctx, p.info.context)
+  repaintCollapsed(p.info)
 }
 
 export const refreshContexts = () => {

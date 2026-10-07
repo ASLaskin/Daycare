@@ -16,6 +16,7 @@
 .pane.focused { border-color: var(--line-strong); box-shadow: 0 0 0 1px var(--line-strong), 0 8px 30px -12px rgba(0, 0, 0, 0.6); }
 .pane.needs_you { border-color: color-mix(in srgb, var(--needs) 55%, var(--line)); }
 .pane.needs_you.focused { box-shadow: 0 0 0 1px color-mix(in srgb, var(--needs) 40%, transparent); }
+.pane.collapsed { display: none; }
 .pane.enter { animation: pane-in var(--t-slow) var(--ease-out) both; }
 @keyframes pane-in {
   from { opacity: 0; transform: translateY(6px) scale(0.99); }
@@ -51,3 +52,4 @@
 .pane-head .head-actions .ghost.danger:hover { color: var(--exited); background: color-mix(in srgb, var(--exited) 10%, transparent); }
 
 .pane-body { flex: 1; min-height: 0; }
+.group:not(.has-workers) .master-slot .icon-collapse { display: none; }

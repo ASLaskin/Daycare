@@ -4,6 +4,7 @@ import { api } from "./api.ts"
 import { closeActiveMaster } from "./focus.ts"
 import { newSession } from "./new-session.ts"
 import { closeSettings, isSettingsOpen, toggleSettings } from "./settings-view.ts"
+import { toggleSidebar } from "./sidebar-collapse.ts"
 import { closeSheet, isSheetOpen, submitSheet } from "./sheet.ts"
 import { saveSettings, settings } from "./store.ts"
 import { unzoom } from "./zoom.ts"
@@ -19,6 +20,7 @@ const COMMAND_KEYS: Record<string, () => void> = {
   n: () => newSession(),
   "/": toggleRail,
   ",": toggleSettings,
+  b: toggleSidebar,
 }
 
 // Closes the topmost of sheet, settings, or fallback.

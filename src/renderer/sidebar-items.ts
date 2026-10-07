@@ -1,5 +1,6 @@
 // Sidebar entries for open and closed masters.
 
+import type { SessionId } from "../shared/ids.ts"
 import type { SessionView } from "../shared/session.ts"
 import { api } from "./api.ts"
 import { baseName, el, setText } from "./dom.ts"
@@ -7,9 +8,10 @@ import { focusSession } from "./focus.ts"
 import { keyedRows, type Row, syncChildren } from "./keyed.ts"
 import { masterActions } from "./session-actions.ts"
 import { paintContext, paintName, paintStatus, renamable, showsContext } from "./sidebar-tags.ts"
-import { workerRow } from "./sidebar-worker.ts"
+import { workerDot, workerRow } from "./sidebar-worker.ts"
 import { closedInfo, workersOf } from "./state.ts"
 import { settings } from "./store.ts"
+import { doneCount, workerSummary } from "./worker-summary.ts"
 
 export interface OpenView {
   readonly info: SessionView
@@ -49,13 +51,11 @@ const masterShell = (current: () => SessionView) => {
   return { item, top, update }
 }
 
-const workerSummary = (workers: ReadonlyArray<SessionView>, done: number) => {
-  const needs = workers.filter((w) => w.status === "needs_you").length
-  const parts = [workers.length ? `${done} of ${workers.length} workers done` : "No workers yet"]
-  return [...parts, ...(needs ? [`${needs} need you`] : [])].join(", ")
-}
+// Masters whose worker list shows as dots.
+const folded = new Set<SessionId>()
 
 const openRow = (first: OpenView): Row<OpenView> => {
+  let current = first
   let m = first.info
   const shell = masterShell(() => m)
   const meta = el("div", "meta")
@@ -66,6 +66,8 @@ const openRow = (first: OpenView): Row<OpenView> => {
   progress.append(fill)
   const list = el("div", "worker-list")
   const workerRows = keyedRows((w: SessionView) => w.id, workerRow)
+  const dots = el("div", "worker-dots")
+  const workerDots = keyedRows((w: SessionView) => w.id, workerDot)
   // Close and Delete shown on the selected master.
   const actions = el("div", "item-actions")
   actions.append(...masterActions(m.id))
@@ -74,18 +76,34 @@ const openRow = (first: OpenView): Row<OpenView> => {
       focusSession(m.id)
     }
   }
-  const update = ({ info, active }: OpenView) => {
-    m = info
+  const update = (view: OpenView) => {
+    current = view
+    m = view.info
     shell.update(m)
-    shell.item.classList.toggle("active", active)
+    shell.item.classList.toggle("active", view.active)
     const workers = workersOf(m.id)
-    const done = workers.filter((w) => w.status === "done" || w.status === "exited").length
-    setText(summary, workerSummary(workers, done))
+    const isFolded = folded.has(m.id)
+    setText(summary, workerSummary(m.id))
     paintContext(ctx, m.context)
     syncChildren(meta, showsContext(m.context) ? [summary, ctx] : [summary])
-    fill.style.width = `${workers.length ? (done / workers.length) * 100 : 0}%`
-    syncChildren(list, workerRows(workers))
-    syncChildren(shell.item, [shell.top, meta, ...(workers.length ? [progress, list] : []), ...(active ? [actions] : [])])
+    meta.classList.toggle("foldable", workers.length > 0)
+    meta.classList.toggle("folded", isFolded)
+    meta.title = workers.length ? (isFolded ? "Show workers" : "Fold workers into dots") : ""
+    fill.style.width = `${workers.length ? (doneCount(workers) / workers.length) * 100 : 0}%`
+    syncChildren(list, isFolded ? [] : workerRows(workers))
+    syncChildren(dots, isFolded ? workerDots(workers) : [])
+    const body = workers.length ? [progress, isFolded ? dots : list] : []
+    syncChildren(shell.item, [shell.top, meta, ...body, ...(view.active ? [actions] : [])])
+  }
+  meta.onclick = (e) => {
+    if (!workersOf(m.id).length) {
+      return
+    }
+    e.stopPropagation()
+    if (!folded.delete(m.id)) {
+      folded.add(m.id)
+    }
+    update(current)
   }
   return { node: shell.item, update }
 }

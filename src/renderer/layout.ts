@@ -31,26 +31,35 @@ export const splitFor = (layout: Layout, workers: number) => {
   return layout === "columns" ? Math.round(100 / (workers + 1)) : layoutOf(layout).split
 }
 
-const COLS: Record<Layout, (n: number, max: number) => number> = {
+// Cells counts every shown pane, master included.
+const COLS: Record<Layout, (n: number, max: number, cells: number) => number> = {
   side: () => 1,
   columns: (n) => n,
-  grid: (n, max) => Math.min(max, Math.ceil(Math.sqrt(n + 1))),
+  grid: (_n, max, cells) => Math.min(max, Math.ceil(Math.sqrt(cells))),
   stack: (n, max) => (n <= max ? n : Math.min(max, Math.ceil(n / 2))),
 }
 
-const workerCols = (layout: Layout, n: number) => {
+const workerCols = (layout: Layout, n: number, cells: number) => {
   if (!n) {
     return 1
   }
-  return COLS[layout](n, Math.max(1, settings().maxCols || 4))
+  return COLS[layout](n, Math.max(1, settings().maxCols || 4), cells)
 }
 
+const shownPanes = (slot: Element) => slot.querySelectorAll(":scope > .pane:not(.collapsed)").length
+
+// Counts shown panes only.
 export const applyLayout = (g: HTMLElement) => {
   const layout = currentLayout()
-  const n = g.querySelector(".worker-grid")!.children.length
+  const grid = g.querySelector(".worker-grid")!
+  const n = shownPanes(grid)
+  const master = shownPanes(g.querySelector(".master-slot")!)
   g.dataset["layout"] = layout
+  g.classList.toggle("has-workers", grid.children.length > 0)
+  g.classList.toggle("workers-shown", n > 0)
+  g.classList.toggle("master-hidden", !master)
   g.style.setProperty("--split", `${splitFor(layout, n)}%`)
-  g.style.setProperty("--cols", String(workerCols(layout, n)))
+  g.style.setProperty("--cols", String(workerCols(layout, n, n + master)))
 }
 
 export const relayoutAll = () => {

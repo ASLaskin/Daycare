@@ -7,6 +7,7 @@ import "./chat/chat.css"
 import { applyAppearance } from "./appearance.ts"
 import { $ } from "./dom.ts"
 import { relayoutAll } from "./layout.ts"
+import { initSidebarCollapse } from "./sidebar-collapse.ts"
 import { initSidebarResize } from "./sidebar-resize.ts"
 import { initUsage } from "./usage-view.ts"
 import { initSessions } from "./sessions.ts"
@@ -32,6 +33,7 @@ onSettingsChanged(() => {
 
 initUsage()
 initSidebarResize()
+initSidebarCollapse()
 initSettingsView()
 initNewSession()
 initSheet()

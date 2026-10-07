@@ -1,0 +1,45 @@
+/* Status dots and the hover peek card. */
+
+.status-dot {
+  display: inline-block;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--faint);
+  transition: background var(--t) var(--ease), opacity var(--t) var(--ease);
+}
+.status-dot.idle { background: var(--muted); }
+.status-dot.working { background: var(--working); animation: pulse 1.4s ease-in-out infinite; }
+.status-dot.starting { animation: pulse 1.4s ease-in-out infinite; }
+.status-dot.needs_you { background: var(--needs); }
+.status-dot.done { background: var(--done); }
+.status-dot.exited { background: var(--exited); }
+.status-dot.closed { background: var(--faint); opacity: 0.5; }
+html[data-motion="off"] .status-dot { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion]) .status-dot { animation: none; }
+}
+
+.peek {
+  position: fixed;
+  z-index: 50;
+  max-width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 11px;
+  background: var(--panel-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  font-size: 12px;
+  color: var(--muted);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--t-fast) var(--ease);
+}
+.peek.shown { opacity: 1; }
+.peek-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.peek-name { color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.peek-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

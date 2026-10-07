@@ -39,6 +39,7 @@ export const Settings = Schema.Struct({
   // Master share per layout preset, in percent
   splits: Schema.Record(Schema.String, Schema.Finite),
   sidebarWidth: Schema.Finite,
+  sidebarCollapsed: Schema.Boolean,
   railWidth: Schema.Finite,
   zoomDblClick: Schema.Boolean,
   maxCols: Schema.Int,
@@ -68,6 +69,7 @@ export const baseSettings: Omit<Settings, "locations"> = {
   layout: "stack",
   splits: {},
   sidebarWidth: 264,
+  sidebarCollapsed: false,
   railWidth: 252,
   zoomDblClick: true,
   maxCols: 4,

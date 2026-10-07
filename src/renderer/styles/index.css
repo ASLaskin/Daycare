@@ -2,7 +2,9 @@
 @import "./base.css";
 @import "./controls.css";
 @import "./status.css";
+@import "./dots.css";
 @import "./sidebar.css";
+@import "./sidebar-collapse.css";
 @import "./toolbar.css";
 @import "./stage.css";
 @import "./panes.css";

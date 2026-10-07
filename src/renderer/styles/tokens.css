@@ -37,6 +37,7 @@
   --fs: 13px;
 
   --sidebar-w: 264px;
+  --sidebar-collapsed-w: 56px;
   --toolbar-h: 46px;
   --stage-gap: 10px;
 }

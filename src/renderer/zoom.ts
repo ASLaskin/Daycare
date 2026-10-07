@@ -71,5 +71,7 @@ export const releaseZoom = (p: Pane) => {
     return
   }
   zoomedId = null
+  p.pane.classList.remove("zoomed")
   p.pane.closest(".group")?.classList.remove("zoomed")
+  setIcon(p, "zoom", ZOOM_TITLE)
 }

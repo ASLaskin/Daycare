@@ -23,7 +23,7 @@ export const wireSplitHandle = (g: HTMLElement, handle: HTMLElement) => {
       return
     }
     const vertical = layout === "stack"
-    drag = { vertical, rect: g.getBoundingClientRect(), pct: null }
+    drag = { vertical, rect: (handle.parentElement ?? g).getBoundingClientRect(), pct: null }
     handle.setPointerCapture(e.pointerId)
     handle.classList.add("dragging")
     document.body.classList.add(vertical ? "resizing-row" : "resizing")

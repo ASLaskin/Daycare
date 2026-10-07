@@ -1,0 +1,81 @@
+/* Collapsed sidebar strip and folded worker dots. */
+
+body.sidebar-ready { transition: grid-template-columns var(--t-slow) var(--ease); }
+body.resizing { transition: none; }
+body.sidebar-collapsed { grid-template-columns: var(--sidebar-collapsed-w) 1fr; }
+
+.brand-name { overflow: hidden; white-space: nowrap; }
+.sidebar-toggle { -webkit-app-region: no-drag; width: 24px; height: 24px; padding: 0; display: grid; place-items: center; }
+.sidebar-toggle::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-left: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateX(1px) rotate(45deg);
+  transition: transform var(--t) var(--ease);
+}
+body.sidebar-collapsed .sidebar-toggle::before { transform: translateX(-1px) rotate(-135deg); }
+
+.master-strip { display: none; }
+body.sidebar-collapsed .master-strip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 0 0 16px;
+  overflow-y: auto;
+  min-height: 0;
+}
+body.sidebar-collapsed .master-list,
+body.sidebar-collapsed .brand-name,
+body.sidebar-collapsed .usage,
+body.sidebar-collapsed .power-badge,
+body.sidebar-collapsed .sidebar-handle,
+body.sidebar-collapsed #open-settings span { display: none; }
+body.sidebar-collapsed .brand { justify-content: center; padding: 0 0 10px; }
+body.sidebar-collapsed .sidebar-foot { padding: 10px 6px 12px; }
+body.sidebar-collapsed #open-settings { justify-content: center; padding: 6px 0; }
+/* Clears the window buttons hanging past the strip. */
+body.sidebar-collapsed .toolbar { padding-left: 40px; }
+.toolbar { transition: padding-left var(--t-slow) var(--ease); }
+
+.strip-item {
+  flex: none;
+  width: 32px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  cursor: pointer;
+  transition: background var(--t-fast) var(--ease);
+}
+.strip-item:hover { background: var(--panel-2); }
+.strip-item.active { background: var(--panel-3); box-shadow: inset 2px 0 0 var(--accent); }
+.strip-item.active .status-dot { width: 10px; height: 10px; }
+.strip-divider { flex: none; width: 18px; height: 1px; margin: 8px 0; background: var(--line); }
+
+.master-item .meta.foldable { cursor: pointer; }
+.master-item .meta.foldable:hover { color: var(--muted); }
+.master-item .meta.foldable::after {
+  content: "";
+  flex: none;
+  align-self: center;
+  width: 4px;
+  height: 4px;
+  margin-left: auto;
+  border-right: 1.2px solid currentColor;
+  border-bottom: 1.2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform var(--t) var(--ease);
+}
+.master-item .meta.foldable.folded::after { transform: rotate(-45deg); }
+
+.worker-dots { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 2px; }
+.master-item .worker-dots { margin-left: 33px; }
+.master-item.no-avatar .worker-dots { margin-left: 0; }
+.worker-dot { display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; cursor: pointer; }
+.worker-dot:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }

@@ -3,6 +3,7 @@
 import type { SessionId } from "../shared/ids.ts"
 import type { SessionView } from "../shared/session.ts"
 import * as chat from "./chat/index.ts"
+import { expand } from "./collapse.ts"
 import { $ } from "./dom.ts"
 import { renderProjectActions } from "./project-actions.ts"
 import { isRenaming } from "./rename.ts"
@@ -67,6 +68,7 @@ export const focusSession = (id: SessionId) => {
     return
   }
   closeSettings()
+  expand(id)
   showMaster(p.info.role === "master" ? p.info.id : p.info.parentId)
   requestAnimationFrame(() => {
     if (!isRenaming()) {
