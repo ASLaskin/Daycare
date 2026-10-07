@@ -94,5 +94,6 @@ export const initSessions = async () => {
   api.onUpdate(onUpdate)
   api.onBeginRename(renameFromMenu)
   api.onChatEvent(({ id, event }) => chat.event(id, event))
+  api.onChatReset(({ id, events }) => chat.reset(id, events))
   await restore()
 }

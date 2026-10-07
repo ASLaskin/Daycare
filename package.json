@@ -11,9 +11,11 @@
     "start": "bun run build && electron .",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
+    "coordinator": "bun src/coordinator/main.ts",
     "package": "bun run build && bun scripts/package.ts"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.291",
     "@effect/platform-node": "4.0.1",
     "effect": "4.0.1"
   },
@@ -23,5 +25,7 @@
     "electron": "44.5.1",
     "typescript": "7.0.2"
   },
-  "trustedDependencies": ["electron"]
+  "trustedDependencies": [
+    "electron"
+  ]
 }

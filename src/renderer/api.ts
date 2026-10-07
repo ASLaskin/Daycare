@@ -71,4 +71,5 @@ export const api = {
     bridge.invoke("chat:permission", { id, requestId, decision }),
   chatHistory: call("chat:history"),
   onChatEvent: on("chat:event"),
+  onChatReset: on("chat:reset"),
 }
