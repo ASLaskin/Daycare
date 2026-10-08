@@ -9,8 +9,9 @@ ExecStart=%h/.local/opt/bun/bin/bun src/coordinator/main.ts
 # Temporary database on the per-user runtime tmpfs
 Environment=DAYCARE_DB=%t/daycare/coordinator.db
 Environment=DAYCARE_CLAUDE=%h/.local/bin/claude
-# Agents' tool commands inherit this PATH
-Environment=PATH=%h/.local/opt/bun/bin:%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=DAYCARE_CODEX=%h/.local/opt/node-v24.18.1-linux-x64/bin/codex
+# Agents' tool commands inherit this PATH; codex is a Node script
+Environment=PATH=%h/.local/opt/node-v24.18.1-linux-x64/bin:%h/.local/opt/bun/bin:%h/.local/bin:/usr/local/bin:/usr/bin:/bin
 # Stop signals the coordinator alone, then kills whatever remains in the unit's cgroup
 KillMode=mixed
 TimeoutStopSec=15

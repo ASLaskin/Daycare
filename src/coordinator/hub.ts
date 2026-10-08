@@ -87,6 +87,10 @@ export const makeHub = (db: Database, launch: Launch) => {
         store.finishTurn(db, id)
         refresh(id)
         return
+      case "native":
+        store.patch(db, id, { nativeId: u.nativeId })
+        refresh(id)
+        return
       case "created":
         if (session(id).state === "creating") {
           store.patch(db, id, { state: "running" })
@@ -156,14 +160,12 @@ export const makeHub = (db: Database, launch: Launch) => {
   const run = (command: Command): Json => {
     switch (command.method) {
       case "create": {
-        if (command.provider !== "claude") {
-          throw new Error(`${command.provider} sessions are not available yet`)
-        }
         const id = asSessionId(store.newId())
         store.createSession(db, {
           id,
           provider: command.provider,
-          nativeId: asNativeId(store.newId()),
+          // Claude takes a caller-chosen id; Codex reports its thread id
+          nativeId: command.provider === "claude" ? asNativeId(store.newId()) : null,
           role: "master",
           parentId: null,
           name: command.name ?? command.prompt.slice(0, 40),

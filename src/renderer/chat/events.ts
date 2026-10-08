@@ -124,6 +124,7 @@ const HANDLERS: { readonly [K in ChatEvent["kind"]]: (s: ChatSession, ev: ChatEv
   "rate-limit": rateLimit,
   error: (s, ev) => notice(s, "error", ev.message || "Something went wrong."),
   exit: endSession,
+  notice: (s, ev) => notice(s, "info", ev.message),
   "history-evicted": (s) => notice(s, "info", "Earlier history is unavailable. Daycare keeps the most recent 8 MiB."),
   oversized: (s, ev) =>
     notice(s, "info", `A ${ev.original} event of ${Math.round(ev.bytes / 1024)} KiB was too large to keep. Preview:`, cap(ev.preview)),

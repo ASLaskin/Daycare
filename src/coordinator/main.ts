@@ -5,7 +5,8 @@ import path from "node:path"
 import pkg from "../../package.json" with { type: "json" }
 import { asFilePath, type FilePath } from "../shared/ids.ts"
 import { startClaude } from "./claude.ts"
-import { makeHub } from "./hub.ts"
+import { startCodex } from "./codex.ts"
+import { type Launch, makeHub } from "./hub.ts"
 import { AlreadyRunning, listen, runtimeDir } from "./server.ts"
 import { openStore } from "./store.ts"
 
@@ -21,14 +22,17 @@ const absolute = (name: string): FilePath => {
 }
 
 // Checked per launch, so a missing provider leaves the coordinator running
-const claudePath = (): FilePath => {
-  const file = absolute("DAYCARE_CLAUDE")
+const executable = (name: string): FilePath => {
+  const file = absolute(name)
   const stat = statSync(file, { throwIfNoEntry: false })
   if (!stat?.isFile() || (stat.mode & 0o111) === 0) {
-    throw new Error(`DAYCARE_CLAUDE=${file} is not an executable file`)
+    throw new Error(`${name}=${file} is not an executable file`)
   }
   return file
 }
+
+const launch: Launch = (session, update) =>
+  session.provider === "codex" ? startCodex(session, executable("DAYCARE_CODEX"), update) : startClaude(session, executable("DAYCARE_CLAUDE"), update)
 
 const main = async () => {
   const dir = runtimeDir(process.env)
@@ -37,7 +41,7 @@ const main = async () => {
   const server = await listen(
     dir,
     () => {
-      hub = makeHub(openStore(db), (session, update) => startClaude(session, claudePath(), update))
+      hub = makeHub(openStore(db), launch)
       return hub
     },
     pkg.version,

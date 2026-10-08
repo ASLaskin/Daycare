@@ -1,11 +1,14 @@
 // Commands to and updates from one running provider.
 
 import type { ChatEvent } from "../shared/chat.ts"
+import type { NativeId } from "../shared/coordinator.ts"
 import type { RequestId } from "../shared/ids.ts"
 import type { Json } from "../shared/json.ts"
 
 export type ProviderUpdate =
   | { readonly type: "event"; readonly event: ChatEvent }
+  // Provider-chosen native id; stored before update returns
+  | { readonly type: "native"; readonly nativeId: NativeId }
   // Provider confirmed the saved native id
   | { readonly type: "created" }
   | { readonly type: "approval"; readonly request: RequestId; readonly choices: ReadonlyArray<string>; readonly event: ChatEvent }

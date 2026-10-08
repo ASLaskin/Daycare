@@ -75,6 +75,8 @@ export const ChatEvent = Schema.Union([
   event("user", { text: Schema.String }),
   event("rate-limit", { percent: Schema.Number }),
   event("error", { message: Schema.String }),
+  // Informational line from Daycare, such as a weakened sandbox
+  event("notice", { message: Schema.String }),
   event("exit", { code: Schema.NullOr(Schema.Number), stderrTail: Schema.String }),
   // Earlier history was discarded to stay within the retained limit
   event("history-evicted", {}),
