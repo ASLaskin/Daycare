@@ -10,7 +10,7 @@ export interface GroupOptions {
   readonly signal?: AbortSignal
 }
 
-// Leader of a new process group; tools it starts join the group
+// Leader of a new process group; children that start their own group are not covered
 export const spawnGroup = (command: string, args: ReadonlyArray<string>, options: GroupOptions) =>
   spawn(command, args, { ...options, detached: true, stdio: ["pipe", "pipe", "inherit"] })
 

@@ -1,11 +1,13 @@
 // Fake codex app-server: scripted replies, logs every received message.
-// Env: LOG (file), LOGGED_OUT=1, VERSION. Prompt words: "approve", "unsupported", "wait".
+// Env: LOG (file), LOGGED_OUT=1, REJECT_TURN=1, VERSION, WARNING=early|late|other. Prompt words: "approve", "unsupported", "wait".
 
 import { appendFileSync } from "node:fs"
 
 const log = process.env["LOG"] ?? "/dev/null"
 const send = (msg: object) => process.stdout.write(`${JSON.stringify(msg)}\n`)
 const turnId = "turn-1"
+const warning = process.env["WARNING"]
+const bwrap = { method: "configWarning", params: { summary: "bubblewrap could not create a user namespace; the sandbox is not enforced" } }
 let pendingText = ""
 
 const turnBody = (threadId: string, text: string) => {
@@ -21,6 +23,12 @@ const handle = (msg: { id?: number | string; method?: string; params?: { threadI
   switch (msg.method) {
     case "initialize":
       send({ id: msg.id, result: { userAgent: `codex_cli_rs/${process.env["VERSION"] ?? "0.160.1"} (Linux)`, codexHome: "/tmp", platformFamily: "unix", platformOs: "linux" } })
+      if (warning === "early") {
+        send(bwrap)
+      }
+      if (warning === "other") {
+        send({ method: "configWarning", params: { summary: "sandbox_mode in config.toml is deprecated" } })
+      }
       return
     case "account/read":
       send({ id: msg.id, result: process.env["LOGGED_OUT"] ? { account: null, requiresOpenaiAuth: true } : { account: { type: "chatgpt" }, requiresOpenaiAuth: true } })
@@ -28,12 +36,19 @@ const handle = (msg: { id?: number | string; method?: string; params?: { threadI
       return
     case "thread/start":
       send({ id: msg.id, result: { thread: { id: "thread-1" } } })
+      if (warning === "late") {
+        send(bwrap)
+      }
       return
     case "thread/resume":
       send({ id: msg.id, result: { thread: { id: threadId } } })
       return
     case "turn/start": {
       const text = msg.params?.input?.[0]?.text ?? ""
+      if (process.env["REJECT_TURN"]) {
+        send({ id: msg.id, error: { code: -32600, message: "turn refused" } })
+        return
+      }
       send({ id: msg.id, result: { turn: { id: turnId, items: [], status: "inProgress" } } })
       if (text.includes("approve")) {
         pendingText = text

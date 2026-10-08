@@ -20,7 +20,7 @@ afterEach(async () => {
   await Promise.all(cleanup.splice(0).map((f) => f()))
 })
 
-const setup = async () => {
+const setup = async (stallMs?: number) => {
   const runtime = path.join(mkdtempSync(path.join(tmpdir(), "daycare-run-")), "daycare")
   const db = tempDb()
   const conn = db.open()
@@ -28,10 +28,10 @@ const setup = async () => {
   const updates: Array<(u: ProviderUpdate) => void> = []
   const launch: Launch = (_s, update) => {
     updates.push(update)
-    return { input: () => {}, interrupt: () => {}, answer: () => false, close: async () => {} }
+    return { input: async () => {}, interrupt: () => {}, answer: () => false, close: async () => {} }
   }
   const hub = makeHub(conn, launch)
-  const server = await listen(runtime, () => hub, VERSION)
+  const server = await listen(runtime, () => hub, VERSION, stallMs)
   cleanup.push(() => server.close(), () => db.remove(), () => rmSync(path.dirname(runtime), { recursive: true, force: true }))
   return { runtime, hub, server, updates }
 }
@@ -145,6 +145,53 @@ test("a client that stops reading is dropped instead of buffered", async () => {
   Array.from({ length: count }, (_, n) => updates[0]?.({ type: "event", event: { kind: "text", block: `b${n}`, text } }))
   client.socket.resume()
   await client.closed
-  expect(client.lines.at(-1)?.["type"]).toBe("dropped")
+  expect(client.lines.some((l) => l["type"] === "dropped")).toBe(false)
   expect(client.lines.length).toBeLessThan(count)
+})
+
+test("a client whose queue stops moving is dropped even under its allowance", async () => {
+  const { runtime, hub, updates } = await setup(200)
+  const client = connect(runtime)
+  client.send({ type: "hello", version: VERSION })
+  await client.waitFor(1)
+  hub.command({ method: "send", session: id, text: "go" })
+  client.socket.pause()
+  const text = "x".repeat(100 * 1024)
+  // Enough to fill the socket buffers, well under the 4 MiB allowance
+  Array.from({ length: 20 }, (_, n) => updates[0]?.({ type: "event", event: { kind: "text", block: `s${n}`, text } }))
+  // A paused client cannot see the close, so resume once the stall has passed
+  await Bun.sleep(1000)
+  client.socket.resume()
+  const closed = await Promise.race([client.closed.then(() => true), Bun.sleep(3000).then(() => false)])
+  expect(closed).toBe(true)
+  expect(client.lines.filter((l) => l["type"] === "event").length).toBeLessThan(20)
+})
+
+test("a requests-only client gets ready and no events", async () => {
+  const { runtime } = await setup()
+  const client = connect(runtime)
+  client.send({ type: "hello", version: VERSION, subscribe: false })
+  await client.waitFor(1)
+  client.send({ type: "request", id: 1, command: { method: "send", session: id, text: "hi" } })
+  const lines = await client.waitFor(2)
+  await Bun.sleep(100)
+  expect(lines.map((l) => l["type"])).toEqual(["ready", "response"])
+})
+
+test("a pending wait does not hold up other requests on the connection", async () => {
+  const { runtime, updates } = await setup()
+  const client = connect(runtime)
+  client.send({ type: "hello", version: VERSION, subscribe: false })
+  await client.waitFor(1)
+  const tool = (rid: number, name: string, input: object) => client.send({ type: "request", id: rid, command: { method: "tool", master: id, name, input } })
+  tool(1, "spawn_subagent", { name: "w", task: "go" })
+  await client.waitFor(2)
+  tool(2, "wait_for_subagents", {})
+  tool(3, "list_subagents", {})
+  await client.waitFor(3)
+  expect(client.lines.at(-1)?.["id"]).toBe(3)
+  updates.at(-1)?.({ type: "event", event: { kind: "turn-end", isError: false, stopReason: null, costUsd: 0, contextTokens: 0, numTurns: null, durationMs: null, text: "done" } })
+  const lines = await client.waitFor(4)
+  expect(lines.at(-1)?.["id"]).toBe(2)
+  expect((lines.at(-1)?.["result"] as { timedOut: boolean }).timedOut).toBe(false)
 })

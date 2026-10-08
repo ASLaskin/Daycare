@@ -23,10 +23,14 @@ export interface Answer {
 }
 
 export interface ProviderHandle {
-  readonly input: (text: string) => void
+  // Resolves once the provider has taken the input; rejects if it refused it
+  readonly input: (text: string) => Promise<void>
   readonly interrupt: () => void
   // False unless the request is pending and the choice was offered
   readonly answer: (request: RequestId, answer: Answer) => boolean
   // Resolves once the provider and its process group are gone
   readonly close: () => Promise<void>
 }
+
+// Input that definitely did not reach the provider
+export class Refused extends Error {}

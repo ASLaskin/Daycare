@@ -75,6 +75,8 @@ export const Command = Schema.Union([
     updatedInput: Schema.optionalKey(Schema.Json),
   }),
   Schema.Struct({ method: Schema.Literal("close"), session: SessionId }),
+  // An orchestration tool call on behalf of a master; may stay pending while a wait blocks
+  Schema.Struct({ method: Schema.Literal("tool"), master: SessionId, name: Schema.String, input: Schema.Json }),
 ])
 export type Command = typeof Command.Type
 
@@ -84,7 +86,8 @@ export const Created = Schema.Struct({ session: SessionId })
 export const Accepted = Schema.Struct({ accepted: Schema.Literal("coordinator") })
 
 export const ClientMessage = Schema.Union([
-  Schema.Struct({ type: Schema.Literal("hello"), version: Schema.String }),
+  // subscribe: false for requests-only clients, which get ready instead of a snapshot
+  Schema.Struct({ type: Schema.Literal("hello"), version: Schema.String, subscribe: Schema.optionalKey(Schema.Boolean) }),
   Schema.Struct({ type: Schema.Literal("request"), id: Schema.Number, command: Command }),
 ])
 export type ClientMessage = typeof ClientMessage.Type
@@ -108,11 +111,11 @@ export type Snapshot = typeof Snapshot.Type
 
 export const ServerMessage = Schema.Union([
   Snapshot,
+  Schema.Struct({ type: Schema.Literal("ready") }),
   Schema.Struct({ type: Schema.Literal("event"), seq: Schema.Number, event: HubEvent }),
   Schema.Struct({ type: Schema.Literal("response"), id: Schema.Number, result: Schema.Json }),
   Schema.Struct({ type: Schema.Literal("response"), id: Schema.Number, error: Schema.String }),
   Schema.Struct({ type: Schema.Literal("version_mismatch"), coordinator: Schema.String, client: Schema.String }),
-  Schema.Struct({ type: Schema.Literal("dropped"), reason: Schema.String }),
   Schema.Struct({ type: Schema.Literal("error"), message: Schema.String }),
 ])
 export type ServerMessage = typeof ServerMessage.Type

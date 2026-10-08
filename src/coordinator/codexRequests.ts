@@ -14,6 +14,8 @@ export type CodexRequest =
       readonly reply: (answer: Answer) => Json | null
     }
   | { readonly kind: "unsupported"; readonly message: string }
+  // Answered without asking: Daycare's own orchestration tools
+  | { readonly kind: "auto"; readonly result: Json }
 
 const DECISIONS = ["accept", "acceptForSession", "decline", "cancel"]
 
@@ -82,6 +84,9 @@ const elicitation = (request: RequestId, params: JsonObject): CodexRequest => {
     return { kind: "unsupported", message: `daycare does not support MCP ${str(params["mode"]) ?? "elicitation"} requests yet` }
   }
   const server = str(params["serverName"]) ?? "mcp"
+  if (server === "daycare") {
+    return { kind: "auto", result: { action: "accept", content: {} } }
+  }
   const replies: Readonly<Record<string, Json>> = { accept: { action: "accept", content: {} }, decline: { action: "decline" }, cancel: { action: "cancel" } }
   return {
     kind: "approval",

@@ -80,7 +80,8 @@ const make = (version: string) =>
         cwd: options.cwd,
         prompt: options.task,
         ...(options.name ? { name: options.name } : {}),
-        model: options.model || null,
+        // The model setting names a Claude model; Codex uses its own default
+        model: provider === "claude" ? options.model || null : null,
         permissionMode: options.permissionMode,
       }).pipe(
         Effect.flatMap(Schema.decodeUnknownEffect(Created)),

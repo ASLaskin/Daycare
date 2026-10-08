@@ -10,8 +10,10 @@ import { lineSplitter } from "../shared/lines.ts"
 import type { Hub, Subscriber } from "./hub.ts"
 import { takeLock } from "./lock.ts"
 
-// Unsent bytes a subscriber may queue before it is dropped
+// Unsent bytes a connection may queue beyond its snapshot before it is dropped
 export const OUTBOX_LIMIT = 4 * 1024 * 1024
+// A connection whose queued output makes no progress this long is dropped
+export const STALL_MS = 60_000
 const LINE_LIMIT = 16 * 1024 * 1024
 // Longest socket path Node can connect to on Linux and macOS
 const SOCKET_PATH_MAX = 103
@@ -52,21 +54,54 @@ const onLines = (socket: net.Socket, handle: (line: string) => void) => {
   socket.on("data", lineSplitter(LINE_LIMIT, handle, () => socket.destroy()))
 }
 
-const connection = (socket: net.Socket, hub: Hub, version: string) => {
+const connection = (socket: net.Socket, hub: Hub, version: string, stallMs: number) => {
   let subscriber: Subscriber | null = null
-  const write = (msg: ServerMessage) => socket.write(line(msg))
+  let greeted = false
+  let allowance = OUTBOX_LIMIT
+  // Pending tool calls, aborted when the connection closes
+  const calls = new Set<AbortController>()
+  let stall: ReturnType<typeof setInterval> | null = null
+  let delivered = 0
 
-  // Queues an event, or drops a client that has fallen behind
+  // bytesWritten counts queued bytes too, so delivery is the difference
+  const flushed = () => socket.bytesWritten - socket.writableLength
+
+  // Drops a connection whose queued output stops moving
+  const watch = () => {
+    if (stall || socket.writableLength === 0) {
+      return
+    }
+    delivered = flushed()
+    stall = setInterval(() => {
+      if (socket.writableLength === 0) {
+        clearInterval(stall ?? undefined)
+        stall = null
+        return
+      }
+      if (flushed() === delivered) {
+        socket.destroy()
+        return
+      }
+      delivered = flushed()
+    }, stallMs)
+  }
+
+  // Queues one frame, or drops a client whose queue would pass its allowance
   const send: Subscriber = (msg) => {
     if (socket.destroyed) {
       return false
     }
-    if (socket.writableLength > OUTBOX_LIMIT) {
-      socket.end(line({ type: "dropped", reason: "client fell behind; reconnect for a fresh snapshot" }))
+    const frame = line(msg)
+    if (socket.writableLength + Buffer.byteLength(frame) > allowance) {
+      socket.destroy()
       return false
     }
-    write(msg)
+    socket.write(frame)
+    watch()
     return true
+  }
+  const write = (msg: ServerMessage) => {
+    send(msg)
   }
 
   const greet = (msg: ClientMessage) => {
@@ -79,8 +114,16 @@ const connection = (socket: net.Socket, hub: Hub, version: string) => {
       socket.end(line({ type: "version_mismatch", coordinator: version, client: msg.version }))
       return
     }
+    greeted = true
+    if (msg.subscribe === false) {
+      write({ type: "ready" })
+      return
+    }
     subscriber = send
-    write(hub.subscribe(send))
+    const snapshot = line(hub.subscribe(send))
+    allowance = Buffer.byteLength(snapshot) + OUTBOX_LIMIT
+    socket.write(snapshot)
+    watch()
   }
 
   onLines(socket, (text) => {
@@ -90,7 +133,7 @@ const connection = (socket: net.Socket, hub: Hub, version: string) => {
       return
     }
     const msg = decoded.value
-    if (!subscriber) {
+    if (!greeted) {
       greet(msg)
       return
     }
@@ -98,11 +141,23 @@ const connection = (socket: net.Socket, hub: Hub, version: string) => {
       write({ type: "error", message: "already greeted" })
       return
     }
+    const { id, command } = msg
+    if (command.method === "tool") {
+      const call = new AbortController()
+      calls.add(call)
+      void hub.tool(command.master, command.name, command.input, call.signal).then((r) => {
+        calls.delete(call)
+        write({ type: "response", id, ...r })
+      })
+      return
+    }
     // Events the command causes are written before its response
-    write({ type: "response", id: msg.id, ...hub.command(msg.command) })
+    write({ type: "response", id, ...hub.command(command) })
   })
   socket.on("error", () => socket.destroy())
   socket.on("close", () => {
+    clearInterval(stall ?? undefined)
+    calls.forEach((c) => c.abort())
     if (subscriber) {
       hub.unsubscribe(subscriber)
     }
@@ -110,7 +165,7 @@ const connection = (socket: net.Socket, hub: Hub, version: string) => {
 }
 
 // Takes single-instance ownership, then builds the hub and serves clients
-export const listen = async (dir: string, makeHub: () => Hub, version: string) => {
+export const listen = async (dir: string, makeHub: () => Hub, version: string, stallMs = STALL_MS) => {
   const file = socketPath(dir)
   if (Buffer.byteLength(file) > SOCKET_PATH_MAX) {
     throw new Error(`socket path ${file} is longer than ${SOCKET_PATH_MAX} bytes; use a shorter runtime directory`)
@@ -126,7 +181,7 @@ export const listen = async (dir: string, makeHub: () => Hub, version: string) =
   const server = net.createServer((socket) => {
     sockets.add(socket)
     socket.on("close", () => sockets.delete(socket))
-    connection(socket, hub, version)
+    connection(socket, hub, version, stallMs)
   })
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject)

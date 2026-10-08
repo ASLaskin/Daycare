@@ -48,11 +48,15 @@ const main = async () => {
   )
   console.log(`daycare coordinator ${pkg.version} on ${dir}`)
 
-  const stop = async () => {
-    await hub?.shutdown()
-    await server.close()
-    console.log("daycare coordinator stopped")
-    process.exit(0)
+  let stopped: Promise<void> | null = null
+  const stop = () => {
+    stopped ??= (async () => {
+      await hub?.shutdown()
+      await server.close()
+      console.log("daycare coordinator stopped")
+      process.exit(0)
+    })()
+    return stopped
   }
   process.once("SIGTERM", stop)
   process.once("SIGINT", stop)

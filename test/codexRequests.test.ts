@@ -10,7 +10,7 @@ const request = asRequestId("7")
 const approval = (method: string, params: Json) => {
   const r: CodexRequest = codexRequest(request, method, params)
   if (r.kind !== "approval") {
-    throw new Error(r.message)
+    throw new Error(`expected an approval, got ${r.kind}`)
   }
   return r
 }
@@ -45,6 +45,12 @@ test("MCP tool-call approvals are approvals; forms are refused", () => {
 test("questions are refused while Codex offers them only in plan mode", () => {
   const params = { itemId: "u", isBlocking: true, questions: [{ id: "q", header: "Lang", question: "Which?" }] }
   expect(codexRequest(request, "item/tool/requestUserInput", params)).toEqual({ kind: "unsupported", message: "daycare does not support item/tool/requestUserInput" })
+})
+
+test("Daycare's own tool-call approvals are accepted without asking", () => {
+  const params = { serverName: "daycare", mode: "form", message: "Allow spawn_subagent?", _meta: { codex_approval_kind: "mcp_tool_call" } }
+  expect(codexRequest(request, "mcpServer/elicitation/request", params)).toEqual({ kind: "auto", result: { action: "accept", content: {} } })
+  expect(codexRequest(request, "mcpServer/elicitation/request", { ...params, _meta: {} }).kind).toBe("unsupported")
 })
 
 test("other requests are unsupported by name", () => {

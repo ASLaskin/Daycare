@@ -8,8 +8,10 @@ import type { ChatEvent } from "../shared/chat.ts"
 import type { StoredSession } from "../shared/coordinator.ts"
 import { asRequestId, asToolUseId, type FilePath, type RequestId } from "../shared/ids.ts"
 import { obj, parseJson } from "../shared/json.ts"
+import { MASTER_PROMPT, WORKER_PROMPT } from "../main/sessions/prompts.ts"
+import { bridge, DAYCARE_TOOLS, TOOL_TIMEOUT_SECONDS } from "./orchestration.ts"
 import { spawnGroup, stopGroup } from "./process.ts"
-import type { Answer, ProviderHandle, ProviderUpdate } from "./provider.ts"
+import { type Answer, type ProviderHandle, type ProviderUpdate, Refused } from "./provider.ts"
 
 export type QueryFn = (params: { prompt: AsyncIterable<SDKUserMessage>; options: Options }) => AsyncIterable<object> & Pick<Query, "interrupt" | "close">
 
@@ -39,18 +41,27 @@ export const startClaude = (
   if (!nativeId) {
     throw new Error("claude session has no native id")
   }
-  const inputs: Array<SDKUserMessage> = []
+  const master = session.role === "master"
+  const inputs: Array<{ readonly message: SDKUserMessage; readonly taken: () => void; readonly refuse: (e: Error) => void }> = []
   const answers = new Map<RequestId, (answer: Answer) => boolean>()
   let wake = () => {}
   let closed = false
   let child: ChildProcess | null = null
+
+  // Stops taking input and refuses whatever was never taken
+  const end = (reason: string) => {
+    closed = true
+    inputs.splice(0).forEach((i) => i.refuse(new Refused(reason)))
+    wake()
+  }
 
   // User messages handed to the SDK as they arrive
   async function* prompts(): AsyncGenerator<SDKUserMessage> {
     while (!closed) {
       const next = inputs.shift()
       if (next) {
-        yield next
+        next.taken()
+        yield next.message
         continue
       }
       await new Promise<void>((resolve) => {
@@ -96,7 +107,16 @@ export const startClaude = (
     prompt: prompts(),
     options: {
       pathToClaudeCodeExecutable: claudePath,
-      // Own process group, so stopping it also ends the tools it started
+      systemPrompt: { type: "preset", preset: "claude_code", append: master ? MASTER_PROMPT : WORKER_PROMPT },
+      // Workers are visible Daycare sessions; Claude's own subagents would be hidden
+      disallowedTools: ["Task", "Agent"],
+      ...(master
+        ? {
+            mcpServers: { daycare: { ...bridge(session.id), alwaysLoad: true, timeout: TOOL_TIMEOUT_SECONDS * 1000 } },
+            allowedTools: DAYCARE_TOOLS.map((name) => `mcp__daycare__${name}`),
+          }
+        : {}),
+      // Own process group; tools that start their own group escape it (see docs/decisions.md)
       spawnClaudeCodeProcess: (o) => {
         const spawned = spawnGroup(o.command, o.args, { env: o.env, ...(o.cwd ? { cwd: o.cwd } : {}), signal: o.signal })
         child = spawned
@@ -136,23 +156,26 @@ export const startClaude = (
     } catch (e) {
       update({ type: "error", message: String(e) })
     }
-    closed = true
-    wake()
+    end("claude exited before taking the input")
     update({ type: "exited" })
   })()
 
   return {
     input: (text) => {
-      inputs.push({ type: "user", message: { role: "user", content: text }, parent_tool_use_id: null })
-      wake()
+      if (closed) {
+        return Promise.reject(new Refused("claude has stopped"))
+      }
+      return new Promise<void>((taken, refuse) => {
+        inputs.push({ message: { type: "user", message: { role: "user", content: text }, parent_tool_use_id: null }, taken, refuse })
+        wake()
+      })
     },
     interrupt: () => {
       q.interrupt().catch((e: Error) => update({ type: "error", message: `interrupt failed: ${e.message}` }))
     },
     answer: (request, answer) => answers.get(request)?.(answer) ?? false,
     close: async () => {
-      closed = true
-      wake()
+      end("the session was closed before claude took the input")
       q.close()
       if (child) {
         await stopGroup(child)

@@ -43,7 +43,7 @@ test("recovery marks lost execution without touching settled sessions", () => {
   ]
   cases.forEach(([id, state]) => createSession(conn, sample(id, "codex", state)))
   conn.run("INSERT INTO history (session_id, seq, scope, block, partial, bytes, body) VALUES ('b', 1, 1, NULL, 0, 2, '{}')")
-  expect(recover(conn)).toBe(2)
+  expect(recover(conn)).toEqual([asSessionId("a"), asSessionId("b")])
   expect(states(loadSessions(conn))).toEqual([
     ["a", "interrupted"],
     ["b", "incomplete"],

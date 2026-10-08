@@ -151,8 +151,9 @@ export const interrupt = (db: Database, id: SessionId) => {
   db.query(`${INTERRUPT} AND id = $id`).run({ id })
 }
 
-// Marks execution lost to a coordinator restart
-export const recover = (db: Database): number => db.query(INTERRUPT).run().changes
+// Marks execution lost to a coordinator restart; returns the sessions it changed
+export const recover = (db: Database): ReadonlyArray<SessionId> =>
+  db.query<{ id: SessionId }, []>(`${INTERRUPT} RETURNING id`).all().map((r) => r.id)
 
 export const loadSessions = (db: Database): ReadonlyArray<Loaded> =>
   db.query<Row, []>(`SELECT ${COLUMNS} FROM sessions ORDER BY created_at, id`).all().map(decode)

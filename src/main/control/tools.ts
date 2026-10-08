@@ -1,6 +1,7 @@
 // The master's MCP tools, one Schema each.
 
 import { Schema } from "effect"
+import { Provider } from "../../shared/coordinator.ts"
 import { DirPath } from "../../shared/ids.ts"
 
 const desc = (description: string) => ({ description })
@@ -8,7 +9,8 @@ const desc = (description: string) => ({ description })
 export const SpawnSubagent = Schema.Struct({
   name: Schema.String.annotate(desc('Short display name, e.g. "video-3-script"')),
   task: Schema.String.annotate(desc("Complete instructions for the worker")),
-  model: Schema.optionalKey(Schema.String.annotate(desc('Optional model override, e.g. "opus" or "sonnet"'))),
+  provider: Schema.optionalKey(Provider.annotate(desc("Optional agent provider; defaults to the master's"))),
+  model: Schema.optionalKey(Schema.String.annotate(desc("Optional model override"))),
   cwd: Schema.optionalKey(DirPath.annotate(desc("Optional working directory; defaults to the master's"))),
 })
 
@@ -32,24 +34,24 @@ export const Tools = {
   spawn_subagent: {
     input: SpawnSubagent,
     description:
-      "Start a worker: a full Claude Code session in its own pane that the user can also talk to directly. Give it a short name and a complete, self-contained task. Returns immediately; use wait_for_subagents to wait for it.",
+      "Start a worker: a full agent session that the user can see and talk to directly. Give it a short name and a complete, self-contained task. Returns immediately; use wait_for_subagents to wait for it.",
   },
   list_subagents: {
     input: ListSubagents,
-    description: "List this master's workers with their status (starting, working, needs_you, done, exited) and current activity.",
+    description: "List this master's workers with their current state.",
   },
   wait_for_subagents: {
     input: WaitForSubagents,
     description:
-      "Block until the given workers (or all workers) stop working: finished their turn, need the user, or exited. Returns each worker's status and the first line of its final message.",
+      "Block until the given workers (or all workers) stop working: finished their turn, need the user, or stopped. Returns each worker's state and the first line of its final message.",
   },
   read_subagent: {
     input: ReadSubagent,
-    description: "Read a worker's latest final message (its summary), plus status. Does not return the full transcript.",
+    description: "Read a worker's latest final message (its summary), plus state. Does not return the full transcript.",
   },
   send_to_subagent: {
     input: SendToSubagent,
-    description: "Type a follow-up message into a worker's prompt and submit it, as if the user typed it.",
+    description: "Send a follow-up message to a worker, as if the user typed it.",
   },
 } as const
 

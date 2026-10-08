@@ -9,6 +9,7 @@ import { spawnGroup } from "../src/coordinator/process.ts"
 import type { ProviderHandle, ProviderUpdate } from "../src/coordinator/provider.ts"
 import { asNativeId, type SessionState } from "../src/shared/coordinator.ts"
 import { asFilePath, asRequestId } from "../src/shared/ids.ts"
+import type { PermissionMode } from "../src/shared/session.ts"
 import { sample } from "./fixtures/store.ts"
 
 const FAKE = path.join(import.meta.dir, "fixtures", "fake-codex.ts")
@@ -25,7 +26,7 @@ interface Received {
   readonly error?: { readonly message: string }
 }
 
-const start = (state: SessionState, nativeId: string | null = null, env: Record<string, string> = {}) => {
+const start = (state: SessionState, nativeId: string | null = null, env: Record<string, string> = {}, permissionMode: PermissionMode = "default", role: "master" | "worker" = "master") => {
   const dir = mkdtempSync(path.join(tmpdir(), "daycare-codex-"))
   const log = path.join(dir, "received.jsonl")
   const received = (): Array<Received> => {
@@ -38,7 +39,7 @@ const start = (state: SessionState, nativeId: string | null = null, env: Record<
   const updates: Array<ProviderUpdate> = []
   // Methods the fake had received when each update arrived
   const seenAt: Array<ReadonlyArray<string>> = []
-  const session = { ...sample("s", "codex", state), nativeId: nativeId ? asNativeId(nativeId) : null }
+  const session = { ...sample("s", "codex", state), nativeId: nativeId ? asNativeId(nativeId) : null, permissionMode, role }
   const fakeSpawn: typeof spawnGroup = (_cmd, args, opts) => spawnGroup(process.execPath, [FAKE, ...args], { ...opts, env: { ...process.env, ...env, LOG: log } })
   const handle: ProviderHandle = startCodex(
     session,
@@ -133,6 +134,79 @@ test("an untested Codex version is a notice, not a failure", async () => {
   expect(updates[0]).toEqual({ type: "event", event: { kind: "notice", message: "Codex 0.161.0 is untested; Daycare was tested with 0.160.1." } })
 })
 
+test("input resolves when Codex accepts the turn and rejects when it refuses", async () => {
+  const accepted = start("creating")
+  expect(accepted.handle.input("hi")).resolves.toBeUndefined()
+  await until(() => kinds(accepted.updates).includes("turn-end"))
+  const refused = start("creating", null, { REJECT_TURN: "1" })
+  expect(refused.handle.input("hi")).rejects.toThrow("turn refused")
+  await until(() => refused.updates.some((u) => u.type === "error"))
+})
+
 test("a session whose creation never produced a thread is refused", () => {
   expect(() => startCodex({ ...sample("s", "codex", "incomplete"), nativeId: null }, asFilePath("/unused"), () => {})).toThrow("its creation is incomplete")
+})
+
+test("input queued before a failed start is refused with the failure", async () => {
+  const { handle, updates } = start("creating", null, { LOGGED_OUT: "1" })
+  expect(handle.input("hi")).rejects.toThrow("Codex is not logged in")
+  await until(() => kinds(updates).includes("exited"))
+  expect(handle.input("later")).rejects.toThrow("codex has stopped")
+})
+
+test("a codex binary that cannot start is a session error, not a coordinator crash", async () => {
+  const updates: Array<ProviderUpdate> = []
+  const handle = startCodex({ ...sample("s", "codex", "creating"), nativeId: null }, asFilePath("/nonexistent/codex"), (u) => updates.push(u))
+  const queued = handle.input("hi").then(
+    () => "taken",
+    (e: Error) => e.message,
+  )
+  await until(() => kinds(updates).includes("exited"))
+  expect(updates.some((u) => u.type === "error" && u.message.includes("ENOENT"))).toBe(true)
+  expect(await queued).toBe("codex exited")
+})
+
+const policies = (received: () => ReadonlyArray<Received>, method: string) => received().flatMap((m) => (m.method === method ? [m.params?.["approvalPolicy"]] : []))
+const notices = (updates: ReadonlyArray<ProviderUpdate>) => updates.flatMap((u) => (u.type === "event" && u.event.kind === "notice" ? [u.event.message] : []))
+
+// acceptEdits maps to on-request, so a fallback to untrusted is visible
+test("a bubblewrap warning before the thread makes the thread and every turn untrusted", async () => {
+  const { handle, updates, received } = start("creating", null, { WARNING: "early" }, "acceptEdits")
+  await handle.input("one")
+  await until(() => kinds(updates).includes("turn-end"))
+  expect(policies(received, "thread/start")).toEqual(["untrusted"])
+  expect(policies(received, "turn/start")).toEqual(["untrusted"])
+  expect(notices(updates).filter((n) => n.startsWith("Codex cannot enforce")).length).toBe(1)
+})
+
+test("a bubblewrap warning after the thread applies from the next turn", async () => {
+  const { handle, updates, received } = start("creating", null, { WARNING: "late" }, "acceptEdits")
+  await until(() => notices(updates).some((n) => n.startsWith("Codex cannot enforce")))
+  await handle.input("one")
+  expect(policies(received, "thread/start")).toEqual(["on-request"])
+  expect(policies(received, "turn/start")).toEqual(["untrusted"])
+})
+
+test("an unrelated sandbox warning is shown but changes no policy", async () => {
+  const { handle, updates, received } = start("creating", null, { WARNING: "other" }, "acceptEdits")
+  await handle.input("one")
+  await until(() => kinds(updates).includes("turn-end"))
+  expect(policies(received, "thread/start")).toEqual(["on-request"])
+  expect(policies(received, "turn/start")).toEqual(["on-request"])
+  expect(notices(updates)).toEqual(["Codex: sandbox_mode in config.toml is deprecated"])
+})
+
+test("a master's thread carries the Daycare bridge; a worker's carries only its prompt", async () => {
+  const m = start("creating")
+  await m.handle.input("hi")
+  const mParams = m.received().find((r) => r.method === "thread/start")?.params
+  const daycare = (mParams?.["config"] as { mcp_servers: { daycare: { command: string; args: Array<string>; tool_timeout_sec: number } } } | undefined)?.mcp_servers.daycare
+  expect([daycare?.command, daycare?.args[1], daycare?.tool_timeout_sec]).toEqual([process.execPath, "s", 1800])
+  expect(String(mParams?.["developerInstructions"])).toStartWith("You are a master session")
+
+  const w = start("creating", null, {}, "default", "worker")
+  await w.handle.input("hi")
+  const wParams = w.received().find((r) => r.method === "thread/start")?.params
+  expect(wParams?.["config"]).toBeUndefined()
+  expect(String(wParams?.["developerInstructions"])).toStartWith("You are a worker session")
 })

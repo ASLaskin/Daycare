@@ -115,10 +115,60 @@ test("an aborted request is withdrawn and can no longer be answered", async () =
 
 test("input reaches the SDK prompt, and the end of the stream reports exit", async () => {
   const { fake, updates, handle } = start("idle")
-  handle.input("hello")
+  let taken = false
+  void handle.input("hello").then(() => {
+    taken = true
+  })
+  await settle()
+  expect(taken).toBe(false)
   const first = await fake.prompt()?.[Symbol.asyncIterator]().next()
+  await settle()
+  expect(taken).toBe(true)
   expect(first?.value?.message).toEqual({ role: "user", content: "hello" })
   fake.end()
   await settle()
   expect(updates.at(-1)).toEqual({ type: "exited" })
+})
+
+test("inputs never taken are refused when the session closes or the stream ends", async () => {
+  const closing = start("idle")
+  const pendingClose = closing.handle.input("never taken")
+  await closing.handle.close()
+  expect(pendingClose).rejects.toThrow("the session was closed before claude took the input")
+  expect(closing.handle.input("after")).rejects.toThrow("claude has stopped")
+
+  const ending = start("idle")
+  const pendingEnd = ending.handle.input("never taken")
+  ending.fake.end()
+  expect(pendingEnd).rejects.toThrow("claude exited before taking the input")
+  await settle()
+  expect(ending.updates.at(-1)).toEqual({ type: "exited" })
+})
+
+// Text appended to the preset system prompt
+const appended = (o: Options | null) => {
+  const p = o?.systemPrompt
+  return typeof p === "object" && !Array.isArray(p) && p.type === "preset" ? (p.append ?? "") : ""
+}
+
+test("masters get the Daycare bridge and prompt; every role loses Claude's own subagents", () => {
+  const master = start("idle")
+  const opts = master.fake.options()
+  const daycare = opts?.mcpServers?.["daycare"]
+  expect(daycare && "command" in daycare ? [daycare.command, daycare.args, daycare.alwaysLoad, daycare.timeout] : null).toEqual([
+    process.execPath,
+    [expect.stringMatching(/src\/coordinator\/mcp\.ts$/), "s"],
+    true,
+    1_800_000,
+  ])
+  expect(opts?.allowedTools).toEqual(["spawn_subagent", "list_subagents", "wait_for_subagents", "read_subagent", "send_to_subagent"].map((n) => `mcp__daycare__${n}`))
+  expect(opts?.disallowedTools).toEqual(["Task", "Agent"])
+  expect(appended(opts)).toStartWith("You are a master session")
+
+  const worker = fakeQuery()
+  startClaude({ ...sample("w", "claude", "idle"), role: "worker", nativeId: asNativeId("nw") }, asFilePath("/bin/claude"), () => {}, worker.run)
+  const wopts = worker.options()
+  expect(wopts?.mcpServers).toBeUndefined()
+  expect(wopts?.disallowedTools).toEqual(["Task", "Agent"])
+  expect(appended(wopts)).toStartWith("You are a worker session")
 })

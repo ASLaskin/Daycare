@@ -8,10 +8,12 @@ import { asRequestId, type FilePath, type RequestId } from "../shared/ids.ts"
 import { at, type Json, type JsonObject, obj, parseJson, str } from "../shared/json.ts"
 import { lineSplitter } from "../shared/lines.ts"
 import type { PermissionMode } from "../shared/session.ts"
+import { MASTER_PROMPT, WORKER_PROMPT } from "../main/sessions/prompts.ts"
 import { codexEvents } from "./codexEvents.ts"
 import { codexRequest } from "./codexRequests.ts"
+import { bridge, TOOL_TIMEOUT_SECONDS } from "./orchestration.ts"
 import { spawnGroup, stopGroup } from "./process.ts"
-import type { Answer, ProviderHandle, ProviderUpdate } from "./provider.ts"
+import { type Answer, type ProviderHandle, type ProviderUpdate, Refused } from "./provider.ts"
 
 // Codex version whose protocol Daycare was tested against
 export const TESTED_CODEX = "0.160.1"
@@ -24,8 +26,11 @@ const POLICY: Readonly<Record<PermissionMode, { readonly approvalPolicy: string;
   bypassPermissions: { approvalPolicy: "never", sandbox: "danger-full-access" },
 }
 
-// A config warning saying the requested sandbox cannot be enforced
-const SANDBOX_WARNING = /sandbox|bubblewrap|bwrap|namespace/i
+// Codex's bubblewrap sandbox failing to start, as the pilot saw on Ubuntu 24.04
+const SANDBOX_WARNING = /bubblewrap|bwrap/i
+
+const UNSANDBOXED_NOTICE =
+  "Codex cannot enforce its sandbox on this machine. Commands Codex does not consider safe need approval, and approved commands run without sandbox isolation."
 
 type Spawn = typeof spawnGroup
 
@@ -36,20 +41,40 @@ export const startCodex = (session: StoredSession, codexPath: FilePath, update: 
   const child = spawn(codexPath, ["app-server"], { cwd: session.cwd, env: process.env })
   const pending = new Map<number, { readonly resolve: (result: Json) => void; readonly reject: (e: Error) => void }>()
   const approvals = new Map<RequestId, { readonly id: Json; readonly reply: (answer: Answer) => Json | null }>()
-  const queued: Array<string> = []
+  const queued: Array<{ readonly text: string; readonly resolve: () => void; readonly reject: (e: Error) => void }> = []
   let thread: string | null = null
   let turn: string | null = null
   let unsandboxed = false
   let nextId = 1
-  let exited = false
+  let ended = false
+  let reported = false
 
   const write = (msg: JsonObject) => {
-    if (!exited) {
+    if (!ended && child.stdin.writable) {
       child.stdin.write(`${JSON.stringify(msg)}\n`)
     }
   }
   const event = (e: ChatEvent) => update({ type: "event", event: e })
   const fail = (message: string) => update({ type: "error", message })
+
+  // Refuses every outstanding request and input; idempotent
+  const finish = (reason: string) => {
+    if (ended) {
+      return
+    }
+    ended = true
+    pending.forEach((p) => p.reject(new Error(reason)))
+    pending.clear()
+    queued.splice(0).forEach((q) => q.reject(new Refused(reason)))
+  }
+
+  const reportExit = () => {
+    finish("codex exited")
+    if (!reported) {
+      reported = true
+      update({ type: "exited" })
+    }
+  }
 
   const request = (method: string, params: Json) =>
     new Promise<Json>((resolve, reject) => {
@@ -58,13 +83,27 @@ export const startCodex = (session: StoredSession, codexPath: FilePath, update: 
       write({ id, method, params })
     })
 
-  const startTurn = (text: string) => {
-    request("turn/start", { threadId: thread, input: [{ type: "text", text }] }).catch((e: Error) => fail(`turn/start: ${e.message}`))
-  }
+  // Accepted once Codex answers turn/start
+  // Unsandboxed sessions ask before commands Codex does not consider safe
+  const approvalPolicy = () => (unsandboxed ? "untrusted" : POLICY[session.permissionMode].approvalPolicy)
+
+  // Policy is sent with each turn, so a late sandbox warning applies from the next one
+  const startTurn = (text: string): Promise<void> =>
+    request("turn/start", { threadId: thread, input: [{ type: "text", text }], approvalPolicy: approvalPolicy() }).then(
+      () => undefined,
+      (e: Error) => {
+        fail(`turn/start: ${e.message}`)
+        throw e
+      },
+    )
 
   const onRequest = (id: Json, method: string, params: Json | undefined) => {
     const key = asRequestId(JSON.stringify(id))
     const r = codexRequest(key, method, params)
+    if (r.kind === "auto") {
+      write({ id, result: r.result })
+      return
+    }
     if (r.kind === "unsupported") {
       write({ id, error: { code: -32601, message: r.message } })
       fail(r.message)
@@ -80,8 +119,11 @@ export const startCodex = (session: StoredSession, codexPath: FilePath, update: 
     }
     if (method === "configWarning") {
       const text = `${str(at(params, "summary")) ?? ""} ${str(at(params, "details")) ?? ""}`
-      unsandboxed = unsandboxed || SANDBOX_WARNING.test(text)
       event({ kind: "notice", message: `Codex: ${text.trim()}` })
+      if (!unsandboxed && SANDBOX_WARNING.test(text)) {
+        unsandboxed = true
+        event({ kind: "notice", message: UNSANDBOXED_NOTICE })
+      }
     }
     if (method === "serverRequest/resolved") {
       const key = asRequestId(JSON.stringify(at(params, "requestId") ?? null))
@@ -120,7 +162,8 @@ export const startCodex = (session: StoredSession, codexPath: FilePath, update: 
     pending.delete(id)
     const error = obj(msg["error"])
     if (error) {
-      waiting.reject(new Error(str(error["message"]) ?? "codex error"))
+      // Codex answered: the request was definitely refused
+      waiting.reject(new Refused(str(error["message"]) ?? "codex error"))
       return
     }
     waiting.resolve(msg["result"] ?? null)
@@ -128,12 +171,15 @@ export const startCodex = (session: StoredSession, codexPath: FilePath, update: 
 
   child.stdout.setEncoding("utf8")
   child.stdout.on("data", lineSplitter(LINE_LIMIT, onLine, () => fail("codex sent an oversized line")))
-  child.on("exit", () => {
-    exited = true
-    pending.forEach((p) => p.reject(new Error("codex exited")))
-    pending.clear()
-    update({ type: "exited" })
+  child.on("exit", reportExit)
+  // A spawn failure may never emit exit
+  child.on("error", (e) => {
+    fail(`codex process: ${e.message}`)
+    if (child.pid === undefined) {
+      reportExit()
+    }
   })
+  child.stdin.on("error", (e) => fail(`codex stdin: ${e.message}`))
 
   // Handshake, account and thread, then queued input
   const open = async () => {
@@ -147,11 +193,15 @@ export const startCodex = (session: StoredSession, codexPath: FilePath, update: 
     if (at(account, "account") == null && at(account, "requiresOpenaiAuth") === true) {
       throw new Error("Codex is not logged in. Run `codex login`, then start a new session.")
     }
-    const policy = unsandboxed ? { approvalPolicy: "untrusted", sandbox: POLICY[session.permissionMode].sandbox } : POLICY[session.permissionMode]
-    if (unsandboxed) {
-      event({ kind: "notice", message: "Codex cannot enforce its sandbox here, so every command asks for approval." })
+    const master = session.role === "master"
+    const params = {
+      cwd: session.cwd,
+      approvalPolicy: approvalPolicy(),
+      sandbox: POLICY[session.permissionMode].sandbox,
+      developerInstructions: master ? MASTER_PROMPT : WORKER_PROMPT,
+      ...(session.model ? { model: session.model } : {}),
+      ...(master ? { config: { mcp_servers: { daycare: { ...bridge(session.id), tool_timeout_sec: TOOL_TIMEOUT_SECONDS } } } } : {}),
     }
-    const params = { cwd: session.cwd, ...policy, ...(session.model ? { model: session.model } : {}) }
     const opened = session.nativeId
       ? await request("thread/resume", { ...params, threadId: session.nativeId })
       : await request("thread/start", params)
@@ -167,21 +217,24 @@ export const startCodex = (session: StoredSession, codexPath: FilePath, update: 
     }
     update({ type: "created" })
     thread = id
-    queued.splice(0).forEach(startTurn)
+    queued.splice(0).forEach((q) => startTurn(q.text).then(q.resolve, q.reject))
   }
 
   open().catch((e: Error) => {
     fail(e.message)
+    finish(e.message)
     child.stdin.end()
   })
 
   return {
     input: (text) => {
-      if (thread) {
-        startTurn(text)
-        return
+      if (ended) {
+        return Promise.reject(new Refused("codex has stopped"))
       }
-      queued.push(text)
+      if (thread) {
+        return startTurn(text)
+      }
+      return new Promise<void>((resolve, reject) => queued.push({ text, resolve, reject }))
     },
     interrupt: () => {
       if (thread && turn) {
@@ -199,6 +252,7 @@ export const startCodex = (session: StoredSession, codexPath: FilePath, update: 
       return true
     },
     close: async () => {
+      finish("the session was closed before Codex took the input")
       child.stdin.end()
       await stopGroup(child)
     },

@@ -65,7 +65,6 @@ export const connect = (socket: string, version: string, on: CoordinatorHandlers
       case "version_mismatch":
         on.status({ state: "mismatch", coordinator: msg.coordinator, app: version })
         return
-      case "dropped":
       case "error":
         return
     }

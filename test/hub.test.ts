@@ -1,7 +1,7 @@
 // Hub ownership: approvals, ordered events, subscribers and recovery.
 
 import { afterEach, expect, test } from "bun:test"
-import { loadHistory } from "../src/coordinator/history.ts"
+import { loadHistory, record } from "../src/coordinator/history.ts"
 import { type Launch, makeHub, type Subscriber } from "../src/coordinator/hub.ts"
 import type { Answer, ProviderUpdate } from "../src/coordinator/provider.ts"
 import { createSession } from "../src/coordinator/store.ts"
@@ -23,7 +23,9 @@ const fakeLaunch = () => {
     const p = { inputs: new Array<string>(), answers: new Array<Answer>(), closed: false, update }
     launches.push(p)
     return {
-      input: (text) => p.inputs.push(text),
+      input: async (text) => {
+        p.inputs.push(text)
+      },
       interrupt: () => {},
       answer: (_request, answer) => {
         if (!["accept", "decline"].includes(answer.choice)) {
@@ -166,4 +168,97 @@ test("a codex session starts without a native id and stores the reported one bef
   expect(row()?.native_id).toBeNull()
   fake.launches.at(-1)?.update({ type: "native", nativeId: asNativeId("thread-1") })
   expect(row()?.native_id).toBe("thread-1")
+})
+
+test("shutdown refuses new work at once, is idempotent, and survives a failing close", async () => {
+  const db = tempDb()
+  dbs.push(db)
+  const conn = db.open()
+  createSession(conn, { ...sample("a", "claude", "idle"), nativeId: asNativeId("na") })
+  createSession(conn, { ...sample("b", "claude", "idle"), nativeId: asNativeId("nb") })
+  let closes = 0
+  let release = () => {}
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const hub = makeHub(conn, (session) => ({
+    input: async () => {},
+    interrupt: () => {},
+    answer: () => false,
+    close: async () => {
+      closes += 1
+      await gate
+      if (session.id === asSessionId("a")) {
+        throw new Error("close failed")
+      }
+    },
+  }))
+  hub.command({ method: "send", session: asSessionId("a"), text: "go" })
+  hub.command({ method: "send", session: asSessionId("b"), text: "go" })
+  const first = hub.shutdown()
+  expect(hub.shutdown()).toBe(first)
+  expect(hub.command({ method: "send", session: asSessionId("a"), text: "late" })).toEqual({ error: "coordinator is stopping" })
+  release()
+  await first
+  expect(closes).toBe(2)
+})
+
+test("updates from a run that is no longer live keep their run and change no state", () => {
+  const { conn, hub, fake, provider: first } = running()
+  first.update({ type: "exited" })
+  hub.command({ method: "send", session: id, text: "second run" })
+  expect(fake.launches.length).toBe(2)
+  first.update({ type: "event", event: { kind: "text", block: "late", text: "from run 1" } })
+  approval(first.update, "late")
+  first.update({ type: "event", event: { kind: "turn-end", isError: false, stopReason: null, costUsd: 0, contextTokens: 0, numTurns: null, durationMs: null, text: "" } })
+  const scope = conn.query<{ scope: number }, []>("SELECT scope FROM history WHERE body LIKE '%from run 1%'").get()
+  expect(scope?.scope).toBe(1)
+  const snapshot = hub.subscribe(() => true)
+  expect(snapshot.approvals).toEqual([])
+  expect(snapshot.sessions[0]?.state).toBe("running")
+  expect(snapshot.sessions[0]?.run).toBe(2)
+})
+
+test("a snapshot over its budget leaves out the oldest histories, not the newest", () => {
+  const db = tempDb()
+  dbs.push(db)
+  const conn = db.open()
+  createSession(conn, { ...sample("old", "claude", "idle"), createdAt: 1 })
+  createSession(conn, { ...sample("new", "claude", "idle"), createdAt: 2 })
+  const hub = makeHub(conn, fakeLaunch().launch)
+  const text = "x".repeat(1000)
+  ;["old", "new"].forEach((s) => record(conn, asSessionId(s), 1, { kind: "text", block: "b", text }))
+  const snapshot = hub.subscribe(() => true, 1500)
+  expect(snapshot.history["new"]).toEqual({ evicted: false, events: [{ kind: "text", block: "b", text }] })
+  expect(snapshot.history["old"]).toEqual({ error: "history not included: the snapshot is over its size limit" })
+})
+
+const interruptions = (conn: ReturnType<ReturnType<typeof tempDb>["open"]>) => {
+  const h = loadHistory(conn, id)
+  return "events" in h ? h.events.flatMap((e) => (e.kind === "interrupted" ? [e.reason] : [])) : []
+}
+
+test("a provider lost mid-turn records an interruption; an idle one does not", () => {
+  const { conn, provider } = running()
+  provider.update({ type: "exited" })
+  expect(interruptions(conn)).toEqual(["the provider stopped"])
+  const idle = running()
+  idle.provider.update({ type: "event", event: { kind: "turn-end", isError: false, stopReason: null, costUsd: 0, contextTokens: 0, numTurns: null, durationMs: null, text: "" } })
+  idle.provider.update({ type: "exited" })
+  expect(interruptions(idle.conn)).toEqual([])
+})
+
+test("a restart records each lost turn once", () => {
+  const db = tempDb()
+  dbs.push(db)
+  createSession(db.open(), { ...sample("s", "claude", "running"), nativeId: asNativeId("n") })
+  makeHub(db.open(), fakeLaunch().launch)
+  makeHub(db.open(), fakeLaunch().launch)
+  expect(interruptions(db.open())).toEqual(["the coordinator restarted"])
+})
+
+test("shutdown records the turns it stops", async () => {
+  const { conn, hub } = running()
+  await hub.shutdown()
+  expect(interruptions(conn)).toEqual(["the coordinator stopped"])
 })
