@@ -9,6 +9,7 @@ import type { ChatEvent } from "../src/shared/chat.ts"
 import type { ServerMessage, SessionState } from "../src/shared/coordinator.ts"
 import { asNativeId } from "../src/shared/coordinator.ts"
 import { asRequestId, asSessionId } from "../src/shared/ids.ts"
+import { obj } from "../src/shared/json.ts"
 import { sample, tempDb } from "./fixtures/store.ts"
 
 const id = asSessionId("s")
@@ -157,9 +158,12 @@ test("restart restores records as interrupted without launching providers", () =
   expect(fake.launches).toEqual([])
 })
 
-test("codex creation is refused until its adapter exists", () => {
-  const { hub } = setup()
-  expect(hub.command({ method: "create", provider: "codex", cwd: sample("x", "codex", "idle").cwd, prompt: "", model: null, permissionMode: "default" })).toEqual({
-    error: "codex sessions are not available yet",
-  })
+test("a codex session starts without a native id and stores the reported one before update returns", () => {
+  const { conn, hub, fake } = setup()
+  const created = hub.command({ method: "create", provider: "codex", cwd: sample("x", "codex", "idle").cwd, prompt: "go", model: null, permissionMode: "default" })
+  const session = "result" in created ? obj(created.result)?.["session"] : null
+  const row = () => conn.query<{ native_id: string | null }, [string]>("SELECT native_id FROM sessions WHERE id = ?").get(String(session))
+  expect(row()?.native_id).toBeNull()
+  fake.launches.at(-1)?.update({ type: "native", nativeId: asNativeId("thread-1") })
+  expect(row()?.native_id).toBe("thread-1")
 })
