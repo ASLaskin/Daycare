@@ -54,7 +54,7 @@ const serve = async () => {
   const db = tempDb()
   const conn = db.open()
   createSession(conn, { ...sample("s", "claude", "idle"), nativeId: asNativeId("n") })
-  const hub = makeHub(conn, () => ({ input: () => {}, interrupt: () => {}, answer: () => false, close: () => {} }))
+  const hub = makeHub(conn, () => ({ input: () => {}, interrupt: () => {}, answer: () => false, close: async () => {} }))
   const server = await listen(runtime, () => hub, "1.0.0")
   cleanup.push(() => server.close(), () => db.remove(), () => rmSync(path.dirname(runtime), { recursive: true, force: true }))
   return runtime

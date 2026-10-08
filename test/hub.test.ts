@@ -31,7 +31,7 @@ const fakeLaunch = () => {
         p.answers.push(answer)
         return true
       },
-      close: () => {
+      close: async () => {
         p.closed = true
       },
     }

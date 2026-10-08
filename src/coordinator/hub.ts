@@ -216,7 +216,10 @@ export const makeHub = (db: Database, launch: Launch) => {
       case "close": {
         const id = command.session
         session(id)
-        providers.get(id)?.handle.close()
+        providers
+          .get(id)
+          ?.handle.close()
+          .catch((e: Error) => console.error(`stopping ${id}: ${e.message}`))
         providers.delete(id)
         store.interrupt(db, id)
         store.patch(db, id, { closed: true })
@@ -254,14 +257,16 @@ export const makeHub = (db: Database, launch: Launch) => {
       subscribers.delete(send)
     },
 
-    // Stops every provider and marks their work interrupted
-    shutdown: () =>
-      [...providers.entries()].forEach(([id, { handle }]) => {
-        handle.close()
+    // Marks running work interrupted, then waits for every provider to stop
+    shutdown: async () => {
+      const handles = [...providers.entries()].map(([id, { handle }]) => {
         providers.delete(id)
         store.interrupt(db, id)
         cancelApprovals(id)
-      }),
+        return handle
+      })
+      await Promise.all(handles.map((h) => h.close()))
+    },
   }
 }
 

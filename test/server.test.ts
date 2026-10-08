@@ -28,7 +28,7 @@ const setup = async () => {
   const updates: Array<(u: ProviderUpdate) => void> = []
   const launch: Launch = (_s, update) => {
     updates.push(update)
-    return { input: () => {}, interrupt: () => {}, answer: () => false, close: () => {} }
+    return { input: () => {}, interrupt: () => {}, answer: () => false, close: async () => {} }
   }
   const hub = makeHub(conn, launch)
   const server = await listen(runtime, () => hub, VERSION)

@@ -45,7 +45,7 @@ const main = async () => {
   console.log(`daycare coordinator ${pkg.version} on ${dir}`)
 
   const stop = async () => {
-    hub?.shutdown()
+    await hub?.shutdown()
     await server.close()
     console.log("daycare coordinator stopped")
     process.exit(0)

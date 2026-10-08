@@ -72,4 +72,5 @@ export const api = {
   chatHistory: call("chat:history"),
   onChatEvent: on("chat:event"),
   onChatReset: on("chat:reset"),
+  onCoordinatorStatus: on("coordinator:status"),
 }

@@ -1,0 +1,19 @@
+# Development unit for the Daycare coordinator.
+
+[Unit]
+Description=Daycare coordinator
+
+[Service]
+WorkingDirectory=%h/projects/Daycare
+ExecStart=%h/.local/opt/bun/bin/bun src/coordinator/main.ts
+# Temporary database on the per-user runtime tmpfs
+Environment=DAYCARE_DB=%t/daycare/coordinator.db
+Environment=DAYCARE_CLAUDE=%h/.local/bin/claude
+# Agents' tool commands inherit this PATH
+Environment=PATH=%h/.local/opt/bun/bin:%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+# Stop signals the coordinator alone, then kills whatever remains in the unit's cgroup
+KillMode=mixed
+TimeoutStopSec=15
+Restart=on-failure
+# Exit 3: another coordinator already owns the runtime directory
+RestartPreventExitStatus=3

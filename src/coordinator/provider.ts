@@ -24,5 +24,6 @@ export interface ProviderHandle {
   readonly interrupt: () => void
   // False unless the request is pending and the choice was offered
   readonly answer: (request: RequestId, answer: Answer) => boolean
-  readonly close: () => void
+  // Resolves once the provider and its process group are gone
+  readonly close: () => Promise<void>
 }

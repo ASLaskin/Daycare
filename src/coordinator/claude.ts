@@ -1,12 +1,14 @@
 // Claude provider: one Agent SDK query per active session.
 
 import { type CanUseTool, type Options, type PermissionResult, type PermissionUpdate, query, type Query, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk"
+import type { ChildProcess } from "node:child_process"
 import { StreamNormalizer } from "../main/chat/normalize.ts"
 import { toolTitle } from "../main/chat/content.ts"
 import type { ChatEvent } from "../shared/chat.ts"
 import type { StoredSession } from "../shared/coordinator.ts"
 import { asRequestId, asToolUseId, type FilePath, type RequestId } from "../shared/ids.ts"
 import { obj, parseJson } from "../shared/json.ts"
+import { spawnGroup, stopGroup } from "./process.ts"
 import type { Answer, ProviderHandle, ProviderUpdate } from "./provider.ts"
 
 export type QueryFn = (params: { prompt: AsyncIterable<SDKUserMessage>; options: Options }) => AsyncIterable<object> & Pick<Query, "interrupt" | "close">
@@ -41,6 +43,7 @@ export const startClaude = (
   const answers = new Map<RequestId, (answer: Answer) => boolean>()
   let wake = () => {}
   let closed = false
+  let child: ChildProcess | null = null
 
   // User messages handed to the SDK as they arrive
   async function* prompts(): AsyncGenerator<SDKUserMessage> {
@@ -93,6 +96,12 @@ export const startClaude = (
     prompt: prompts(),
     options: {
       pathToClaudeCodeExecutable: claudePath,
+      // Own process group, so stopping it also ends the tools it started
+      spawnClaudeCodeProcess: (o) => {
+        const spawned = spawnGroup(o.command, o.args, { env: o.env, ...(o.cwd ? { cwd: o.cwd } : {}), signal: o.signal })
+        child = spawned
+        return spawned
+      },
       cwd: session.cwd,
       includePartialMessages: true,
       canUseTool,
@@ -141,10 +150,13 @@ export const startClaude = (
       q.interrupt().catch((e: Error) => update({ type: "error", message: `interrupt failed: ${e.message}` }))
     },
     answer: (request, answer) => answers.get(request)?.(answer) ?? false,
-    close: () => {
+    close: async () => {
       closed = true
       wake()
       q.close()
+      if (child) {
+        await stopGroup(child)
+      }
     },
   }
 }
