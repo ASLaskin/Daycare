@@ -11,9 +11,9 @@ const LINE_LIMIT = 64 * 1024 * 1024
 
 type Reply = { readonly result: Json } | { readonly error: string }
 
-const master = process.argv[2]
+const master = process.argv[3]
 if (!master) {
-  console.error("usage: mcp.ts <master-session-id>")
+  console.error("usage: daycare-coordinator mcp <master-session-id>")
   process.exit(2)
 }
 

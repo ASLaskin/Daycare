@@ -23,8 +23,8 @@ export const DAYCARE_TOOLS = Object.keys(Tools)
 // How a provider starts the MCP bridge for one master
 export const bridge = (master: SessionId) => ({
   command: process.execPath,
-  // mcp.ts from source, mcp.js from the dist bundle
-  args: [path.join(import.meta.dir, `mcp${path.extname(import.meta.path)}`), master],
+  // From source, Bun needs the entry script before the subcommand
+  args: [...(Bun.isStandaloneExecutable ? [] : [path.join(import.meta.dir, "main.ts")]), "mcp", master],
   env: { DAYCARE_RUNTIME_DIR: runtimeDir(process.env) },
 })
 

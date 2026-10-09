@@ -201,7 +201,7 @@ test("a master's thread carries the Daycare bridge; a worker's carries only its 
   await m.handle.input("hi")
   const mParams = m.received().find((r) => r.method === "thread/start")?.params
   const daycare = (mParams?.["config"] as { mcp_servers: { daycare: { command: string; args: Array<string>; tool_timeout_sec: number } } } | undefined)?.mcp_servers.daycare
-  expect([daycare?.command, daycare?.args[1], daycare?.tool_timeout_sec]).toEqual([process.execPath, "s", 1800])
+  expect([daycare?.command, daycare?.args.at(-1), daycare?.tool_timeout_sec]).toEqual([process.execPath, "s", 1800])
   expect(String(mParams?.["developerInstructions"])).toStartWith("You are a master session")
 
   const w = start("creating", null, {}, "default", "worker")

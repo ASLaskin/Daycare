@@ -20,7 +20,7 @@ export const unitFile = (setup: CoordinatorSetup) =>
     "Description=Daycare coordinator",
     "",
     "[Service]",
-    `ExecStart=${quote(setup.bun)} ${quote(setup.script)}`,
+    `ExecStart=${quote(setup.executable)}`,
     ...Object.entries(setup.env).map(([key, value]) => `Environment=${quote(`${key}=${value}`)}`),
     "# Stop signals the coordinator alone, then kills whatever remains in the unit's cgroup",
     "KillMode=mixed",
@@ -63,7 +63,7 @@ export const startCoordinator = (setup: CoordinatorSetup, home: DirPath) => {
     return
   }
   // A second copy finds the lock taken and exits, so no running check is needed
-  spawn(setup.bun, [setup.script], { detached: true, stdio: "ignore", env: { ...process.env, ...setup.env } }).unref()
+  spawn(setup.executable, [], { detached: true, stdio: "ignore", env: { ...process.env, ...setup.env } }).unref()
 }
 
 const STOP_WAIT_MS = 20_000
@@ -78,7 +78,7 @@ const runningCoordinator = (): number | null => {
     const started = Date.parse(ps(pid, "lstart"))
     // A reused process id belongs to a process started after the lock file was written; lstart has whole seconds
     const writtenAfterStart = started <= statSync(file).mtimeMs + 1000
-    return pid > 0 && writtenAfterStart && ps(pid, "command").includes("coordinator/main.") ? pid : null
+    return pid > 0 && writtenAfterStart && ps(pid, "command").includes("daycare-coordinator") ? pid : null
   } catch {
     return null
   }

@@ -64,7 +64,12 @@ const main = async () => {
   process.once("SIGINT", stop)
 }
 
-main().catch((e: Error) => {
-  console.error(e.message)
-  process.exit(e instanceof AlreadyRunning ? ALREADY_RUNNING_EXIT : 1)
-})
+// `mcp <master>` runs the MCP bridge from the same executable
+if (process.argv[2] === "mcp") {
+  await import("./mcp.ts")
+} else {
+  main().catch((e: Error) => {
+    console.error(e.message)
+    process.exit(e instanceof AlreadyRunning ? ALREADY_RUNNING_EXIT : 1)
+  })
+}

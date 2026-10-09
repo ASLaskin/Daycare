@@ -25,6 +25,15 @@ import { Usage } from "./usage/Usage.ts"
 import { UsageSource } from "./usage/UsageSource.ts"
 
 app.setName("Daycare")
+const userData = process.env["DAYCARE_USER_DATA"]
+if (userData) {
+  app.setPath("userData", userData)
+}
+
+// One instance per user data directory; a second launch focuses the first
+if (!app.requestSingleInstanceLock()) {
+  process.exit(0)
+}
 
 const Platform = Layer.mergeAll(ElectronPaths, ClaudeBinary.layer, Skills.layer)
 

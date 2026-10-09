@@ -26,12 +26,10 @@ const builds = await Promise.all([
     external: ["electron"],
     sourcemap: "linked",
   }),
-  // Run by Bun from outside the app archive
+  // Standalone executable, run from outside the app archive
   Bun.build({
-    entrypoints: [path.join(root, "src/coordinator/main.ts"), path.join(root, "src/coordinator/mcp.ts")],
-    outdir: path.join(out, "coordinator"),
-    naming: "[name].js",
-    target: "bun",
+    entrypoints: [path.join(root, "src/coordinator/main.ts")],
+    compile: { outfile: path.join(out, "daycare-coordinator") },
     sourcemap: "linked",
   }),
   Bun.build({

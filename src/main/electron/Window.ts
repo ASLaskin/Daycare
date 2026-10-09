@@ -36,6 +36,18 @@ export class MainWindow extends Context.Service<MainWindow, { readonly win: Brow
             }
           }),
       )
+      // Another launch brings this window forward
+      const focus = () => {
+        if (win.isMinimized()) {
+          win.restore()
+        }
+        win.show()
+        win.focus()
+      }
+      yield* Effect.acquireRelease(
+        Effect.sync(() => app.on("second-instance", focus)),
+        () => Effect.sync(() => app.off("second-instance", focus)),
+      )
       return MainWindow.of({ win })
     }),
   )

@@ -5,8 +5,7 @@ import path from "node:path"
 import { asFilePath, type DirPath, type FilePath } from "../../shared/ids.ts"
 
 export interface CoordinatorSetup {
-  readonly bun: FilePath
-  readonly script: FilePath
+  readonly executable: FilePath
   // Environment the coordinator runs with
   readonly env: Readonly<Record<string, string>>
 }
@@ -19,9 +18,9 @@ export const databasePath = (platform: NodeJS.Platform, env: NodeJS.ProcessEnv, 
       : path.join(env["XDG_STATE_HOME"] || path.join(home, ".local", "state"), "daycare", "coordinator.db"),
   )
 
-// Bun cannot read inside app.asar, so the packaged app unpacks dist/coordinator
-export const scriptPath = (appRoot: DirPath): FilePath =>
-  asFilePath(path.join(appRoot.replace(/app\.asar$/, "app.asar.unpacked"), "dist", "coordinator", "main.js"))
+// Executables cannot run from inside app.asar, so the packaged app unpacks it
+export const executablePath = (appRoot: DirPath): FilePath =>
+  asFilePath(path.join(appRoot.replace(/app\.asar$/, "app.asar.unpacked"), "dist", "daycare-coordinator"))
 
 const MARK = "DAYCARE:"
 
@@ -37,7 +36,7 @@ export const parseLogin = (out: string): Readonly<Record<string, string>> =>
 
 // PATH and executables as the user's interactive login shell sees them, .zshrc included
 const loginShell = () => {
-  const script = `printf '${MARK}PATH=%s\\n' "$PATH"; for n in bun claude codex; do printf '${MARK}%s=%s\\n' "$n" "$(command -v $n)"; done`
+  const script = `printf '${MARK}PATH=%s\\n' "$PATH"; for n in claude codex; do printf '${MARK}%s=%s\\n' "$n" "$(command -v $n)"; done`
   try {
     return parseLogin(execFileSync(process.env["SHELL"] || "/bin/zsh", ["-ilc", script], { encoding: "utf8", timeout: 10_000, stdio: ["ignore", "pipe", "ignore"] }))
   } catch {
@@ -48,16 +47,11 @@ const loginShell = () => {
 export const coordinatorSetup = (appRoot: DirPath, home: DirPath): CoordinatorSetup => {
   const found = loginShell()
   const pick = (name: string) => process.env[`DAYCARE_${name.toUpperCase()}`] || found[name]
-  const bun = pick("bun")
-  if (!bun) {
-    throw new Error("bun was not found on the login PATH; install it or set DAYCARE_BUN")
-  }
   const claude = pick("claude")
   const codex = pick("codex")
   const runtime = process.env["DAYCARE_RUNTIME_DIR"]
   return {
-    bun: asFilePath(bun),
-    script: scriptPath(appRoot),
+    executable: executablePath(appRoot),
     env: {
       PATH: found["PATH"] || process.env["PATH"] || "",
       DAYCARE_DB: databasePath(process.platform, process.env, home),

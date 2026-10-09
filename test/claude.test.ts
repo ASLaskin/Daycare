@@ -164,9 +164,9 @@ test("masters get the Daycare bridge and prompt; every role loses Claude's own s
   const master = start("idle")
   const opts = master.fake.options()
   const daycare = opts?.mcpServers?.["daycare"]
-  expect(daycare && "command" in daycare ? [daycare.command, daycare.args, daycare.alwaysLoad, daycare.timeout] : null).toEqual([
+  expect(daycare && "command" in daycare ? [daycare.command, daycare.args?.at(-1), daycare.alwaysLoad, daycare.timeout] : null).toEqual([
     process.execPath,
-    [expect.stringMatching(/src\/coordinator\/mcp\.ts$/), "s"],
+    "s",
     true,
     1_800_000,
   ])

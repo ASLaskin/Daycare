@@ -12,7 +12,7 @@ import { asNativeId } from "../src/shared/coordinator.ts"
 import { type Json, obj, parseJson } from "../src/shared/json.ts"
 import { sample, tempDb } from "./fixtures/store.ts"
 
-const BRIDGE = path.join(import.meta.dir, "..", "src", "coordinator", "mcp.ts")
+const ENTRY = path.join(import.meta.dir, "..", "src", "coordinator", "main.ts")
 const cleanup: Array<() => unknown> = []
 afterEach(async () => {
   await Promise.all(cleanup.splice(0).map((f) => f()))
@@ -37,7 +37,7 @@ const coordinator = async () => {
 
 // Bridge child process speaking JSON-RPC lines
 const bridge = (runtime: string) => {
-  const child = Bun.spawn([process.execPath, BRIDGE, "m"], { stdin: "pipe", stdout: "pipe", env: { ...process.env, DAYCARE_RUNTIME_DIR: runtime } })
+  const child = Bun.spawn([process.execPath, ENTRY, "mcp", "m"], { stdin: "pipe", stdout: "pipe", env: { ...process.env, DAYCARE_RUNTIME_DIR: runtime } })
   cleanup.push(() => child.kill())
   const replies = new Map<Json, Record<string, Json>>()
   void (async () => {

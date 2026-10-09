@@ -2,7 +2,7 @@
 
 import { expect, test } from "bun:test"
 import { unitFile } from "../src/main/coordinator/launch.ts"
-import { databasePath, parseLogin, scriptPath } from "../src/main/coordinator/paths.ts"
+import { databasePath, executablePath, parseLogin } from "../src/main/coordinator/paths.ts"
 import { asDirPath, asFilePath } from "../src/shared/ids.ts"
 import { runtimeDir } from "../src/shared/runtime.ts"
 
@@ -15,8 +15,8 @@ test("the database survives reboots: XDG state on Linux, Application Support on 
 })
 
 test("the packaged app runs the unpacked coordinator", () => {
-  expect(scriptPath(asDirPath("/Applications/Daycare.app/Contents/Resources/app.asar"))).toBe(asFilePath("/Applications/Daycare.app/Contents/Resources/app.asar.unpacked/dist/coordinator/main.js"))
-  expect(scriptPath(asDirPath("/home/u/projects/Daycare"))).toBe(asFilePath("/home/u/projects/Daycare/dist/coordinator/main.js"))
+  expect(executablePath(asDirPath("/Applications/Daycare.app/Contents/Resources/app.asar"))).toBe(asFilePath("/Applications/Daycare.app/Contents/Resources/app.asar.unpacked/dist/daycare-coordinator"))
+  expect(executablePath(asDirPath("/home/u/projects/Daycare"))).toBe(asFilePath("/home/u/projects/Daycare/dist/daycare-coordinator"))
 })
 
 test("login output keeps marked names, drops missing ones and ignores startup noise", () => {
@@ -33,11 +33,10 @@ test("the runtime directory: override, XDG on Linux, the per-user temp folder on
 
 test("the generated unit quotes paths, escapes systemd specifiers and never retries a lockout", () => {
   const text = unitFile({
-    bun: asFilePath("/opt/my bun/bun"),
-    script: asFilePath("/home/u/Daycare/dist/coordinator/main.js"),
+    executable: asFilePath("/opt/my apps/Daycare/dist/daycare-coordinator"),
     env: { DAYCARE_DB: "/home/u/100% state/coordinator.db", PATH: "/a:/b" },
   })
-  expect(text).toContain('ExecStart="/opt/my bun/bun" "/home/u/Daycare/dist/coordinator/main.js"')
+  expect(text).toContain('ExecStart="/opt/my apps/Daycare/dist/daycare-coordinator"')
   expect(text).toContain('Environment="DAYCARE_DB=/home/u/100%% state/coordinator.db"')
   expect(text).toContain('Environment="PATH=/a:/b"')
   expect(text).toContain("RestartPreventExitStatus=3")
