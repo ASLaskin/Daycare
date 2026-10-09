@@ -2,6 +2,7 @@
   "name": "daycare",
   "version": "0.2.0",
   "private": true,
+  "license": "MIT",
   "description": "Agent Orchestator",
   "productName": "Daycare",
   "main": "dist/main.mjs",
