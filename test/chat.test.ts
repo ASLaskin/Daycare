@@ -435,6 +435,14 @@ describe("transcript replay", () => {
   })
 })
 
+test("switching models sends a set_model control request", async () => {
+  const m = launch([{ waitStdin: 1 }, { exit: 0 }])
+  run((chat) => chat.setModel(m.id, "haiku"))
+  await until(() => m.stdin().length === 1)
+  const line = item(m.stdin())
+  expect([at(line, "type"), at(line, "request")]).toEqual(["control_request", { subtype: "set_model", model: "haiku" }])
+})
+
 test("closing the scope kills a stuck child at once", async () => {
   const q = launch([{ stubborn: true, write: J({ type: "system", subtype: "session_state_changed", state: "running" }) }])
   await until(() => kinds(q.ev(), "state").length === 1)

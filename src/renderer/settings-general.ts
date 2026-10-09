@@ -4,6 +4,7 @@ import type { Settings } from "../shared/settings.ts"
 import { $ } from "./dom.ts"
 import { input, onSelect, onToggle, select } from "./fields.ts"
 import { renderLocationRows, wireLocations } from "./locations-view.ts"
+import { fillModels, MASTER_CHOICES, renderModelGuide, WORKER_CHOICES } from "./model-options.ts"
 import { locationOptions, setCurrentLocation } from "./new-session.ts"
 import { saveSettings, settings } from "./store.ts"
 
@@ -15,7 +16,11 @@ export const renderGeneral = () => {
   input("set-keep-awake-lid").checked = s.keepAwakeLidClosed
   $("#keep-awake-lid-row").classList.toggle("collapsed", s.keepAwake === "off")
   locationOptions(select("set-default-location"), s.defaultLocation)
-  select("set-model").value = s.model
+  select("set-master-model").value = s.masterModel
+  select("set-worker-model").value = s.workerModel
+  select("set-worker-model").disabled = s.autoWorkerModel
+  input("set-auto-worker-model").checked = s.autoWorkerModel
+  $("#worker-model-field").classList.toggle("disabled", s.autoWorkerModel)
   select("set-permission").value = s.permissionMode
   renderLocationRows()
 }
@@ -29,7 +34,12 @@ export const wireGeneral = () => {
     setCurrentLocation(Number(v))
     return saveSettings({ defaultLocation: Number(v) })
   })
-  onSelect("set-model", (model) => saveSettings({ model }))
+  fillModels(select("set-master-model"), MASTER_CHOICES)
+  fillModels(select("set-worker-model"), WORKER_CHOICES)
+  renderModelGuide($("#model-guide"))
+  onSelect("set-master-model", (masterModel) => saveSettings({ masterModel }))
+  onSelect("set-worker-model", (workerModel) => saveSettings({ workerModel }))
+  onToggle("set-auto-worker-model", (autoWorkerModel) => saveSettings({ autoWorkerModel }))
   onSelect("set-permission", (v) => saveSettings({ permissionMode: v as Settings["permissionMode"] }))
   onSelect("set-keep-awake", (v) => saveSettings({ keepAwake: v as Settings["keepAwake"] }))
 }

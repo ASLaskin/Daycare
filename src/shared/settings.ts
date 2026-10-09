@@ -3,6 +3,7 @@
 import { Option, Schema } from "effect"
 import { DirPath } from "./ids.ts"
 import { isJsonObject, type Json } from "./json.ts"
+import { SAME_AS_MASTER } from "./models.ts"
 import { PermissionMode } from "./session.ts"
 
 export const Location = Schema.Struct({ label: Schema.String, path: DirPath })
@@ -24,7 +25,9 @@ export const Settings = Schema.Struct({
   showIcons: Schema.Boolean,
   showContext: Schema.Boolean,
   defaultLocation: Schema.Int,
-  model: Schema.String,
+  masterModel: Schema.String,
+  workerModel: Schema.String,
+  autoWorkerModel: Schema.Boolean,
   permissionMode: PermissionMode,
   keepAwake: KeepAwake,
   keepAwakeLidClosed: Schema.Boolean,
@@ -55,7 +58,9 @@ export const baseSettings: Omit<Settings, "locations"> = {
   showIcons: true,
   showContext: true,
   defaultLocation: 0,
-  model: "opus",
+  masterModel: "opus",
+  workerModel: SAME_AS_MASTER.id,
+  autoWorkerModel: false,
   permissionMode: "default",
   keepAwake: "while-running",
   keepAwakeLidClosed: false,

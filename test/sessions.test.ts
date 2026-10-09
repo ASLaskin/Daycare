@@ -27,6 +27,7 @@ import type { SessionView } from "../src/shared/session.ts"
 interface FakeChat {
   readonly opts: ChatStart
   readonly sent: Array<string>
+  readonly models: Array<string>
   stopped: boolean
 }
 const chats: Array<FakeChat> = []
@@ -58,9 +59,10 @@ const FakeChatLayer = Layer.effect(
         Effect.tap(() => Effect.sync(() => ready.resolve())),
         Effect.map(Stream.fromSubscription),
       ),
-      start: (opts) => Effect.sync(() => void chats.push({ opts, sent: [], stopped: false })),
+      start: (opts) => Effect.sync(() => void chats.push({ opts, sent: [], models: [], stopped: false })),
       send: (id, text) => Effect.sync(() => void liveChat(id)?.sent.push(text)),
       interrupt: () => Effect.void,
+      setModel: (id, model) => Effect.sync(() => void liveChat(id)?.models.push(model)),
       respond: () => Effect.succeed(false),
       stop: (id) => Effect.sync(() => exitChat(id)),
       has: (id) => Effect.sync(() => liveChat(id) !== undefined),
@@ -106,7 +108,7 @@ const makeRuntime = () => {
     FakeUi,
     endpoint,
   ).pipe(Layer.provideMerge(paths))
-  return ManagedRuntime.make(Sessions.layer.pipe(Layer.provide(deps)))
+  return ManagedRuntime.make(Sessions.layer.pipe(Layer.provideMerge(deps)))
 }
 
 let runtime = makeRuntime()
@@ -133,10 +135,13 @@ const failure = async (call: ReturnType<typeof tool>): Promise<string> => {
   return result.failure.message
 }
 
-const spawnWorker = async (masterId: SessionId, name: string, task: string) => {
-  const w = obj(await ok(tool(masterId, { name: "spawn_subagent", input: { name, task } }))) ?? {}
+const spawnWorker = async (masterId: SessionId, name: string, task: string, model?: string) => {
+  const input = { name, task, ...(model ? { model } : {}) }
+  const w = obj(await ok(tool(masterId, { name: "spawn_subagent", input }))) ?? {}
   return { name: str(w["name"]), id: asSessionId(String(w["id"])) }
 }
+
+const setSettings = (patch: JsonObject) => runtime.runPromise(SettingsStore.use((s) => s.update(patch)))
 
 const readJsonFile = (file: string): Json | null => parseJson(fs.readFileSync(file, "utf8"))
 
@@ -344,6 +349,37 @@ describe("lifecycle", () => {
   test("a master started with a task counts as messaged", async () => {
     const m = await newMaster("do the thing")
     expect((await get(m.id)).hadTurn).toBe(true)
+  })
+})
+
+describe("models", () => {
+  const modelArg = (id: SessionId) => {
+    const args = chatOf(id).opts.args ?? []
+    return args[args.indexOf("--model") + 1]
+  }
+
+  test("workers follow the subagent default and ignore the master's pick", async () => {
+    const m = await newMaster()
+    await setSettings({ workerModel: "master", autoWorkerModel: false })
+    expect(modelArg((await spawnWorker(m.id, "same", "t", "haiku")).id)).toBe("sonnet")
+    await setSettings({ workerModel: "haiku" })
+    expect(modelArg((await spawnWorker(m.id, "cheap", "t", "opus")).id)).toBe("haiku")
+  })
+
+  test("auto mode takes the master's pick, else the master's model", async () => {
+    const m = await newMaster()
+    await setSettings({ workerModel: "opus", autoWorkerModel: true })
+    expect(modelArg((await spawnWorker(m.id, "picked", "t", "haiku")).id)).toBe("haiku")
+    expect(modelArg((await spawnWorker(m.id, "unpicked", "t")).id)).toBe("sonnet")
+    await setSettings({ workerModel: "master", autoWorkerModel: false })
+  })
+
+  test("switching a chat's model reaches claude and the next launch", async () => {
+    const m = await newMaster()
+    await sessions((s) => s.setModel(m.id, "haiku"))
+    expect(chatOf(m.id).models).toEqual(["haiku"])
+    expect((await get(m.id)).model).toBe("haiku")
+    expect(savedRecord(m.id)).toMatchObject({ model: "haiku" })
   })
 })
 

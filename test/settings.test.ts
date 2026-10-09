@@ -12,8 +12,8 @@ const defaults: Settings = { ...baseSettings, locations: [{ label: "Home", path:
 
 describe("mergeSettings", () => {
   test("keeps valid fields and drops invalid ones", () => {
-    const merged = mergeSettings(defaults, { model: "sonnet", layout: "diagonal", maxCols: 2.5, splits: { stack: 40 } })
-    expect(merged.model).toBe("sonnet")
+    const merged = mergeSettings(defaults, { masterModel: "sonnet", layout: "diagonal", maxCols: 2.5, splits: { stack: 40 } })
+    expect(merged.masterModel).toBe("sonnet")
     expect(merged.layout).toBe("stack")
     expect(merged.maxCols).toBe(4)
     expect(merged.splits).toEqual({ stack: 40 })
@@ -39,16 +39,23 @@ describe("SettingsStore", () => {
   test("starts from defaults, saves a patch, and reads it back on the next launch", async () => {
     const userData = asDirPath(fs.mkdtempSync(path.join(os.tmpdir(), "daycare-settings-")))
     const first = await withStore(userData, SettingsStore.use((s) => s.get))
-    expect(first.model).toBe("opus")
+    expect(first.masterModel).toBe("opus")
     expect(first.locations).toEqual([{ label: "Home", path: userData }])
-    await withStore(userData, SettingsStore.use((s) => s.update({ model: "haiku", layout: "nope" })))
+    await withStore(userData, SettingsStore.use((s) => s.update({ masterModel: "haiku", layout: "nope" })))
     const again = await withStore(userData, SettingsStore.use((s) => s.get))
-    expect([again.model, again.layout]).toEqual(["haiku", "stack"])
+    expect([again.masterModel, again.layout]).toEqual(["haiku", "stack"])
   })
 
   test("a corrupt file falls back to defaults", async () => {
     const userData = asDirPath(fs.mkdtempSync(path.join(os.tmpdir(), "daycare-settings-")))
     fs.writeFileSync(path.join(userData, "settings.json"), "{ nope")
-    expect((await withStore(userData, SettingsStore.use((s) => s.get))).model).toBe("opus")
+    expect((await withStore(userData, SettingsStore.use((s) => s.get))).masterModel).toBe("opus")
+  })
+
+  test("an older file's model becomes the master model", async () => {
+    const userData = asDirPath(fs.mkdtempSync(path.join(os.tmpdir(), "daycare-settings-")))
+    fs.writeFileSync(path.join(userData, "settings.json"), JSON.stringify({ model: "haiku" }))
+    const s = await withStore(userData, SettingsStore.use((st) => st.get))
+    expect([s.masterModel, s.workerModel, s.autoWorkerModel]).toEqual(["haiku", "master", false])
   })
 })

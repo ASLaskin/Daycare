@@ -65,6 +65,10 @@
 .field-grid.three { grid-template-columns: 1fr 1fr 1fr; }
 .field-grid label { display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 12px; font-weight: 500; min-width: 0; }
 .field-grid.plain { padding-top: 0; border-top: 0; }
+.field-grid label.disabled { color: var(--faint); }
+.model-guide { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 12px; }
+.model-guide-name { color: var(--text); font-weight: 500; }
+.model-guide-text { color: var(--muted); }
 
 .location-rows { display: flex; flex-direction: column; gap: 6px; }
 .location-row { display: grid; grid-template-columns: 38px 160px 1fr auto auto; gap: 8px; align-items: center; }

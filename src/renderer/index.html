@@ -96,17 +96,9 @@
               </div>
               <input type="checkbox" id="set-random-names" class="switch" />
             </label>
-            <div class="field-grid">
+            <div class="field-grid two">
               <label>Default location
                 <select id="set-default-location"></select>
-              </label>
-              <label>Model
-                <select id="set-model">
-                  <option value="opus">Opus</option>
-                  <option value="sonnet">Sonnet</option>
-                  <option value="haiku">Haiku</option>
-                  <option value="">Claude default</option>
-                </select>
               </label>
               <label>Permissions
                 <select id="set-permission">
@@ -116,6 +108,26 @@
                 </select>
               </label>
             </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Models</div>
+            <label class="toggle-row">
+              <div>
+                <div class="toggle-label">Let Claude pick subagent models</div>
+                <div class="hint">The master picks Opus, Sonnet, or Haiku for each subagent based on its task and anything you tell it. Off always uses the subagent default.</div>
+              </div>
+              <input type="checkbox" id="set-auto-worker-model" class="switch" />
+            </label>
+            <div class="field-grid two">
+              <label>Master default
+                <select id="set-master-model"></select>
+              </label>
+              <label id="worker-model-field">Subagent default
+                <select id="set-worker-model"></select>
+              </label>
+            </div>
+            <div id="model-guide" class="model-guide"></div>
           </div>
 
           <div class="card">
@@ -286,12 +298,7 @@
           <input name="name" placeholder="Automatic" />
         </label>
         <label>Model
-          <select name="model">
-            <option value="opus">Opus</option>
-            <option value="sonnet">Sonnet</option>
-            <option value="haiku">Haiku</option>
-            <option value="">Claude default</option>
-          </select>
+          <select name="model"></select>
         </label>
         <label>Permissions
           <select name="permissionMode">

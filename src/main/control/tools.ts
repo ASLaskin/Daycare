@@ -2,13 +2,20 @@
 
 import { Schema } from "effect"
 import { DirPath } from "../../shared/ids.ts"
+import { MODEL_GUIDE } from "../../shared/models.ts"
 
 const desc = (description: string) => ({ description })
 
 export const SpawnSubagent = Schema.Struct({
   name: Schema.String.annotate(desc('Short display name, e.g. "video-3-script"')),
   task: Schema.String.annotate(desc("Complete instructions for the worker")),
-  model: Schema.optionalKey(Schema.String.annotate(desc('Optional model override, e.g. "opus" or "sonnet"'))),
+  model: Schema.optionalKey(
+    Schema.String.annotate(
+      desc(
+        `Model that fits the task: ${MODEL_GUIDE}. Honored only when the user lets you pick models.`,
+      ),
+    ),
+  ),
   cwd: Schema.optionalKey(DirPath.annotate(desc("Optional working directory; defaults to the master's"))),
 })
 
