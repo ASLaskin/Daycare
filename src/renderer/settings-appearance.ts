@@ -26,6 +26,7 @@ export const renderAppearance = () => {
   const s = settings()
   renderPickers()
   input("set-show-icons").checked = s.showIcons
+  select("set-icon-pack").value = s.iconPack
   input("set-show-context").checked = showContext()
   $("#context-options").classList.toggle("collapsed", !showContext())
   select("set-context-limit").value = String(s.contextLimit)
@@ -35,6 +36,7 @@ export const renderAppearance = () => {
 
 export const wireAppearance = () => {
   onToggle("set-show-icons", (showIcons) => saveSettings({ showIcons }).then(renderSidebar))
+  onSelect("set-icon-pack", (v) => saveSettings({ iconPack: v as Settings["iconPack"] }).then(renderSidebar))
   onToggle("set-show-context", (showContext) => saveSettings({ showContext }).then(refreshContexts))
   onSelect("set-context-limit", (v) => saveSettings({ contextLimit: Number(v) }).then(refreshContexts))
   onSelect("set-context-scale", (v) => saveSettings({ contextScale: Number(v) }).then(refreshContexts))
