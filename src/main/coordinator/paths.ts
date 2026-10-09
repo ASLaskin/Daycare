@@ -55,6 +55,8 @@ export const coordinatorSetup = (appRoot: DirPath, home: DirPath): CoordinatorSe
     env: {
       PATH: found["PATH"] || process.env["PATH"] || "",
       DAYCARE_DB: databasePath(process.platform, process.env, home),
+      // How the tray opens Daycare; unpackaged Electron needs the app folder
+      DAYCARE_LAUNCH: JSON.stringify(appRoot.endsWith("app.asar") ? [process.execPath] : [process.execPath, appRoot]),
       ...(claude ? { DAYCARE_CLAUDE: claude } : {}),
       ...(codex ? { DAYCARE_CODEX: codex } : {}),
       ...(runtime ? { DAYCARE_RUNTIME_DIR: runtime } : {}),

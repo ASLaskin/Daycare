@@ -30,6 +30,8 @@ const builds = await Promise.all([
   Bun.build({
     entrypoints: [path.join(root, "src/coordinator/main.ts")],
     compile: { outfile: path.join(out, "daycare-coordinator") },
+    // Only dbus-next's X11 fallback needs it, never used under systemd
+    external: ["x11"],
     sourcemap: "linked",
   }),
   Bun.build({

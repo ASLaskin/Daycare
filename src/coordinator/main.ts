@@ -10,6 +10,7 @@ import { type Launch, makeHub } from "./hub.ts"
 import { runtimeDir } from "../shared/runtime.ts"
 import { AlreadyRunning, listen } from "./server.ts"
 import { openStore } from "./store.ts"
+import { startTray } from "./tray.ts"
 
 // Tells the service supervisor not to restart
 export const ALREADY_RUNNING_EXIT = 3
@@ -49,10 +50,19 @@ const main = async () => {
     pkg.version,
   )
   console.log(`daycare coordinator ${pkg.version} on ${dir}`)
+  // Tray failures leave the coordinator running
+  const tray =
+    process.platform === "linux"
+      ? await startTray(dir).catch((e: Error) => {
+          console.error(`tray: ${e.message}`)
+          return null
+        })
+      : null
 
   let stopped: Promise<void> | null = null
   const stop = () => {
     stopped ??= (async () => {
+      tray?.close()
       await hub?.shutdown()
       await server.close()
       console.log("daycare coordinator stopped")
