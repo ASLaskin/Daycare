@@ -7,7 +7,7 @@ import { toolTitle } from "../main/chat/content.ts"
 import type { ChatEvent } from "../shared/chat.ts"
 import type { StoredSession } from "../shared/coordinator.ts"
 import { asRequestId, asToolUseId, type FilePath, type RequestId } from "../shared/ids.ts"
-import { obj, parseJson } from "../shared/json.ts"
+import { obj, parseJson, str } from "../shared/json.ts"
 import { MASTER_PROMPT, WORKER_PROMPT } from "../main/sessions/prompts.ts"
 import { bridge, DAYCARE_TOOLS, TOOL_TIMEOUT_SECONDS } from "./orchestration.ts"
 import { spawnGroup, stopGroup } from "./process.ts"
@@ -42,7 +42,15 @@ export const startClaude = (
     throw new Error("claude session has no native id")
   }
   const master = session.role === "master"
-  const inputs: Array<{ readonly message: SDKUserMessage; readonly taken: () => void; readonly refuse: (e: Error) => void }> = []
+  interface Pending {
+    readonly message: SDKUserMessage
+    readonly confirm: () => void
+    readonly refuse: (e: Error) => void
+  }
+  // Not yet taken by the SDK
+  const inputs: Array<Pending> = []
+  // Taken, awaiting a reply frame stamped with the message's uuid
+  const unconfirmed = new Map<string, Pending>()
   const answers = new Map<RequestId, (answer: Answer) => boolean>()
   let wake = () => {}
   let closed = false
@@ -52,6 +60,9 @@ export const startClaude = (
   const end = (reason: string) => {
     closed = true
     inputs.splice(0).forEach((i) => i.refuse(new Refused(reason)))
+    // Taken but never answered: claude may have read them, so delivery is uncertain
+    unconfirmed.forEach((i) => i.refuse(new Error(reason)))
+    unconfirmed.clear()
     wake()
   }
 
@@ -60,7 +71,7 @@ export const startClaude = (
     while (!closed) {
       const next = inputs.shift()
       if (next) {
-        next.taken()
+        unconfirmed.set(next.message.uuid ?? "", next)
         yield next.message
         continue
       }
@@ -151,6 +162,12 @@ export const startClaude = (
     try {
       for await (const message of q) {
         const json = obj(toJson(message))
+        // claude stamps the first reply to each message with its uuid
+        const stamped = unconfirmed.get(str(json?.["user_message_uuid"]) ?? "")
+        if (stamped) {
+          unconfirmed.delete(stamped.message.uuid ?? "")
+          stamped.confirm()
+        }
         ;(json ? normalizer.handle(json) : []).forEach(emit)
       }
     } catch (e) {
@@ -165,8 +182,9 @@ export const startClaude = (
       if (closed) {
         return Promise.reject(new Refused("claude has stopped"))
       }
-      return new Promise<void>((taken, refuse) => {
-        inputs.push({ message: { type: "user", message: { role: "user", content: text }, parent_tool_use_id: null }, taken, refuse })
+      return new Promise<void>((confirm, refuse) => {
+        const message: SDKUserMessage = { type: "user", message: { role: "user", content: text }, parent_tool_use_id: null, uuid: crypto.randomUUID() }
+        inputs.push({ message, confirm, refuse })
         wake()
       })
     },

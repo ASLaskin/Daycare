@@ -19,8 +19,9 @@ test("the packaged app runs the unpacked coordinator", () => {
   expect(scriptPath(asDirPath("/home/u/projects/Daycare"))).toBe(asFilePath("/home/u/projects/Daycare/dist/coordinator/main.js"))
 })
 
-test("login output keeps found names and drops missing ones", () => {
-  expect(parseLogin("PATH=/a:/b\nbun=/x/bun\nclaude=\ncodex=/y/codex=1\nnoise\n")).toEqual({ PATH: "/a:/b", bun: "/x/bun", codex: "/y/codex=1" })
+test("login output keeps marked names, drops missing ones and ignores startup noise", () => {
+  const out = "Welcome!\nPATH=/not/marked\nDAYCARE:PATH=/a:/b\nDAYCARE:bun=/x/bun\nDAYCARE:claude=\nDAYCARE:codex=/y/codex=1\n"
+  expect(parseLogin(out)).toEqual({ PATH: "/a:/b", bun: "/x/bun", codex: "/y/codex=1" })
 })
 
 test("the runtime directory: override, XDG on Linux, the per-user temp folder on macOS", () => {

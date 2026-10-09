@@ -23,20 +23,23 @@ export const databasePath = (platform: NodeJS.Platform, env: NodeJS.ProcessEnv, 
 export const scriptPath = (appRoot: DirPath): FilePath =>
   asFilePath(path.join(appRoot.replace(/app\.asar$/, "app.asar.unpacked"), "dist", "coordinator", "main.js"))
 
-// name=value lines printed by the login shell
+const MARK = "DAYCARE:"
+
+// Marked name=value lines; anything else the shell's startup files print is ignored
 export const parseLogin = (out: string): Readonly<Record<string, string>> =>
   Object.fromEntries(
     out.split("\n").flatMap((line) => {
-      const i = line.indexOf("=")
-      return i > 0 && line.slice(i + 1) ? [[line.slice(0, i), line.slice(i + 1)]] : []
+      const marked = line.startsWith(MARK) ? line.slice(MARK.length) : ""
+      const i = marked.indexOf("=")
+      return i > 0 && marked.slice(i + 1) ? [[marked.slice(0, i), marked.slice(i + 1)]] : []
     }),
   )
 
-// PATH and executables as a login shell sees them
+// PATH and executables as the user's interactive login shell sees them, .zshrc included
 const loginShell = () => {
-  const script = `printf 'PATH=%s\\n' "$PATH"; for n in bun claude codex; do printf '%s=%s\\n' "$n" "$(command -v $n)"; done`
+  const script = `printf '${MARK}PATH=%s\\n' "$PATH"; for n in bun claude codex; do printf '${MARK}%s=%s\\n' "$n" "$(command -v $n)"; done`
   try {
-    return parseLogin(execFileSync(process.env["SHELL"] || "/bin/zsh", ["-lc", script], { encoding: "utf8", timeout: 10_000 }))
+    return parseLogin(execFileSync(process.env["SHELL"] || "/bin/zsh", ["-ilc", script], { encoding: "utf8", timeout: 10_000, stdio: ["ignore", "pipe", "ignore"] }))
   } catch {
     return {}
   }

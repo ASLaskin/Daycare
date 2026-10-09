@@ -1,7 +1,7 @@
 // Starts the coordinator: a user service on Linux, a detached process on macOS.
 
 import { execFileSync, spawn } from "node:child_process"
-import { lstatSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { lstatSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
 import path from "node:path"
 import type { DirPath } from "../../shared/ids.ts"
 import { lockPath, runtimeDir } from "../../shared/runtime.ts"
@@ -68,12 +68,17 @@ export const startCoordinator = (setup: CoordinatorSetup, home: DirPath) => {
 
 const STOP_WAIT_MS = 20_000
 
-// The process named in the lock file, only if it really is a coordinator
+const ps = (pid: number, field: string) => execFileSync("ps", ["-p", String(pid), "-o", `${field}=`], { encoding: "utf8" }).trim()
+
+// The process named in the lock file, only if it is a coordinator that started before writing it
 const runningCoordinator = (): number | null => {
   try {
-    const pid = Number(readFileSync(lockPath(runtimeDir(process.env)), "utf8").trim())
-    const command = execFileSync("ps", ["-p", String(pid), "-o", "command="], { encoding: "utf8" })
-    return pid > 0 && command.includes("coordinator/main.") ? pid : null
+    const file = lockPath(runtimeDir(process.env))
+    const pid = Number(readFileSync(file, "utf8").trim())
+    const started = Date.parse(ps(pid, "lstart"))
+    // A reused process id belongs to a process started after the lock file was written; lstart has whole seconds
+    const writtenAfterStart = started <= statSync(file).mtimeMs + 1000
+    return pid > 0 && writtenAfterStart && ps(pid, "command").includes("coordinator/main.") ? pid : null
   } catch {
     return null
   }
@@ -100,6 +105,10 @@ export const restartCoordinator = async (setup: CoordinatorSetup, home: DirPath)
     const deadline = Date.now() + STOP_WAIT_MS
     while (alive(pid) && Date.now() < deadline) {
       await new Promise((resolve) => setTimeout(resolve, 100))
+    }
+    // A new copy would only find the lock still held
+    if (alive(pid)) {
+      throw new Error(`the coordinator did not stop within ${STOP_WAIT_MS / 1000} seconds; try again`)
     }
   }
   startCoordinator(setup, home)

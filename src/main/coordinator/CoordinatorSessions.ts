@@ -8,7 +8,9 @@ import type { NewMaster, SessionView } from "../../shared/session.ts"
 import { ControlHandlers } from "../control/ControlHandlers.ts"
 import { ToolError } from "../control/mcp.ts"
 import { Sessions, type SessionsShape } from "../sessions/Sessions.ts"
+import { defaultMasterName, nextIcon } from "../sessions/naming.ts"
 import { deleteDetail } from "../sessions/service.ts"
+import { SettingsStore } from "../settings/SettingsStore.ts"
 import { Ui } from "../Ui.ts"
 import { runtimeDir, socketPath } from "../../shared/runtime.ts"
 import { AppPaths } from "../AppPaths.ts"
@@ -30,6 +32,7 @@ const restored = (h: SessionHistory): Array<ChatEvent> => {
 const make = (version: string) =>
   Effect.gen(function* () {
     const ui = yield* Ui
+    const settingsStore = yield* SettingsStore
     const { appRoot, home } = yield* AppPaths
     // Why the coordinator could not be started, shown instead of a bare socket error
     let launchError: string | null = null
@@ -50,6 +53,14 @@ const make = (version: string) =>
       const created = !before || (before.status === "closed" && v.status !== "closed")
       ui.send(created ? "session:created" : "session:update", v)
       sessions.set(v.id, v)
+    }
+
+    // Appends in place; a finished text replaces its streamed fragments, as stored history does
+    const cache = (id: SessionId, event: ChatEvent) => {
+      const current = history.get(id) ?? []
+      const list = event.kind === "text" ? current.filter((e) => !(e.kind === "text-delta" && e.block === event.block)) : current
+      list.push(event)
+      history.set(id, list)
     }
 
     const drop = (id: SessionId, parentId: SessionId | null) => {
@@ -91,7 +102,7 @@ const make = (version: string) =>
             if (event.event.kind === "permission-resolved") {
               choices.delete(approvalKey(event.session, event.event.requestId))
             }
-            history.set(event.session, [...(history.get(event.session) ?? []), event.event])
+            cache(event.session, event.event)
             ui.send("chat:event", { id: event.session, event: event.event })
             return
         }
@@ -101,18 +112,31 @@ const make = (version: string) =>
 
     const request = (command: Command) => Effect.promise(() => client.request(command))
 
+    // Name and sprite chosen as the in-Electron path does
     const createMaster = (options: NewMaster): Effect.Effect<SessionView> => {
       const provider = options.provider ?? "claude"
-      return request({
-        method: "create",
-        provider,
-        cwd: options.cwd,
-        prompt: options.task,
-        ...(options.name ? { name: options.name } : {}),
+      const all = [...sessions.values()]
+      return settingsStore.get.pipe(
+        Effect.flatMap((current) =>
+          request({
+            method: "create",
+            provider,
+            cwd: options.cwd,
+            prompt: options.task,
+            name:
+              options.name ||
+              defaultMasterName({
+                cwd: options.cwd,
+                taken: new Set(all.map((v) => v.name)),
+                randomNames: current.randomNames,
+                locationLabel: current.locations.find((l) => l.path === options.cwd)?.label,
+              }),
+            icon: nextIcon(new Set(all.filter((v) => v.role === "master").map((v) => v.icon))),
         // The model setting names a Claude model; Codex uses its own default
-        model: provider === "claude" ? options.model || null : null,
-        permissionMode: options.permissionMode,
-      }).pipe(
+            model: provider === "claude" ? options.model || null : null,
+            permissionMode: options.permissionMode,
+          }),
+        ),
         Effect.flatMap(Schema.decodeUnknownEffect(Created)),
         Effect.orDie,
         Effect.flatMap(({ session }) => {

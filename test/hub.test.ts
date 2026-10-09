@@ -324,3 +324,96 @@ test("a saved permission event carries the request's choices for replay", () => 
   const saved = "events" in h ? h.events.find((e) => e.kind === "permission") : undefined
   expect(saved?.kind === "permission" ? saved.choices : null).toEqual(["accept", "decline"])
 })
+
+test("a new master keeps the client's sprite, and never gets an empty name", () => {
+  const { hub } = setup()
+  const cwd = sample("x", "claude", "idle").cwd
+  hub.command({ method: "create", provider: "claude", cwd, prompt: "", name: "Kernel Sanders", icon: "mudkip", model: null, permissionMode: "default" })
+  hub.command({ method: "create", provider: "claude", cwd, prompt: "", model: null, permissionMode: "default" })
+  const created = hub.subscribe(() => true).sessions.filter((s) => s.id !== id)
+  expect(created.map((s) => [s.name, s.icon])).toEqual([
+    ["Kernel Sanders", "mudkip"],
+    ["Master", null],
+  ])
+})
+
+test("a removed session ignores everything its stopping provider still sends", () => {
+  const { conn, hub, provider } = running()
+  hub.command({ method: "remove", session: id })
+  expect(() => {
+    provider.update({ type: "event", event: { kind: "text", block: "late", text: "after removal" } })
+    provider.update({ type: "error", message: "late error" })
+    provider.update({ type: "native", nativeId: asNativeId("late-thread") })
+    approval(provider.update, "late")
+    provider.update({ type: "exited" })
+  }).not.toThrow()
+  expect(conn.query<{ n: number }, []>("SELECT COUNT(*) AS n FROM history").get()?.n).toBe(0)
+  expect(hub.subscribe(() => true).sessions).toEqual([])
+})
+
+test("a reopened session cannot start a new provider until the old one has stopped", async () => {
+  const db = tempDb()
+  dbs.push(db)
+  const conn = db.open()
+  createSession(conn, { ...sample("s", "claude", "idle"), nativeId: asNativeId("n") })
+  let release = () => {}
+  const stopped = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  let launches = 0
+  const hub = makeHub(conn, () => {
+    launches += 1
+    return { input: async () => {}, interrupt: () => {}, answer: () => false, close: () => stopped }
+  })
+  hub.command({ method: "send", session: id, text: "first" })
+  hub.command({ method: "close", session: id })
+  hub.command({ method: "reopen", session: id })
+  expect(hub.command({ method: "send", session: id, text: "too soon" })).toEqual({ error: "the session's previous provider has not stopped yet; try again shortly, or restart the coordinator to recover" })
+  release()
+  await stopped
+  await Bun.sleep(0)
+  expect(hub.command({ method: "send", session: id, text: "now" })).toEqual({ result: { accepted: "coordinator" } })
+  expect(launches).toBe(2)
+})
+
+// A provider whose close the test settles
+const closable = () => {
+  const db = tempDb()
+  dbs.push(db)
+  const conn = db.open()
+  createSession(conn, { ...sample("s", "claude", "idle"), nativeId: asNativeId("n") })
+  let settle: (failed: boolean) => void = () => {}
+  const closed = new Promise<void>((resolve, reject) => {
+    settle = (failed) => (failed ? reject(new Error("did not exit")) : resolve())
+  })
+  const hub = makeHub(conn, () => ({ input: async () => {}, interrupt: () => {}, answer: () => false, close: () => closed }))
+  return { hub, settle, closed }
+}
+
+test("a close that fails keeps the session from starting another provider", async () => {
+  const { hub, settle, closed } = closable()
+  hub.command({ method: "send", session: id, text: "first" })
+  hub.command({ method: "close", session: id })
+  hub.command({ method: "reopen", session: id })
+  settle(true)
+  await closed.catch(() => {})
+  await Bun.sleep(0)
+  expect(hub.command({ method: "send", session: id, text: "again" })).toEqual({
+    error: "the session's previous provider has not stopped yet; try again shortly, or restart the coordinator to recover",
+  })
+})
+
+test("shutdown also waits for a close that started earlier", async () => {
+  const { hub, settle } = closable()
+  hub.command({ method: "send", session: id, text: "first" })
+  hub.command({ method: "close", session: id })
+  let done = false
+  const stopping = hub.shutdown().then(() => {
+    done = true
+  })
+  await Bun.sleep(10)
+  expect(done).toBe(false)
+  settle(false)
+  await stopping
+  expect(done).toBe(true)
+})

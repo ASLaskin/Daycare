@@ -58,6 +58,8 @@ export const Command = Schema.Union([
     cwd: DirPath,
     prompt: Schema.String,
     name: Schema.optionalKey(Schema.String),
+    // Sprite chosen by the client
+    icon: Schema.optionalKey(Schema.String),
     model: Schema.NullOr(Schema.String),
     permissionMode: PermissionMode,
   }),

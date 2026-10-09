@@ -34,6 +34,8 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
   const approvals = new Map<string, Approval>()
   // Run being launched, current before its handle is stored
   const launching = new Map<SessionId, number>()
+  // Providers still shutting down after close; a new run waits for them
+  const closing = new Map<SessionId, Promise<void>>()
   const subscribers = new Set<Subscriber>()
   let seq = 0
   // Set synchronously when shutdown begins; no new work is admitted after
@@ -118,6 +120,10 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
   }
 
   const update = (id: SessionId, run: number, u: ProviderUpdate) => {
+    // A removed session's provider may still be shutting down; nothing it says has anywhere to go
+    if (!sessions.has(id)) {
+      return
+    }
     if ((providers.get(id)?.run ?? launching.get(id)) !== run) {
       stale(id, run, u)
       return
@@ -177,6 +183,10 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
     if (stopping) {
       throw new Error("coordinator is stopping")
     }
+    // Two providers on one native conversation would interleave its transcript
+    if (closing.has(id)) {
+      throw new Error("the session's previous provider has not stopped yet; try again shortly, or restart the coordinator to recover")
+    }
     const running = providers.get(id)
     if (running) {
       return running.handle
@@ -217,14 +227,13 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
   }
 
   // Records a session before any provider process starts
-  const createSession = (s: Pick<StoredSession, "provider" | "role" | "parentId" | "name" | "cwd" | "model" | "permissionMode">) => {
+  const createSession = (s: Pick<StoredSession, "provider" | "role" | "parentId" | "name" | "icon" | "cwd" | "model" | "permissionMode">) => {
     const id = asSessionId(store.newId())
     store.createSession(db, {
       ...s,
       id,
       // Claude takes a caller-chosen id; Codex reports its thread id
       nativeId: s.provider === "claude" ? asNativeId(store.newId()) : null,
-      icon: null,
       state: "creating",
       closed: false,
       error: null,
@@ -243,7 +252,7 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
       sessions: () => [...sessions.values()],
       needsUser,
       createWorker: (w: WorkerSpec) =>
-        createSession({ provider: w.provider, role: "worker", parentId: w.master.id, name: w.name, cwd: w.cwd, model: w.model, permissionMode: w.master.permissionMode }),
+        createSession({ provider: w.provider, role: "worker", parentId: w.master.id, name: w.name, icon: null, cwd: w.cwd, model: w.model, permissionMode: w.master.permissionMode }),
       send,
       history: (id) => loadHistory(db, id),
     },
@@ -261,7 +270,16 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
   // Stops a session's agent, if any, and withdraws its approvals
   const stopOne = (id: SessionId, reason: string) => {
     const running = providers.get(id)
-    running?.handle.close().catch((e: Error) => console.error(`stopping ${id}: ${e.message}`))
+    if (running) {
+      // The guard clears only on observed termination; after a failure it holds
+      const closed: Promise<void> = running.handle.close().then(() => {
+        if (closing.get(id) === closed) {
+          closing.delete(id)
+        }
+      })
+      closed.catch((e: Error) => console.error(`stopping ${id}: ${e.message}`))
+      closing.set(id, closed)
+    }
     providers.delete(id)
     if (running) {
       lose(id, reason)
@@ -277,7 +295,8 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
           provider: command.provider,
           role: "master",
           parentId: null,
-          name: command.name ?? command.prompt.slice(0, 40),
+          name: command.name || command.prompt.slice(0, 40) || "Master",
+          icon: command.icon ?? null,
           cwd: command.cwd,
           model: command.model,
           permissionMode: command.permissionMode,
@@ -412,16 +431,18 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
       if (stopping) {
         return stopping
       }
-      const closing = [...providers.entries()].map(([id, { handle }]) => {
+      const live = [...providers.entries()].map(([id, { handle }]) => {
         providers.delete(id)
         lose(id, "the coordinator stopped")
         cancelApprovals(id)
         return { id, closed: handle.close() }
       })
-      stopping = Promise.allSettled(closing.map((c) => c.closed)).then((results) =>
+      // Sessions closed earlier may still be shutting down
+      const ending = [...live, ...[...closing.entries()].map(([id, closed]) => ({ id, closed }))]
+      stopping = Promise.allSettled(ending.map((c) => c.closed)).then((results) =>
         results.forEach((r, i) => {
           if (r.status === "rejected") {
-            console.error(`stopping ${closing[i]?.id}: ${r.reason}`)
+            console.error(`stopping ${ending[i]?.id}: ${r.reason}`)
           }
         }),
       )

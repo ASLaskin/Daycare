@@ -14,19 +14,25 @@ export interface GroupOptions {
 export const spawnGroup = (command: string, args: ReadonlyArray<string>, options: GroupOptions) =>
   spawn(command, args, { ...options, detached: true, stdio: ["pipe", "pipe", "inherit"] })
 
+// How long to wait for the leader to exit once killed
+const KILL_WAIT_MS = 2000
+
 const exited = (child: ChildProcess) => child.exitCode !== null || child.signalCode !== null
 
-// Waits up to the grace for the leader to exit, then kills what is left of its group
-export const stopGroup = async (child: ChildProcess, graceMs = STOP_GRACE_MS) => {
-  if (!exited(child)) {
-    await new Promise<void>((resolve) => {
-      const timer = setTimeout(resolve, graceMs)
-      child.once("exit", () => {
-        clearTimeout(timer)
-        resolve()
+const exitWithin = (child: ChildProcess, ms: number) =>
+  exited(child)
+    ? Promise.resolve()
+    : new Promise<void>((resolve) => {
+        const timer = setTimeout(resolve, ms)
+        child.once("exit", () => {
+          clearTimeout(timer)
+          resolve()
+        })
       })
-    })
-  }
+
+// Waits up to the grace for the leader to exit, kills what is left of its group, then waits for the leader
+export const stopGroup = async (child: ChildProcess, graceMs = STOP_GRACE_MS) => {
+  await exitWithin(child, graceMs)
   if (!child.pid) {
     return
   }
@@ -37,5 +43,9 @@ export const stopGroup = async (child: ChildProcess, graceMs = STOP_GRACE_MS) =>
     if ((e as NodeJS.ErrnoException).code !== "ESRCH") {
       throw e
     }
+  }
+  await exitWithin(child, KILL_WAIT_MS)
+  if (!exited(child)) {
+    throw new Error(`process ${child.pid} did not exit after SIGKILL`)
   }
 }

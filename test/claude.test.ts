@@ -3,7 +3,7 @@
 import type { CanUseTool, Options, PermissionResult, PermissionUpdate, SDKUserMessage } from "@anthropic-ai/claude-agent-sdk"
 import { expect, test } from "bun:test"
 import { type QueryFn, startClaude } from "../src/coordinator/claude.ts"
-import type { ProviderUpdate } from "../src/coordinator/provider.ts"
+import { type ProviderUpdate, Refused } from "../src/coordinator/provider.ts"
 import { asNativeId, type SessionState } from "../src/shared/coordinator.ts"
 import { asFilePath, asRequestId } from "../src/shared/ids.ts"
 import { sample } from "./fixtures/store.ts"
@@ -113,19 +113,28 @@ test("an aborted request is withdrawn and can no longer be answered", async () =
   expect(handle.answer(asRequestId("req-1"), { choice: "allow" })).toBe(false)
 })
 
-test("input reaches the SDK prompt, and the end of the stream reports exit", async () => {
+test("input is confirmed only by claude's reply stamped with its uuid", async () => {
   const { fake, updates, handle } = start("idle")
-  let taken = false
+  let confirmed = false
   void handle.input("hello").then(() => {
-    taken = true
+    confirmed = true
   })
+  const prompt = fake.prompt()?.[Symbol.asyncIterator]()
+  const first = await prompt?.next()
   await settle()
-  expect(taken).toBe(false)
-  const first = await fake.prompt()?.[Symbol.asyncIterator]().next()
-  await settle()
-  expect(taken).toBe(true)
   expect(first?.value?.message).toEqual({ role: "user", content: "hello" })
+  expect(confirmed).toBe(false)
+  fake.push({ type: "stream_event", user_message_uuid: first?.value?.uuid, event: { type: "message_start", message: { id: "m" } } })
+  await settle()
+  expect(confirmed).toBe(true)
+
+  const second = handle.input("unanswered").then(
+    () => "confirmed",
+    (e: Error) => (e instanceof Refused ? "refused" : "uncertain"),
+  )
+  await prompt?.next()
   fake.end()
+  expect(await second).toBe("uncertain")
   await settle()
   expect(updates.at(-1)).toEqual({ type: "exited" })
 })

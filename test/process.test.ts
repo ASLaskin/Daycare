@@ -49,3 +49,10 @@ test("stopping a group that already ended is harmless", async () => {
   await new Promise((resolve) => child.once("exit", resolve))
   expect(stopGroup(child)).resolves.toBeUndefined()
 })
+
+test("stopping waits until the killed leader has exited", async () => {
+  const child = spawnGroup("/bin/sh", ["-c", "trap '' TERM; echo ready; while :; do sleep 1; done"], { env: process.env })
+  await descendantOf(child)
+  await stopGroup(child, 100)
+  expect(child.exitCode !== null || child.signalCode !== null).toBe(true)
+})
