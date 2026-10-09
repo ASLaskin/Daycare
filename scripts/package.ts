@@ -8,11 +8,13 @@ import path from "node:path"
 const root = path.resolve(import.meta.dir, "..")
 const install = !process.argv.includes("--no-install")
 
-// Record the source checkout and commit
-const commit = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: root, encoding: "utf8" }).trim()
+// Record the source checkout, branch and commit
+const git = (...args: Array<string>) => execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim()
+const commit = git("rev-parse", "--short", "HEAD")
+const branch = git("branch", "--show-current") || null
 writeFileSync(
   path.join(root, "dist/build-info.json"),
-  JSON.stringify({ sourceDir: root, commit, builtAt: new Date().toISOString() }, null, 2),
+  JSON.stringify({ sourceDir: root, branch, commit, builtAt: new Date().toISOString() }, null, 2),
 )
 
 const [outDir] = await packager({

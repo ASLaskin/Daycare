@@ -36,7 +36,7 @@ export const api = {
   openFinder: call("open:finder"),
   openVSCode: call("open:vscode"),
   updateInfo: ask("update:info"),
-  runUpdate: ask("update:run"),
+  runUpdate: call("update:run"),
   onUpdateLog: on("update:log"),
   getUsage: ask("usage:get"),
   refreshUsage: ask("usage:refresh"),

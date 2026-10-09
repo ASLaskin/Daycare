@@ -1,4 +1,4 @@
-// Settings > Update: pull, rebuild, reinstall and reopen.
+// Settings > Update: pull a branch, rebuild, reinstall and reopen.
 
 import { Context, Effect, Layer, Schema, Semaphore } from "effect"
 import { app } from "electron"
@@ -9,12 +9,13 @@ import { asDirPath } from "../../shared/ids.ts"
 import { BuildInfo, type UpdateResult } from "../../shared/ipc.ts"
 import { AppPaths } from "../AppPaths.ts"
 import { Ui } from "../Ui.ts"
+import { parseUpdateSource } from "./source.ts"
 
 export class Updater extends Context.Service<
   Updater,
   {
     readonly info: Effect.Effect<BuildInfo | null>
-    readonly run: Effect.Effect<UpdateResult>
+    readonly run: (input: string) => Effect.Effect<UpdateResult>
   }
 >()("daycare/Updater") {
   static readonly layer = Layer.effect(
@@ -47,29 +48,35 @@ export class Updater extends Context.Service<
           child.on("close", (code) => resume(Effect.succeed({ code, log: log.join("") })))
         })
 
-      const run = Semaphore.withPermit(
-        lock,
-        Effect.gen(function* () {
-          const current = yield* info
-          if (!current?.sourceDir || !fs.existsSync(path.join(current.sourceDir, "scripts", "update.sh"))) {
-            return { ok: false, log: "Cannot find the source folder this app was built from." }
-          }
-          const { code, log } = yield* script(spawn("/bin/zsh", ["-lc", "./scripts/update.sh"], { cwd: current.sourceDir }))
-          if (code !== 0) {
-            return { ok: false, log }
-          }
-          const installed = log.match(/Installed (.+\.app)/)?.[1]
-          if (app.isPackaged && installed) {
-            // Reopen once this process has fully quit
-            const reopen = 'while kill -0 "$0" 2>/dev/null; do sleep 0.2; done; /usr/bin/open -n "$1"'
-            setTimeout(() => {
-              spawn("/bin/sh", ["-c", reopen, String(process.pid), installed], { detached: true, stdio: "ignore" }).unref()
-              app.quit()
-            }, 800)
-          }
-          return { ok: true, log }
-        }),
-      )
+      const run = (input: string) =>
+        Semaphore.withPermit(
+          lock,
+          Effect.gen(function* () {
+            const current = yield* info
+            if (!current?.sourceDir || !fs.existsSync(path.join(current.sourceDir, "scripts", "update.sh"))) {
+              return { ok: false, log: "Cannot find the source folder this app was built from." }
+            }
+            const source = parseUpdateSource(input)
+            if (!source) {
+              return { ok: false, log: `Not a branch name, GitHub branch link, or PR link: ${input}` }
+            }
+            const args = [source.remote, source.ref, source.branch]
+            const { code, log } = yield* script(spawn("/bin/zsh", ["-lc", './scripts/update.sh "$@"', "update", ...args], { cwd: current.sourceDir }))
+            if (code !== 0) {
+              return { ok: false, log }
+            }
+            const installed = log.match(/Installed (.+\.app)/)?.[1]
+            if (app.isPackaged && installed) {
+              // Reopen once this process has fully quit
+              const reopen = 'while kill -0 "$0" 2>/dev/null; do sleep 0.2; done; /usr/bin/open -n "$1"'
+              setTimeout(() => {
+                spawn("/bin/sh", ["-c", reopen, String(process.pid), installed], { detached: true, stdio: "ignore" }).unref()
+                app.quit()
+              }, 800)
+            }
+            return { ok: true, log }
+          }),
+        )
 
       return Updater.of({ info, run })
     }),

@@ -120,7 +120,7 @@ describe("Updater", () => {
   })
 
   test("run fails without an update script", async () => {
-    const res = await withUpdater(tmp(), (u) => u.run)
+    const res = await withUpdater(tmp(), (u) => u.run(""))
     expect(res.ok).toBe(false)
     expect(res.log).toContain("Cannot find")
   })
@@ -134,7 +134,7 @@ describe("Updater", () => {
 
   test("run streams the script's output", async () => {
     sent.length = 0
-    const res = await withUpdater(withScript("echo pulled; echo built >&2"), (u) => u.run)
+    const res = await withUpdater(withScript("echo pulled; echo built >&2"), (u) => u.run(""))
     expect(res.ok).toBe(true)
     expect(res.log).toContain("pulled")
     expect(res.log).toContain("built")
@@ -142,8 +142,18 @@ describe("Updater", () => {
   })
 
   test("run reports a failing script", async () => {
-    const res = await withUpdater(withScript("echo broke; exit 3"), (u) => u.run)
+    const res = await withUpdater(withScript("echo broke; exit 3"), (u) => u.run(""))
     expect(res).toEqual({ ok: false, log: expect.stringContaining("broke") })
+  })
+
+  test("run passes the parsed branch to the script", async () => {
+    const res = await withUpdater(withScript('echo "args $*"'), (u) => u.run("https://github.com/ASLaskin/Daycare/tree/ts-coordinator"))
+    expect(res.log).toContain("args https://github.com/ASLaskin/Daycare.git ts-coordinator ts-coordinator")
+  })
+
+  test("run rejects input it cannot parse", async () => {
+    const res = await withUpdater(withScript("echo ran"), (u) => u.run("not a; branch"))
+    expect(res).toEqual({ ok: false, log: expect.stringContaining("Not a branch") })
   })
 })
 

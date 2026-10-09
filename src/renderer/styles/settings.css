@@ -39,6 +39,7 @@
 
 .update-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
 .update-row > div { min-width: 0; }
+.update-source { width: 100%; font: 12px/1.4 var(--mono); }
 .update-log {
   margin: 0;
   max-height: 180px;

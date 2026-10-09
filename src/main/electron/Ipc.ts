@@ -58,7 +58,7 @@ export const Ipc = Layer.effectDiscard(
           })
         }),
       "update:info": () => updater.info,
-      "update:run": () => updater.run,
+      "update:run": (source) => updater.run(source),
       "usage:get": () => usage.get,
       "usage:refresh": () => usage.refresh({ manual: true }),
 

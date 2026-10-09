@@ -28,7 +28,7 @@ export const Invoke = {
   "open:finder": DirPath,
   "open:vscode": DirPath,
   "update:info": None,
-  "update:run": None,
+  "update:run": Schema.String,
   "usage:get": None,
   "usage:refresh": None,
 
@@ -60,6 +60,7 @@ export type InvokePayload<C extends InvokeChannel> = (typeof Invoke)[C]["Type"]
 
 export const BuildInfo = Schema.Struct({
   sourceDir: DirPath,
+  branch: Schema.optionalKey(Schema.NullOr(Schema.String)),
   commit: Schema.NullOr(Schema.String),
   builtAt: Schema.NullOr(Schema.String),
 })
