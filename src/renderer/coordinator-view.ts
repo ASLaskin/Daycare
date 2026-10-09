@@ -30,6 +30,8 @@ export const initCoordinatorView = () => {
   document.body.append(screen)
 
   api.onCoordinatorStatus((status) => {
+    // Only coordinator mode sends status; it reveals coordinator-only fields
+    document.body.classList.add("coordinator")
     // Retries pass through connecting; keep the last screen until resolved
     if (status.state === "connecting") {
       return

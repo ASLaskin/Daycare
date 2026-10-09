@@ -2,7 +2,8 @@
 
 import { Result, Schema } from "effect"
 import path from "node:path"
-import type { Provider, SessionHistory, StoredSession } from "../shared/coordinator.ts"
+import type { SessionHistory, StoredSession } from "../shared/coordinator.ts"
+import type { Provider } from "../shared/session.ts"
 import type { SessionId } from "../shared/ids.ts"
 import type { Json } from "../shared/json.ts"
 import { isToolName, type ToolInput, Tools } from "../main/control/tools.ts"
@@ -82,10 +83,13 @@ export const makeOrchestration = (core: OrchestrationCore, ackMs = ACK_MS) => {
     return found
   }
 
-  // Stopped working: turn over, waiting on the user, or closed
+  // Absent once deleted
+  const find = (id: SessionId) => core.sessions().find((s) => s.id === id)
+
+  // Stopped working: turn over, waiting on the user, closed, or deleted
   const settled = (id: SessionId) => {
-    const s = core.session(id)
-    return core.needsUser(id) || s.closed || (s.state !== "creating" && s.state !== "running")
+    const s = find(id)
+    return !s || core.needsUser(id) || s.closed || (s.state !== "creating" && s.state !== "running")
   }
 
   const summary = (s: StoredSession) => ({
@@ -141,7 +145,10 @@ export const makeOrchestration = (core: OrchestrationCore, ackMs = ACK_MS) => {
         signal.removeEventListener("abort", abandon)
         resolve({
           timedOut,
-          workers: ids.map((id) => ({ ...summary(core.session(id)), summary: lastReply(id).reply.split("\n")[0] ?? "" })),
+          workers: ids.map((id) => {
+            const s = find(id)
+            return s ? { ...summary(s), summary: lastReply(id).reply.split("\n")[0] ?? "" } : { id, removed: true }
+          }),
         })
       }
       const waiter: Waiter = { ids, finish }

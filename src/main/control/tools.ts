@@ -1,7 +1,7 @@
 // The master's MCP tools, one Schema each.
 
 import { Schema } from "effect"
-import { Provider } from "../../shared/coordinator.ts"
+import { Provider } from "../../shared/session.ts"
 import { DirPath } from "../../shared/ids.ts"
 
 const desc = (description: string) => ({ description })

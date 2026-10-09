@@ -4,7 +4,8 @@ import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import { openStore } from "../../src/coordinator/store.ts"
-import type { Provider, SessionState, StoredSession } from "../../src/shared/coordinator.ts"
+import type { SessionState, StoredSession } from "../../src/shared/coordinator.ts"
+import type { Provider } from "../../src/shared/session.ts"
 import { asDirPath, asFilePath, asSessionId } from "../../src/shared/ids.ts"
 
 // Database file in its own temp directory; remove() deletes both

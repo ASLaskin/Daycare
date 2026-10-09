@@ -145,10 +145,12 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
         }
         return
       case "approval": {
-        const approval: Approval = { session: id, request: u.request, choices: u.choices, event: u.event }
+        // The choices travel with the saved event, so replayed history can offer them
+        const event = u.event.kind === "permission" ? { ...u.event, choices: u.choices } : u.event
+        const approval: Approval = { session: id, request: u.request, choices: u.choices, event }
         approvals.set(approvalKey(id, u.request), approval)
         broadcast({ kind: "approval", approval })
-        chat(id, u.event)
+        chat(id, event)
         return
       }
       case "approval-gone":
@@ -252,6 +254,22 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
   // Turns lost to a coordinator that stopped without shutting down
   recovered.filter((id) => sessions.has(id)).forEach((id) => chat(id, { kind: "interrupted", reason: "the coordinator restarted" }))
 
+  // A master with its workers, or a single worker
+  const family = (id: SessionId) =>
+    session(id).role === "master" ? [id, ...[...sessions.values()].filter((w) => w.parentId === id).map((w) => w.id)] : [id]
+
+  // Stops a session's agent, if any, and withdraws its approvals
+  const stopOne = (id: SessionId, reason: string) => {
+    const running = providers.get(id)
+    running?.handle.close().catch((e: Error) => console.error(`stopping ${id}: ${e.message}`))
+    providers.delete(id)
+    if (running) {
+      lose(id, reason)
+    }
+    store.interrupt(db, id)
+    cancelApprovals(id)
+  }
+
   const run = (command: Command): Json => {
     switch (command.method) {
       case "create": {
@@ -299,21 +317,40 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
         chat(id, { kind: "permission-resolved", requestId: request, allowed: !REFUSALS.includes(choice) })
         return {}
       }
-      case "close": {
-        const id = command.session
-        session(id)
-        const running = providers.get(id)
-        running?.handle.close().catch((e: Error) => console.error(`stopping ${id}: ${e.message}`))
-        providers.delete(id)
-        if (running) {
-          lose(id, "the session was closed")
+      case "close":
+        family(command.session).forEach((id) => {
+          stopOne(id, "the session was closed")
+          store.patch(db, id, { closed: true })
+          refresh(id)
+        })
+        return {}
+      case "reopen":
+        family(command.session).forEach((id) => {
+          store.patch(db, id, { closed: false })
+          refresh(id)
+        })
+        return {}
+      case "rename": {
+        const name = command.name.trim()
+        session(command.session)
+        if (name) {
+          store.patch(db, command.session, { name })
+          refresh(command.session)
         }
-        store.interrupt(db, id)
-        store.patch(db, id, { closed: true })
-        cancelApprovals(id)
-        refresh(id)
         return {}
       }
+      // Workers before their master, whose record they reference
+      case "remove":
+        family(command.session)
+          .reverse()
+          .forEach((id) => {
+            const { parentId } = session(id)
+            stopOne(id, "the session was removed")
+            store.deleteSession(db, id)
+            sessions.delete(id)
+            broadcast({ kind: "removed", session: id, parentId })
+          })
+        return {}
       case "tool":
         throw new Error("tool calls go through hub.tool")
     }

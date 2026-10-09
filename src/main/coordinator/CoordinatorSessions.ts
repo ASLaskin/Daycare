@@ -2,12 +2,13 @@
 
 import { Context, Effect, Layer, Schema } from "effect"
 import type { ChatEvent } from "../../shared/chat.ts"
-import { Accepted, type Approval, type Command, Created, Provider, type SessionHistory } from "../../shared/coordinator.ts"
+import { Accepted, type Approval, type Command, Created, type SessionHistory } from "../../shared/coordinator.ts"
 import { asSessionId, type RequestId, type SessionId } from "../../shared/ids.ts"
 import type { NewMaster, SessionView } from "../../shared/session.ts"
 import { ControlHandlers } from "../control/ControlHandlers.ts"
 import { ToolError } from "../control/mcp.ts"
 import { Sessions, type SessionsShape } from "../sessions/Sessions.ts"
+import { deleteDetail } from "../sessions/service.ts"
 import { Ui } from "../Ui.ts"
 import { connect, socketPath } from "./client.ts"
 import { pick, view } from "./view.ts"
@@ -25,15 +26,22 @@ const restored = (h: SessionHistory): Array<ChatEvent> => {
 const make = (version: string) =>
   Effect.gen(function* () {
     const ui = yield* Ui
-    // Provider for new chats; DAYCARE_PROVIDER=codex switches it
-    const provider = Schema.decodeUnknownSync(Provider)(process.env["DAYCARE_PROVIDER"] ?? "claude")
     const sessions = new Map<SessionId, SessionView>()
     const history = new Map<SessionId, Array<ChatEvent>>()
     const choices = new Map<string, ReadonlyArray<string>>()
 
     const upsert = (v: SessionView) => {
-      ui.send(sessions.has(v.id) ? "session:update" : "session:created", v)
+      const before = sessions.get(v.id)
+      // A reopened session needs its pane again, as the in-Electron path sends
+      const created = !before || (before.status === "closed" && v.status !== "closed")
+      ui.send(created ? "session:created" : "session:update", v)
       sessions.set(v.id, v)
+    }
+
+    const drop = (id: SessionId, parentId: SessionId | null) => {
+      sessions.delete(id)
+      history.delete(id)
+      ui.send("session:removed", { id, parentId })
     }
 
     const remember = (a: Approval) => choices.set(approvalKey(a.session, a.request), a.choices)
@@ -41,6 +49,9 @@ const make = (version: string) =>
     const client = connect(socketPath(process.env), version, {
       status: (status) => ui.send("coordinator:status", status),
       snapshot: (snapshot) => {
+        // Deleted while this window was away
+        const present = new Set(snapshot.sessions.map((s) => s.id))
+        ;[...sessions.values()].filter((v) => !present.has(v.id)).forEach((v) => drop(v.id, v.parentId))
         snapshot.sessions.forEach((s) => upsert(view(s)))
         Object.entries(snapshot.history).forEach(([raw, h]) => {
           const id = asSessionId(raw)
@@ -59,6 +70,9 @@ const make = (version: string) =>
           case "approval":
             remember(event.approval)
             return
+          case "removed":
+            drop(event.session, event.parentId)
+            return
           case "chat":
             if (event.event.kind === "permission-resolved") {
               choices.delete(approvalKey(event.session, event.event.requestId))
@@ -73,8 +87,9 @@ const make = (version: string) =>
 
     const request = (command: Command) => Effect.promise(() => client.request(command))
 
-    const createMaster = (options: NewMaster): Effect.Effect<SessionView> =>
-      request({
+    const createMaster = (options: NewMaster): Effect.Effect<SessionView> => {
+      const provider = options.provider ?? "claude"
+      return request({
         method: "create",
         provider,
         cwd: options.cwd,
@@ -91,16 +106,30 @@ const make = (version: string) =>
           return created ? Effect.succeed(created) : Effect.die(new Error("coordinator did not report the new session"))
         }),
       )
+    }
 
     const service: SessionsShape = {
       list: Effect.sync(() => [...sessions.values()]),
       get: (id) => Effect.sync(() => sessions.get(id) ?? null),
       create: () => Effect.die(new Error("worker sessions are created by the coordinator")),
       createMaster,
-      rename: () => Effect.logWarning("rename is not supported by the coordinator yet"),
+      rename: (id, name) => request({ method: "rename", session: id, name }).pipe(Effect.asVoid),
       close: (id) => request({ method: "close", session: id }).pipe(Effect.asVoid),
-      reopen: () => Effect.logWarning("reopen is not supported by the coordinator yet"),
-      remove: (id) => request({ method: "close", session: id }).pipe(Effect.asVoid),
+      reopen: (id) => request({ method: "reopen", session: id }).pipe(Effect.asVoid),
+      // Asks first unless it is a master nobody has used yet, as the in-Electron path does
+      remove: (id) =>
+        Effect.gen(function* () {
+          const s = sessions.get(id)
+          if (!s) {
+            return
+          }
+          const workers = s.role === "master" ? [...sessions.values()].filter((w) => w.parentId === id).length : 0
+          const pristine = s.role === "master" && !s.hadTurn && workers === 0
+          const ok = pristine || (yield* ui.confirm({ message: `Delete ${s.name}?`, detail: deleteDetail(workers), confirmLabel: "Delete" }))
+          if (ok) {
+            yield* request({ method: "remove", session: id })
+          }
+        }),
       // Resolves on coordinator acceptance, not provider delivery
       chatSend: (id, text) =>
         request({ method: "send", session: id, text }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Accepted)), Effect.orDie, Effect.asVoid),

@@ -21,6 +21,12 @@ afterEach(async () => {
 })
 
 describe("pick", () => {
+  test("an exact choice is used when offered, and never widened when not", () => {
+    const offered = ["accept", "acceptWithExecpolicyAmendment", "cancel"]
+    expect(pick(offered, { allow: true, choice: "acceptWithExecpolicyAmendment" })).toBe("acceptWithExecpolicyAmendment")
+    expect(pick(offered, { allow: false, choice: "decline" })).toBeNull()
+  })
+
   test("allow takes the narrowest offered approval", () => {
     expect(pick(["allow", "always", "deny"], { allow: true })).toBe("allow")
     expect(pick(["accept", "acceptForSession", "decline", "cancel"], { allow: true })).toBe("accept")
@@ -44,7 +50,8 @@ test("view maps coordinator state to renderer status", () => {
   expect(view({ ...record, state: "idle" }).status).toBe("done")
   expect(view({ ...record, state: "creating" }).status).toBe("starting")
   expect(view({ ...record, state: "creating", live: false }).status).toBe("idle")
-  expect(view({ ...record, state: "incomplete" }).status).toBe("exited")
+  expect(view({ ...record, state: "incomplete" }).status).toBe("incomplete")
+  expect(view({ ...record, state: "interrupted" }).status).toBe("interrupted")
   expect(view({ ...record, closed: true }).status).toBe("closed")
 })
 

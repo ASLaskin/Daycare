@@ -3,14 +3,11 @@
 import { Schema } from "effect"
 import { ChatEvent } from "./chat.ts"
 import { DirPath, RequestId, SessionId } from "./ids.ts"
-import { PermissionMode, SessionRole } from "./session.ts"
+import { PermissionMode, Provider, SessionRole } from "./session.ts"
 
 export const NativeId = Schema.String.pipe(Schema.brand("NativeId"))
 export type NativeId = typeof NativeId.Type
 export const asNativeId = (s: string) => s as NativeId
-
-export const Provider = Schema.Literals(["claude", "codex"])
-export type Provider = typeof Provider.Type
 
 export const SessionState = Schema.Literals(["creating", "incomplete", "idle", "running", "interrupted"])
 export type SessionState = typeof SessionState.Type
@@ -74,7 +71,12 @@ export const Command = Schema.Union([
     message: Schema.optionalKey(Schema.String),
     updatedInput: Schema.optionalKey(Schema.Json),
   }),
+  // Close and reopen act on a master's workers too; reopen starts no agent
   Schema.Struct({ method: Schema.Literal("close"), session: SessionId }),
+  Schema.Struct({ method: Schema.Literal("reopen"), session: SessionId }),
+  Schema.Struct({ method: Schema.Literal("rename"), session: SessionId, name: Schema.String }),
+  // Permanently deletes the session, a master's workers, and their history
+  Schema.Struct({ method: Schema.Literal("remove"), session: SessionId }),
   // An orchestration tool call on behalf of a master; may stay pending while a wait blocks
   Schema.Struct({ method: Schema.Literal("tool"), master: SessionId, name: Schema.String, input: Schema.Json }),
 ])
@@ -96,6 +98,7 @@ export const HubEvent = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("session"), session: LiveSession }),
   Schema.Struct({ kind: Schema.Literal("chat"), session: SessionId, event: ChatEvent }),
   Schema.Struct({ kind: Schema.Literal("approval"), approval: Approval }),
+  Schema.Struct({ kind: Schema.Literal("removed"), session: SessionId, parentId: Schema.NullOr(SessionId) }),
 ])
 export type HubEvent = typeof HubEvent.Type
 

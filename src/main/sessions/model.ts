@@ -48,6 +48,7 @@ export const view = (s: Session): SessionView => ({
   status: s.status,
   activity: s.activity,
   model: s.model,
+  provider: "claude",
   permissionMode: s.permissionMode,
   cwd: s.cwd,
   task: s.task,

@@ -17,6 +17,8 @@ export const PermissionDecision = Schema.Struct({
   message: Schema.optionalKey(Schema.String),
   updatedInput: Schema.optionalKey(Schema.Json),
   updatedPermissions: Schema.optionalKey(Schema.Array(Schema.Json)),
+  // An exact offered choice, picked from the request's own answers
+  choice: Schema.optionalKey(Schema.String),
 })
 export type PermissionDecision = typeof PermissionDecision.Type
 

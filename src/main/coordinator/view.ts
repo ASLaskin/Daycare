@@ -21,8 +21,9 @@ const status = (s: LiveSession): SessionStatus => {
     case "idle":
       return "done"
     case "interrupted":
+      return "interrupted"
     case "incomplete":
-      return "exited"
+      return "incomplete"
   }
 }
 
@@ -34,7 +35,9 @@ export const view = (s: LiveSession): SessionView => ({
   parentId: s.parentId,
   status: status(s),
   activity: s.error ?? "",
-  model: s.model ?? s.provider,
+  // Empty means the provider default, as on the in-Electron path
+  model: s.model ?? "",
+  provider: s.provider,
   permissionMode: s.permissionMode,
   // A provider launches only when the user sends a message
   hadTurn: s.run > 0,
@@ -47,6 +50,9 @@ export const view = (s: LiveSession): SessionView => ({
 
 // The offered choice matching the renderer's decision, never a broader one
 export const pick = (offered: ReadonlyArray<string>, decision: PermissionDecision): string | null => {
+  if (decision.choice !== undefined) {
+    return offered.includes(decision.choice) ? decision.choice : null
+  }
   const always = decision.updatedPermissions && decision.updatedPermissions.length > 0
   const wanted = decision.allow ? (always ? [...ALWAYS, ...ALLOW] : ALLOW) : REFUSE
   return wanted.find((c) => offered.includes(c)) ?? null

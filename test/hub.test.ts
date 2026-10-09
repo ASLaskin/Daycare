@@ -262,3 +262,65 @@ test("shutdown records the turns it stops", async () => {
   await hub.shutdown()
   expect(interruptions(conn)).toEqual(["the coordinator stopped"])
 })
+
+// Master "s" running with one spawned worker
+const withWorker = async () => {
+  const ctx = running()
+  const r = await ctx.hub.tool(id, "spawn_subagent", { name: "w", task: "go" }, new AbortController().signal)
+  const worker = asSessionId(String("result" in r ? obj(r.result)?.["id"] : ""))
+  return { ...ctx, worker }
+}
+
+test("close stops a master and its workers; reopen brings them back without starting agents", async () => {
+  const { hub, fake, worker } = await withWorker()
+  expect(hub.command({ method: "close", session: id })).toEqual({ result: {} })
+  expect(fake.launches.every((l) => l.closed)).toBe(true)
+  const closed = hub.subscribe(() => true).sessions
+  expect(closed.map((s) => [s.id, s.closed, s.live])).toEqual([
+    [id, true, false],
+    [worker, true, false],
+  ])
+  const launches = fake.launches.length
+  hub.command({ method: "reopen", session: id })
+  expect(hub.subscribe(() => true).sessions.map((s) => s.closed)).toEqual([false, false])
+  expect(fake.launches.length).toBe(launches)
+})
+
+test("rename trims and ignores an empty name", () => {
+  const { hub } = setup()
+  hub.command({ method: "rename", session: id, name: "  Planner  " })
+  hub.command({ method: "rename", session: id, name: "   " })
+  expect(hub.subscribe(() => true).sessions[0]?.name).toBe("Planner")
+})
+
+test("removing a master deletes it, its workers and their history; removing a worker keeps the master", async () => {
+  const { conn, hub, worker } = await withWorker()
+  const second = await hub.tool(id, "spawn_subagent", { name: "w2", task: "go" }, new AbortController().signal)
+  const w2 = asSessionId(String("result" in second ? obj(second.result)?.["id"] : ""))
+  const events: Array<ServerMessage> = []
+  hub.subscribe((m) => events.push(m) > 0)
+  hub.command({ method: "remove", session: w2 })
+  expect(hub.subscribe(() => true).sessions.map((s) => s.id)).toEqual([id, worker])
+  hub.command({ method: "remove", session: id })
+  expect(hub.subscribe(() => true).sessions).toEqual([])
+  const removed = events.flatMap((m) => (m.type === "event" && m.event.kind === "removed" ? [m.event.session] : []))
+  expect(removed).toEqual([w2, worker, id])
+  expect(conn.query<{ n: number }, []>("SELECT COUNT(*) AS n FROM history").get()?.n).toBe(0)
+  expect(conn.query<{ n: number }, []>("SELECT COUNT(*) AS n FROM sessions").get()?.n).toBe(0)
+})
+
+test("a wait on a worker that is removed answers instead of failing", async () => {
+  const { hub, worker } = await withWorker()
+  const waiting = hub.tool(id, "wait_for_subagents", {}, new AbortController().signal)
+  hub.command({ method: "remove", session: worker })
+  const r = await waiting
+  expect("result" in r ? obj(r.result)?.["workers"] : null).toEqual([{ id: worker, removed: true }])
+})
+
+test("a saved permission event carries the request's choices for replay", () => {
+  const { conn, provider } = running()
+  approval(provider.update, "r")
+  const h = loadHistory(conn, id)
+  const saved = "events" in h ? h.events.find((e) => e.kind === "permission") : undefined
+  expect(saved?.kind === "permission" ? saved.choices : null).toEqual(["accept", "decline"])
+})

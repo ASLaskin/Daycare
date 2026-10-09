@@ -65,6 +65,8 @@ export const ChatEvent = Schema.Union([
     suggestions: Schema.Array(Schema.Json),
     // Prompts like AskUserQuestion and ExitPlanMode
     requiresUserInteraction: Schema.Boolean,
+    // The request's own answers, when the coordinator offers them
+    choices: Schema.optionalKey(Schema.Array(Schema.String)),
   }),
   event("permission-resolved", {
     requestId: RequestId,

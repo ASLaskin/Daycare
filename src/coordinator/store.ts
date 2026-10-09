@@ -114,7 +114,7 @@ export const createSession = (db: Database, s: StoredSession) => {
   ).run({ ...s, closed: s.closed ? 1 : 0 })
 }
 
-const PATCH_COLUMNS = { nativeId: "native_id", state: "state", error: "error", closed: "closed" } as const
+const PATCH_COLUMNS = { nativeId: "native_id", state: "state", error: "error", closed: "closed", name: "name" } as const
 
 export type Patch = Partial<Pick<StoredSession, keyof typeof PATCH_COLUMNS>>
 
@@ -150,6 +150,13 @@ export const finishTurn = (db: Database, id: SessionId) => {
 export const interrupt = (db: Database, id: SessionId) => {
   db.query(`${INTERRUPT} AND id = $id`).run({ id })
 }
+
+// Deletes a session record and its history
+export const deleteSession = (db: Database, id: SessionId) =>
+  db.transaction(() => {
+    db.query("DELETE FROM history WHERE session_id = $id").run({ id })
+    db.query("DELETE FROM sessions WHERE id = $id").run({ id })
+  })()
 
 // Marks execution lost to a coordinator restart; returns the sessions it changed
 export const recover = (db: Database): ReadonlyArray<SessionId> =>

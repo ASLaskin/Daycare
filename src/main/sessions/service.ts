@@ -29,7 +29,7 @@ export interface SessionsShape {
   readonly projectDirs: Effect.Effect<ReadonlyArray<DirPath>>
 }
 
-const deleteDetail = (workers: number) =>
+export const deleteDetail = (workers: number) =>
   workers
     ? `This ends it and its ${workers} worker${workers === 1 ? "" : "s"} and removes them from Daycare.`
     : "This ends it and removes it from Daycare."
