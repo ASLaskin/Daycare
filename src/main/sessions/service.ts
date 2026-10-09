@@ -27,6 +27,8 @@ export interface SessionsShape {
   readonly restore: Effect.Effect<void>
   // Folders whose project skills apply
   readonly projectDirs: Effect.Effect<ReadonlyArray<DirPath>>
+  // Coordinator mode only; interrupts running work
+  readonly restartCoordinator: Effect.Effect<void>
 }
 
 export const deleteDetail = (workers: number) =>
@@ -168,6 +170,7 @@ export const makeService = (core: Core, lifecycle: Lifecycle): SessionsShape => 
       const workers = records.filter((r) => r.role === "worker" && r.parentId !== null && masterIds.has(r.parentId))
       ;[...masters, ...workers].forEach(restoreRecord)
     }),
+    restartCoordinator: Effect.void,
     projectDirs: Effect.gen(function* () {
       const current = yield* settings.get
       const dirs = [...[...sessions.values()].map((s) => s.cwd), ...current.locations.map((l) => l.path)]

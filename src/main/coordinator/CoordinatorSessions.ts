@@ -10,7 +10,11 @@ import { ToolError } from "../control/mcp.ts"
 import { Sessions, type SessionsShape } from "../sessions/Sessions.ts"
 import { deleteDetail } from "../sessions/service.ts"
 import { Ui } from "../Ui.ts"
-import { connect, socketPath } from "./client.ts"
+import { runtimeDir, socketPath } from "../../shared/runtime.ts"
+import { AppPaths } from "../AppPaths.ts"
+import { connect } from "./client.ts"
+import { restartCoordinator, startCoordinator } from "./launch.ts"
+import { coordinatorSetup } from "./paths.ts"
 import { pick, view } from "./view.ts"
 
 const approvalKey = (session: SessionId, request: RequestId) => `${session} ${request}`
@@ -26,6 +30,16 @@ const restored = (h: SessionHistory): Array<ChatEvent> => {
 const make = (version: string) =>
   Effect.gen(function* () {
     const ui = yield* Ui
+    const { appRoot, home } = yield* AppPaths
+    // Why the coordinator could not be started, shown instead of a bare socket error
+    let launchError: string | null = null
+    const setup = () => coordinatorSetup(appRoot, home)
+    try {
+      startCoordinator(setup(), home)
+    } catch (e) {
+      launchError = `Could not start the coordinator: ${e instanceof Error ? e.message : String(e)}`
+      console.error(launchError)
+    }
     const sessions = new Map<SessionId, SessionView>()
     const history = new Map<SessionId, Array<ChatEvent>>()
     const choices = new Map<string, ReadonlyArray<string>>()
@@ -46,8 +60,8 @@ const make = (version: string) =>
 
     const remember = (a: Approval) => choices.set(approvalKey(a.session, a.request), a.choices)
 
-    const client = connect(socketPath(process.env), version, {
-      status: (status) => ui.send("coordinator:status", status),
+    const client = connect(socketPath(runtimeDir(process.env)), version, {
+      status: (status) => ui.send("coordinator:status", status.state === "unavailable" && launchError ? { state: "unavailable", message: launchError } : status),
       snapshot: (snapshot) => {
         // Deleted while this window was away
         const present = new Set(snapshot.sessions.map((s) => s.id))
@@ -154,6 +168,14 @@ const make = (version: string) =>
       },
       chatHistory: (id) => Effect.sync(() => history.get(id) ?? []),
       restore: Effect.void,
+      restartCoordinator: Effect.tryPromise(() => restartCoordinator(setup(), home)).pipe(
+        Effect.tap(() =>
+          Effect.sync(() => {
+            launchError = null
+          }),
+        ),
+        Effect.orDie,
+      ),
       projectDirs: Effect.sync(() => [...new Set([...sessions.values()].map((s) => s.cwd))]),
     }
 

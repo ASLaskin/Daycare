@@ -1,13 +1,14 @@
 // Coordinator entry: owns agent sessions and serves clients over a Unix socket.
 
-import { statSync } from "node:fs"
+import { mkdirSync, statSync } from "node:fs"
 import path from "node:path"
 import pkg from "../../package.json" with { type: "json" }
 import { asFilePath, type FilePath } from "../shared/ids.ts"
 import { startClaude } from "./claude.ts"
 import { startCodex } from "./codex.ts"
 import { type Launch, makeHub } from "./hub.ts"
-import { AlreadyRunning, listen, runtimeDir } from "./server.ts"
+import { runtimeDir } from "../shared/runtime.ts"
+import { AlreadyRunning, listen } from "./server.ts"
 import { openStore } from "./store.ts"
 
 // Tells the service supervisor not to restart
@@ -37,6 +38,7 @@ const launch: Launch = (session, update) =>
 const main = async () => {
   const dir = runtimeDir(process.env)
   const db = absolute("DAYCARE_DB")
+  mkdirSync(path.dirname(db), { recursive: true, mode: 0o700 })
   let hub: ReturnType<typeof makeHub> | null = null
   const server = await listen(
     dir,

@@ -41,6 +41,7 @@ export const Invoke = {
   "session:reopen": Id,
   "session:delete": Id,
   "session:menu": Id,
+  "coordinator:restart": None,
 
   "power:status": None,
   "power:restore": None,
@@ -92,6 +93,7 @@ export interface InvokeResult {
   "session:reopen": void
   "session:delete": void
   "session:menu": void
+  "coordinator:restart": void
 
   "power:status": PowerStatus
   "power:restore": PowerStatus

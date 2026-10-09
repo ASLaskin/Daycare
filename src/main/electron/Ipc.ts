@@ -69,6 +69,7 @@ export const Ipc = Layer.effectDiscard(
       "session:reopen": (id) => sessions.reopen(id),
       "session:delete": (id) => sessions.remove(id),
       "session:menu": sessionMenu,
+      "coordinator:restart": () => sessions.restartCoordinator,
 
       "power:status": () => power.status,
       "power:restore": () => power.restore,

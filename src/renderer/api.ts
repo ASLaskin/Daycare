@@ -40,6 +40,7 @@ export const api = {
   onUpdateLog: on("update:log"),
   getUsage: ask("usage:get"),
   refreshUsage: ask("usage:refresh"),
+  restartCoordinator: ask("coordinator:restart"),
   onUsage: on("usage:update"),
 
   listSessions: ask("session:list"),

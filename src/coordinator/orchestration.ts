@@ -8,7 +8,7 @@ import type { SessionId } from "../shared/ids.ts"
 import type { Json } from "../shared/json.ts"
 import { isToolName, type ToolInput, Tools } from "../main/control/tools.ts"
 import { Refused } from "./provider.ts"
-import { runtimeDir } from "./server.ts"
+import { runtimeDir } from "../shared/runtime.ts"
 
 const DEFAULT_WAIT_SECONDS = 900
 // Below the MCP tool timeout providers are given
@@ -23,7 +23,8 @@ export const DAYCARE_TOOLS = Object.keys(Tools)
 // How a provider starts the MCP bridge for one master
 export const bridge = (master: SessionId) => ({
   command: process.execPath,
-  args: [path.join(import.meta.dir, "mcp.ts"), master],
+  // mcp.ts from source, mcp.js from the dist bundle
+  args: [path.join(import.meta.dir, `mcp${path.extname(import.meta.path)}`), master],
   env: { DAYCARE_RUNTIME_DIR: runtimeDir(process.env) },
 })
 

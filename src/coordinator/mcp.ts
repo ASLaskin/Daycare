@@ -5,7 +5,7 @@ import pkg from "../../package.json" with { type: "json" }
 import { toolList } from "../main/control/tools.ts"
 import { type Json, type JsonObject, obj, parseJson, str } from "../shared/json.ts"
 import { lineSplitter } from "../shared/lines.ts"
-import { runtimeDir, socketPath } from "./server.ts"
+import { runtimeDir, socketPath } from "../shared/runtime.ts"
 
 const LINE_LIMIT = 64 * 1024 * 1024
 

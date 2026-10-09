@@ -3,10 +3,9 @@
 import { Exit, Schema } from "effect"
 import { chmodSync, lstatSync, mkdirSync, rmSync } from "node:fs"
 import net from "node:net"
-import path from "node:path"
 import { ClientMessage, type ServerMessage } from "../shared/coordinator.ts"
-import { asFilePath, type FilePath } from "../shared/ids.ts"
 import { lineSplitter } from "../shared/lines.ts"
+import { lockPath, socketPath } from "../shared/runtime.ts"
 import type { Hub, Subscriber } from "./hub.ts"
 import { takeLock } from "./lock.ts"
 
@@ -21,20 +20,6 @@ const SOCKET_PATH_MAX = 103
 export class AlreadyRunning extends Error {}
 
 const decodeClient = Schema.decodeUnknownExit(Schema.fromJsonString(ClientMessage))
-
-export const runtimeDir = (env: NodeJS.ProcessEnv): string => {
-  const dir = env["DAYCARE_RUNTIME_DIR"]
-  if (dir) {
-    return dir
-  }
-  const base = env["XDG_RUNTIME_DIR"]
-  if (!base) {
-    throw new Error("XDG_RUNTIME_DIR or DAYCARE_RUNTIME_DIR must be set")
-  }
-  return path.join(base, "daycare")
-}
-
-export const socketPath = (dir: string): FilePath => asFilePath(path.join(dir, "coordinator.sock"))
 
 // Directory owned by this user with mode 0700
 const privateDir = (dir: string) => {
@@ -171,7 +156,7 @@ export const listen = async (dir: string, makeHub: () => Hub, version: string, s
     throw new Error(`socket path ${file} is longer than ${SOCKET_PATH_MAX} bytes; use a shorter runtime directory`)
   }
   privateDir(dir)
-  const lock = takeLock(asFilePath(path.join(dir, "coordinator.lock")))
+  const lock = takeLock(lockPath(dir))
   if (!lock) {
     throw new AlreadyRunning(`another coordinator owns ${dir}`)
   }

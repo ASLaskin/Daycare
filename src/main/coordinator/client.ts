@@ -2,7 +2,6 @@
 
 import { Exit, Schema } from "effect"
 import net from "node:net"
-import path from "node:path"
 import { type Command, type HubEvent, ServerMessage, type Snapshot } from "../../shared/coordinator.ts"
 import type { CoordinatorStatus } from "../../shared/ipc.ts"
 import type { Json } from "../../shared/json.ts"
@@ -24,9 +23,6 @@ interface Pending {
   readonly resolve: (result: Json) => void
   readonly reject: (error: Error) => void
 }
-
-export const socketPath = (env: NodeJS.ProcessEnv): string =>
-  path.join(env["DAYCARE_RUNTIME_DIR"] ?? path.join(env["XDG_RUNTIME_DIR"] ?? "", "daycare"), "coordinator.sock")
 
 // Stays connected, resubscribing for a fresh snapshot after every drop
 export const connect = (socket: string, version: string, on: CoordinatorHandlers) => {
