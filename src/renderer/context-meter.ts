@@ -35,7 +35,7 @@ const circle = (cls: string) => {
   return c
 }
 
-const ring = (fraction: number, level: Level) => {
+export const ring = (fraction: number, level: Level) => {
   const svg = document.createElementNS(SVG_NS, "svg")
   svg.setAttribute("viewBox", "0 0 18 18")
   svg.setAttribute("class", `ring ${level}`)

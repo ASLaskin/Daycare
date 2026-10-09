@@ -2,7 +2,7 @@
 
 import type { Usage, UsageLimit } from "../shared/usage.ts"
 import { api } from "./api.ts"
-import type { Level } from "./context-meter.ts"
+import { type Level, ring } from "./context-meter.ts"
 import { $, el } from "./dom.ts"
 
 const TIME_FORMAT: Intl.DateTimeFormatOptions = { hour: "numeric", minute: "2-digit" }
@@ -61,16 +61,25 @@ const limitRow = (l: UsageLimit) => {
   return row
 }
 
-const renderUsage = () => {
-  const box = $("#usage-body")
+const usageRows = () => {
   if (!usage || !usage.limits.length) {
-    box.replaceChildren(el("div", "usage-note", "Not loaded yet"))
-    return
+    return [el("div", "usage-note", "Not loaded yet")]
   }
-  box.replaceChildren(...usage.limits.map(limitRow))
-  if (usage.fetchedAt) {
-    box.append(el("div", "usage-note", `Updated ${age(usage.fetchedAt)}`))
-  }
+  const rows = usage.limits.map(limitRow)
+  return usage.fetchedAt ? [...rows, el("div", "usage-note", `Updated ${age(usage.fetchedAt)}`)] : rows
+}
+
+// The collapsed sidebar's ring tracks the most used limit.
+const renderRing = () => {
+  const top = Math.max(0, ...(usage?.limits ?? []).map((l) => Math.round(l.percent)))
+  $("#usage-ring-icon").replaceChildren(ring(top / 100, usageLevel(top)))
+  const head = el("div", "usage-head", "Plan usage")
+  $("#usage-tip").replaceChildren(head, ...usageRows())
+}
+
+const renderUsage = () => {
+  $("#usage-body").replaceChildren(...usageRows())
+  renderRing()
 }
 
 export const initUsage = () => {
@@ -80,10 +89,11 @@ export const initUsage = () => {
   }
   api.getUsage().then(set)
   api.onUsage(set)
-  const box = $("#usage")
-  box.onclick = () => {
-    box.classList.add("refreshing")
-    api.refreshUsage().finally(() => box.classList.remove("refreshing"))
+  for (const box of [$("#usage"), $("#usage-ring")]) {
+    box.onclick = () => {
+      box.classList.add("refreshing")
+      api.refreshUsage().finally(() => box.classList.remove("refreshing"))
+    }
   }
   // Refresh countdowns every 30 seconds.
   setInterval(renderUsage, 30000)
