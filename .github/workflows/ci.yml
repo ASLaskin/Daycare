@@ -16,3 +16,26 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
       - run: bun test
+
+  no-ai-coauthors:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: reject ai coauthored commits
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            range="$HEAD"
+          else
+            range="$BASE..$HEAD"
+          fi
+          offenders=$(git log -i -E --grep='^co-authored-by:.*(claude|anthropic|codex|openai|chatgpt|copilot)' --format='  %h %s' "$range")
+          if [ -n "$offenders" ]; then
+            echo "::error::twin i know you use ai but atleast push the commits yourself. dont coauthor"
+            echo "$offenders"
+            exit 1
+          fi
