@@ -4,6 +4,7 @@ import { asDirPath } from "../shared/ids.ts"
 import type { NewMaster, PermissionMode, Provider } from "../shared/session.ts"
 import { api } from "./api.ts"
 import { $, baseName, el, tildify } from "./dom.ts"
+import { fillModels, MASTER_CHOICES } from "./model-options.ts"
 import { settings } from "./store.ts"
 
 const sheet = () => $("#sheet")
@@ -37,7 +38,7 @@ export const openSheet = (locIndex: number) => {
   const f = form()
   f.cwd.replaceChildren(...s.locations.map((l, i) => folderOption(`${i + 1}   ${l.label}`, l.path)))
   f.cwd.value = s.locations[locIndex]?.path ?? ""
-  f.model.value = s.model
+  f.model.value = s.masterModel
   f.permissionMode.value = s.permissionMode
   f.provider.value = s.provider
   sheet().classList.remove("hidden")
@@ -59,6 +60,7 @@ const readForm = (): NewMaster => {
 
 export const initSheet = () => {
   const f = form()
+  fillModels(f.model, MASTER_CHOICES)
   $("#cancel").onclick = closeSheet
   $("#pick-cwd").onclick = async () => {
     const dir = await api.pickFolder()

@@ -7,6 +7,7 @@ export const MASTER_PROMPT = [
   "Never use built-in subagents or background agents for this. Every worker is a full",
   "agent session that the user can see and talk to directly, so give each one a short",
   "name and a self-contained task.",
+  "Pick each worker's model to fit its task, or the model the user asked for.",
   "Use wait_for_subagents to block until workers finish, read_subagent to read a",
   "worker's final report, and send_to_subagent to give a worker follow-up",
   "instructions. Keep your own context small: do not ask workers for full",

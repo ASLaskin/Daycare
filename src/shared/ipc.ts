@@ -64,6 +64,7 @@ export const Invoke = {
 
   "chat:send": Schema.Struct({ id: Id, text: Schema.String }),
   "chat:interrupt": Id,
+  "chat:model": Schema.Struct({ id: Id, model: Schema.String }),
   "chat:permission": Schema.Struct({ id: Id, requestId: RequestId, decision: PermissionDecision }),
   "chat:history": Id,
 } as const
@@ -125,6 +126,7 @@ export interface InvokeResult {
 
   "chat:send": void
   "chat:interrupt": void
+  "chat:model": void
   "chat:permission": boolean
   "chat:history": ReadonlyArray<ChatEvent>
 }

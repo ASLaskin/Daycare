@@ -17,9 +17,6 @@ import type { ChatSession } from "./types.ts"
 const COST_IS_CUMULATIVE = true
 
 const ready = (s: ChatSession, ev: ChatEventOf<"ready">) => {
-  if (ev.model) {
-    s.stats.model = ev.model
-  }
   if (ev.cwd) {
     s.cwd = ev.cwd
   }

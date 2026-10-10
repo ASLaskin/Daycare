@@ -2,8 +2,10 @@
 
 import { Database } from "bun:sqlite"
 import { Result, Schema } from "effect"
-import { type SessionState, StoredSession } from "../shared/coordinator.ts"
+import { type SessionState, StoredSession, WorkerModels } from "../shared/coordinator.ts"
 import type { FilePath, SessionId } from "../shared/ids.ts"
+import { parseJson } from "../shared/json.ts"
+import { baseSettings } from "../shared/settings.ts"
 
 const MIGRATIONS = [
   `CREATE TABLE sessions (
@@ -37,6 +39,7 @@ const MIGRATIONS = [
   ) WITHOUT ROWID;`,
   `ALTER TABLE sessions ADD COLUMN account_id TEXT NOT NULL DEFAULT 'default';
   ALTER TABLE sessions ADD COLUMN config_dir TEXT;`,
+  `CREATE TABLE config (key TEXT PRIMARY KEY, value TEXT NOT NULL);`,
 ]
 
 // Active sessions become interrupted, attempted creations incomplete
@@ -126,6 +129,7 @@ const PATCH_COLUMNS = {
   error: "error",
   closed: "closed",
   name: "name",
+  model: "model",
   accountId: "account_id",
   configDir: "config_dir",
 } as const
@@ -182,6 +186,24 @@ export const loadSessions = (db: Database): ReadonlyArray<Loaded> =>
 export const getSession = (db: Database, id: SessionId): Loaded | null => {
   const row = db.query<Row, { id: SessionId }>(`SELECT ${COLUMNS} FROM sessions WHERE id = $id`).get({ id })
   return row ? decode(row) : null
+}
+
+const WORKER_MODELS = "worker_models"
+
+const decodeWorkerModels = Schema.decodeUnknownResult(WorkerModels)
+
+// Last pushed by the app, else the app's defaults
+export const loadWorkerModels = (db: Database): WorkerModels => {
+  const row = db.query<{ value: string }, { key: string }>("SELECT value FROM config WHERE key = $key").get({ key: WORKER_MODELS })
+  const decoded = decodeWorkerModels(row ? parseJson(row.value) : null)
+  return Result.isSuccess(decoded) ? decoded.success : { workerModel: baseSettings.workerModel, autoWorkerModel: baseSettings.autoWorkerModel }
+}
+
+export const saveWorkerModels = (db: Database, models: WorkerModels) => {
+  db.query("INSERT INTO config (key, value) VALUES ($key, $value) ON CONFLICT (key) DO UPDATE SET value = $value").run({
+    key: WORKER_MODELS,
+    value: JSON.stringify(models),
+  })
 }
 
 export const newId = () => crypto.randomUUID()

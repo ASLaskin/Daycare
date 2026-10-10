@@ -36,7 +36,7 @@ const fakeQuery = () => {
   const run: QueryFn = (params) => {
     options = params.options
     prompt = params.prompt
-    return Object.assign(messages(), { interrupt: async () => undefined, close: end })
+    return Object.assign(messages(), { interrupt: async () => undefined, setModel: async () => undefined, close: end })
   }
   const push = (m: object) => {
     queue.push(m)

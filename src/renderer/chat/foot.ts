@@ -19,7 +19,6 @@ const contextMeter = (ctx: number) => {
 const footBits = (s: ChatSession): Array<HTMLElement> => {
   const st = s.stats
   const bits = [
-    st.model ? el("span", "chat-foot-model", st.model) : null,
     st.turns ? el("span", null, `${st.turns} ${st.turns === 1 ? "turn" : "turns"}`) : null,
     st.cost > 0 ? el("span", null, fmtCost(st.cost)) : null,
     st.ctx ? contextMeter(st.ctx) : null,
@@ -28,7 +27,7 @@ const footBits = (s: ChatSession): Array<HTMLElement> => {
   return bits.filter((b): b is HTMLElement => b !== null)
 }
 
-// Model, turns, cost, context and rate limit line
+// Turns, cost, context and rate limit line
 export const renderFoot = (s: ChatSession) => {
   const bits = footBits(s)
   s.foot.hidden = bits.length === 0

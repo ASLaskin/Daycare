@@ -57,7 +57,6 @@ export interface TaskEntry {
 }
 
 export interface Stats {
-  model: string
   cost: number
   ctx: number
   turns: number
@@ -100,6 +99,7 @@ export interface ChatSession {
   readonly input: HTMLTextAreaElement
   readonly send: HTMLButtonElement
   readonly stop: HTMLButtonElement
+  readonly model: HTMLSelectElement
   readonly foot: HTMLElement
   readonly taskbar: HTMLElement
   readonly taskList: HTMLElement

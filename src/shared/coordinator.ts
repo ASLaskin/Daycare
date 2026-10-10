@@ -40,6 +40,10 @@ export type StoredSession = typeof StoredSession.Type
 export const LiveSession = Schema.Struct({ ...StoredSession.fields, live: Schema.Boolean })
 export type LiveSession = typeof LiveSession.Type
 
+// Subagent model settings applied when a master spawns a worker
+export const WorkerModels = Schema.Struct({ workerModel: Schema.String, autoWorkerModel: Schema.Boolean })
+export type WorkerModels = typeof WorkerModels.Type
+
 export const Approval = Schema.Struct({
   session: SessionId,
   request: RequestId,
@@ -86,6 +90,9 @@ export const Command = Schema.Union([
   Schema.Struct({ method: Schema.Literal("remove"), session: SessionId }),
   // Stops a Claude session and carries its transcript to another account
   Schema.Struct({ method: Schema.Literal("move"), session: SessionId, accountId: AccountId, configDir: Schema.NullOr(DirPath) }),
+  // Switches a Claude session's model, live when running
+  Schema.Struct({ method: Schema.Literal("model"), session: SessionId, model: Schema.String }),
+  Schema.Struct({ method: Schema.Literal("configure"), workerModels: WorkerModels }),
   // Orchestration tool call for a master; may block
   Schema.Struct({ method: Schema.Literal("tool"), master: SessionId, name: Schema.String, input: Schema.Json }),
 ])

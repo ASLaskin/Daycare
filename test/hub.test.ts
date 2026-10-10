@@ -26,15 +26,18 @@ afterEach(() => {
 
 // Fake providers: each launch records its inputs and answers and exposes its update callback
 const fakeLaunch = () => {
-  const launches: Array<{ inputs: Array<string>; answers: Array<Answer>; closed: boolean; update: (u: ProviderUpdate) => void }> = []
+  const launches: Array<{ inputs: Array<string>; answers: Array<Answer>; models: Array<string>; closed: boolean; update: (u: ProviderUpdate) => void }> = []
   const launch: Launch = (_session, update) => {
-    const p = { inputs: new Array<string>(), answers: new Array<Answer>(), closed: false, update }
+    const p = { inputs: new Array<string>(), answers: new Array<Answer>(), models: new Array<string>(), closed: false, update }
     launches.push(p)
     return {
       input: async (text) => {
         p.inputs.push(text)
       },
       interrupt: () => {},
+      setModel: async (model) => {
+        p.models.push(model)
+      },
       answer: (_request, answer) => {
         if (!["accept", "decline"].includes(answer.choice)) {
           return false
@@ -459,4 +462,23 @@ test("codex sessions have no account to move", async () => {
   createSession(conn, sample("c", "codex", "idle"))
   const hub = makeHub(conn, fakeLaunch().launch)
   expect(await hub.move(asSessionId("c"), asAccountId("work"), null)).toEqual({ error: "only claude sessions have accounts" })
+})
+
+test("a model switch reaches a running claude and sticks for later launches", async () => {
+  const { hub, provider } = running()
+  expect(await hub.setModel(id, "haiku")).toEqual({ result: {} })
+  expect(provider.models).toEqual(["haiku"])
+  expect(stored(hub)?.model).toBe("haiku")
+  const idle = setup()
+  await idle.hub.setModel(id, "sonnet")
+  expect(idle.fake.launches).toEqual([])
+  expect(stored(idle.hub)?.model).toBe("sonnet")
+})
+
+test("codex sessions do not switch models", async () => {
+  const db = tempDb()
+  dbs.push(db)
+  const conn = db.open()
+  createSession(conn, sample("c", "codex", "idle"))
+  expect(await makeHub(conn, fakeLaunch().launch).setModel(asSessionId("c"), "haiku")).toEqual({ error: "only claude sessions switch models" })
 })

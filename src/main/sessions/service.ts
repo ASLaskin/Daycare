@@ -25,6 +25,7 @@ export interface SessionsShape {
   readonly remove: (id: SessionId) => Effect.Effect<void>
   readonly chatSend: (id: SessionId, text: string) => Effect.Effect<void>
   readonly chatInterrupt: (id: SessionId) => Effect.Effect<void>
+  readonly setModel: (id: SessionId, model: string) => Effect.Effect<void>
   readonly chatRespond: (id: SessionId, requestId: RequestId, decision: PermissionDecision) => Effect.Effect<boolean>
   readonly chatHistory: (id: SessionId) => Effect.Effect<ReadonlyArray<ChatEvent>>
   readonly restore: Effect.Effect<void>
@@ -169,6 +170,18 @@ export const makeService = (core: Core, lifecycle: Lifecycle): SessionsShape => 
         core.persist()
       }),
     chatInterrupt: (id) => chat.interrupt(id),
+    // Live switch, also used on the next launch
+    setModel: (id, model) =>
+      Effect.sync(() => {
+        const s = sessions.get(id)
+        if (!s || !model || s.model === model) {
+          return
+        }
+        s.model = model
+        run(chat.setModel(id, model))
+        core.update(s)
+        core.persist()
+      }),
     chatRespond: (id, requestId, decision) => chat.respond(id, requestId, decision),
     chatHistory: (id) => chat.history(id),
     // Masters first, then workers whose master survived

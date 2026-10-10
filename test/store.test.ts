@@ -22,7 +22,7 @@ test("reopening keeps records and schema", () => {
   const s = { ...sample("a", "claude", "creating"), nativeId: asNativeId("n") }
   createSession(db.open(), s)
   const conn = db.open()
-  expect(conn.query<{ user_version: number }, []>("PRAGMA user_version").get()?.user_version).toBe(2)
+  expect(conn.query<{ user_version: number }, []>("PRAGMA user_version").get()?.user_version).toBe(3)
   expect(getSession(conn, s.id)).toEqual({ session: s })
 })
 
@@ -31,7 +31,7 @@ test("sessions from before accounts open on Default", () => {
   const s = sample("a", "claude", "idle")
   const conn = db.open()
   createSession(conn, s)
-  conn.run("ALTER TABLE sessions DROP COLUMN account_id; ALTER TABLE sessions DROP COLUMN config_dir; PRAGMA user_version = 1")
+  conn.run("ALTER TABLE sessions DROP COLUMN account_id; ALTER TABLE sessions DROP COLUMN config_dir; DROP TABLE config; PRAGMA user_version = 1")
   conn.close()
   expect(getSession(db.open(), s.id)).toEqual({ session: s })
 })

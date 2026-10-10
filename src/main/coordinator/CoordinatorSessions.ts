@@ -21,6 +21,7 @@ import { connect } from "./client.ts"
 import { restartCoordinator, startCoordinator } from "./launch.ts"
 import { coordinatorSetup } from "./paths.ts"
 import { pick, view } from "./view.ts"
+import { makeWorkerModelsSync } from "./workerModels.ts"
 
 const approvalKey = (session: SessionId, request: RequestId) => `${session} ${request}`
 
@@ -87,8 +88,15 @@ const make = (version: string) =>
 
     const remember = (a: Approval) => choices.set(approvalKey(a.session, a.request), a.choices)
 
+    const workerModels = makeWorkerModelsSync(settingsStore, (command) => client.request(command))
+
     const client = connect(socketPath(runtimeDir(process.env)), version, {
-      status: (status) => ui.send("coordinator:status", status.state === "unavailable" && launchError ? { state: "unavailable", message: launchError } : status),
+      status: (status) => {
+        ui.send("coordinator:status", status.state === "unavailable" && launchError ? { state: "unavailable", message: launchError } : status)
+        if (status.state === "connected") {
+          void Effect.runFork(workerModels.pushCurrent)
+        }
+      },
       snapshot: (snapshot) => {
         // Deleted while this window was away
         const present = new Set(snapshot.sessions.map((s) => s.id))
@@ -126,6 +134,7 @@ const make = (version: string) =>
       },
     })
     yield* Effect.addFinalizer(() => Effect.sync(client.close))
+    yield* workerModels.follow
 
     const request = (command: Command) => Effect.promise(() => client.request(command))
 
@@ -201,6 +210,7 @@ const make = (version: string) =>
       chatSend: (id, text) =>
         request({ method: "send", session: id, text }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Accepted)), Effect.orDie, Effect.asVoid),
       chatInterrupt: (id) => request({ method: "interrupt", session: id }).pipe(Effect.asVoid),
+      setModel: (id, model) => request({ method: "model", session: id, model }).pipe(Effect.asVoid),
       chatRespond: (id, requestId, decision) => {
         const choice = pick(choices.get(approvalKey(id, requestId)) ?? [], decision)
         if (choice === null) {

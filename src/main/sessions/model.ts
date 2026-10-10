@@ -12,7 +12,7 @@ export interface Session {
   readonly role: SessionRole
   readonly parentId: SessionId | null
   readonly cwd: DirPath
-  readonly model: string
+  model: string
   readonly permissionMode: PermissionMode
   readonly createdAt: number
   readonly icon: string | null

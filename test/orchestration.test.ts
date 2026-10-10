@@ -3,7 +3,7 @@
 import { afterEach, expect, test } from "bun:test"
 import { type Launch, makeHub } from "../src/coordinator/hub.ts"
 import { type ProviderUpdate, Refused } from "../src/coordinator/provider.ts"
-import { createSession } from "../src/coordinator/store.ts"
+import { createSession, loadWorkerModels } from "../src/coordinator/store.ts"
 import { asNativeId } from "../src/shared/coordinator.ts"
 import { asRequestId, asSessionId, type SessionId } from "../src/shared/ids.ts"
 import { type Json, obj, str } from "../src/shared/json.ts"
@@ -123,4 +123,21 @@ test("bad arguments and unknown tools are errors", async () => {
   const { tool } = setup()
   await expect(tool("spawn_subagent", { name: "a" })).rejects.toThrow("bad arguments for spawn_subagent")
   await expect(tool("do_magic", {})).rejects.toThrow("unknown tool do_magic")
+})
+
+test("claude workers follow the subagent model settings the app pushed", async () => {
+  const { hub, tool } = setup()
+  const modelOf = async (model?: string) => (await tool("spawn_subagent", { name: "w", task: "go", ...(model ? { model } : {}) }))["model"]
+  expect(await modelOf("haiku")).toBe("opus")
+  hub.command({ method: "configure", workerModels: { workerModel: "sonnet", autoWorkerModel: false } })
+  expect(await modelOf("haiku")).toBe("sonnet")
+  hub.command({ method: "configure", workerModels: { workerModel: "sonnet", autoWorkerModel: true } })
+  expect(await modelOf("haiku")).toBe("haiku")
+  expect(await modelOf()).toBe("opus")
+})
+
+test("pushed subagent model settings survive a coordinator restart", () => {
+  const { conn, hub } = setup()
+  hub.command({ method: "configure", workerModels: { workerModel: "haiku", autoWorkerModel: true } })
+  expect(loadWorkerModels(conn)).toEqual({ workerModel: "haiku", autoWorkerModel: true })
 })

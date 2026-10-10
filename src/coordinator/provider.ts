@@ -26,6 +26,8 @@ export interface ProviderHandle {
   // Resolves when taken; rejects when refused
   readonly input: (text: string) => Promise<void>
   readonly interrupt: () => void
+  // Switches the model mid-session; Claude only
+  readonly setModel?: (model: string) => Promise<void>
   // False unless pending and the choice was offered
   readonly answer: (request: RequestId, answer: Answer) => boolean
   // Resolves once the provider and its process group are gone

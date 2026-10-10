@@ -14,7 +14,7 @@ import { bridge, DAYCARE_TOOLS, TOOL_TIMEOUT_SECONDS } from "./orchestration.ts"
 import { spawnGroup, stopGroup } from "./process.ts"
 import { type Answer, type ProviderHandle, type ProviderUpdate, Refused } from "./provider.ts"
 
-export type QueryFn = (params: { prompt: AsyncIterable<SDKUserMessage>; options: Options }) => AsyncIterable<object> & Pick<Query, "interrupt" | "close">
+export type QueryFn = (params: { prompt: AsyncIterable<SDKUserMessage>; options: Options }) => AsyncIterable<object> & Pick<Query, "interrupt" | "close" | "setModel">
 
 // SDK values as plain JSON
 const toJson = (value: object) => parseJson(JSON.stringify(value))
@@ -192,6 +192,7 @@ export const startClaude = (
     interrupt: () => {
       q.interrupt().catch((e: Error) => update({ type: "error", message: `interrupt failed: ${e.message}` }))
     },
+    setModel: (model) => q.setModel(model),
     answer: (request, answer) => answers.get(request)?.(answer) ?? false,
     close: async () => {
       end("the session was closed before claude took the input")

@@ -4,7 +4,7 @@ import { Context, Effect, Layer, PubSub, Ref, Scope, Stream } from "effect"
 import fs from "node:fs"
 import path from "node:path"
 import { asDirPath } from "../../shared/ids.ts"
-import { type JsonObject, parseJson } from "../../shared/json.ts"
+import { isJsonObject, type Json, type JsonObject, parseJson } from "../../shared/json.ts"
 import { baseSettings, type Location, mergeSettings, type Settings } from "../../shared/settings.ts"
 import { AppPaths } from "../AppPaths.ts"
 
@@ -22,9 +22,18 @@ const candidateLocations = (home: string): ReadonlyArray<Location> => {
 
 export const defaultSettings = (home: string): Settings => ({ ...baseSettings, locations: candidateLocations(home) })
 
+// Older files kept the master model under model
+const upgradeLegacy = (raw: Json | null): Json | undefined => {
+  if (!isJsonObject(raw) || !("model" in raw) || "masterModel" in raw) {
+    return raw ?? undefined
+  }
+  const { model, ...rest } = raw
+  return { ...rest, masterModel: model }
+}
+
 const readSettings = (file: string, defaults: Settings) => {
   try {
-    return mergeSettings(defaults, parseJson(fs.readFileSync(file, "utf8")) ?? undefined)
+    return mergeSettings(defaults, upgradeLegacy(parseJson(fs.readFileSync(file, "utf8"))))
   } catch {
     return defaults
   }

@@ -43,6 +43,7 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
   let stopping: Promise<void> | null = null
   // Re-checks orchestration waits
   let settleWaits = () => {}
+  let workerModels = store.loadWorkerModels(db)
 
   const session = (id: SessionId) => {
     const s = sessions.get(id)
@@ -249,6 +250,7 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
       session,
       sessions: () => [...sessions.values()],
       needsUser,
+      workerModels: () => workerModels,
       createWorker: (w: WorkerSpec) =>
         createSession({
           provider: w.provider,
@@ -331,6 +333,32 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
       if (closing.get(id) === moved) {
         closing.delete(id)
       }
+    }
+  }
+
+  // Live on a running provider, and for every later launch
+  const setModel = async (id: SessionId, model: string) => {
+    const s = session(id)
+    if (s.provider !== "claude") {
+      throw new Error("only claude sessions switch models")
+    }
+    if (!model || s.model === model) {
+      return
+    }
+    await providers.get(id)?.handle.setModel?.(model)
+    store.patch(db, id, { model })
+    refresh(id)
+  }
+
+  // Async work as a command result
+  const attempt = async (work: () => Promise<Json>): Promise<CommandResult> => {
+    if (stopping) {
+      return { error: "coordinator is stopping" }
+    }
+    try {
+      return { result: await work() }
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : String(e) }
     }
   }
 
@@ -422,6 +450,12 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
         throw new Error("tool calls go through hub.tool")
       case "move":
         throw new Error("moves go through hub.move")
+      case "model":
+        throw new Error("model switches go through hub.setModel")
+      case "configure":
+        store.saveWorkerModels(db, command.workerModels)
+        workerModels = command.workerModels
+        return {}
     }
   }
 
@@ -438,28 +472,11 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
     },
 
     // Orchestration tool call for a master
-    tool: async (master: SessionId, name: string, input: Json, signal: AbortSignal): Promise<CommandResult> => {
-      if (stopping) {
-        return { error: "coordinator is stopping" }
-      }
-      try {
-        return { result: await orchestration.run(master, name, input, signal) }
-      } catch (e) {
-        return { error: e instanceof Error ? e.message : String(e) }
-      }
-    },
+    tool: (master: SessionId, name: string, input: Json, signal: AbortSignal) => attempt(() => orchestration.run(master, name, input, signal)),
 
-    move: async (id: SessionId, accountId: AccountId, configDir: DirPath | null): Promise<CommandResult> => {
-      if (stopping) {
-        return { error: "coordinator is stopping" }
-      }
-      try {
-        await move(id, accountId, configDir)
-        return { result: {} }
-      } catch (e) {
-        return { error: e instanceof Error ? e.message : String(e) }
-      }
-    },
+    move: (id: SessionId, accountId: AccountId, configDir: DirPath | null) => attempt(() => move(id, accountId, configDir).then(() => ({}))),
+
+    setModel: (id: SessionId, model: string) => attempt(() => setModel(id, model).then(() => ({}))),
 
     // Snapshot and subscribe atomically
     subscribe: (send: Subscriber, budget = SNAPSHOT_BUDGET): Snapshot => {

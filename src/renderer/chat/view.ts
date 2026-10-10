@@ -55,8 +55,12 @@ const composer = () => {
   const actions = el("div", "chat-actions")
   actions.append(stop, send)
   box.append(input, actions)
-  wrap.append(box, el("div", "chat-hint", "Enter to send, Shift+Enter for a new line"))
-  return { composer: wrap, input, stop, send }
+  const model = el("select", "chat-model")
+  model.setAttribute("aria-label", "Model")
+  const under = el("div", "chat-under")
+  under.append(el("div", "chat-hint", "Enter to send, Shift+Enter for a new line"), model)
+  wrap.append(box, under)
+  return { composer: wrap, input, stop, send, model }
 }
 
 // Placeholder shown until the first real content
@@ -80,5 +84,5 @@ export const buildView = (info: SessionView, host: HTMLElement) => {
   host.replaceChildren(root)
   const empty = emptyState(info)
   log.thread.prepend(empty)
-  return { ...tasks, ...log, input: comp.input, stop: comp.stop, send: comp.send, foot, root, empty }
+  return { ...tasks, ...log, input: comp.input, stop: comp.stop, send: comp.send, model: comp.model, foot, root, empty }
 }

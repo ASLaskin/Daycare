@@ -8,6 +8,7 @@ import { prune } from "./caps.ts"
 import { autosize, wireComposer } from "./composer.ts"
 import { apply } from "./events.ts"
 import { renderFoot } from "./foot.ts"
+import { wireModelPicker } from "./model-picker.ts"
 import { toBottom, updateJump } from "./scroll.ts"
 import type { ChatSession } from "./types.ts"
 import { buildView } from "./view.ts"
@@ -65,7 +66,7 @@ export const mount = (info: SessionView, host: HTMLElement) => {
     stickRaf: 0,
     liveThink: null,
     emptyEl: v.empty,
-    stats: { model: info.model || "", cost: 0, ctx: 0, turns: 0, rate: null },
+    stats: { cost: 0, ctx: 0, turns: 0, rate: null },
     wasHidden: false,
     savedTop: 0,
     timers: new Set(),
@@ -78,12 +79,14 @@ export const mount = (info: SessionView, host: HTMLElement) => {
     input: v.input,
     send: v.send,
     stop: v.stop,
+    model: v.model,
     foot: v.foot,
     taskbar: v.taskbar,
     taskList: v.taskList,
     taskSummary: v.taskSummary,
   }
   wireComposer(s)
+  wireModelPicker(s, info)
   ro.observe(v.scroll)
   sessions.set(info.id, s)
   renderFoot(s)
