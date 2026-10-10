@@ -17,6 +17,7 @@ export const renderGeneral = () => {
   locationOptions(select("set-default-location"), s.defaultLocation)
   select("set-model").value = s.model
   select("set-permission").value = s.permissionMode
+  input("set-ooga-booga").checked = s.oogaBooga
   renderLocationRows()
 }
 
@@ -24,6 +25,7 @@ export const wireGeneral = () => {
   wireLocations()
   onToggle("set-ask", (askOnNew) => saveSettings({ askOnNew }))
   onToggle("set-random-names", (randomNames) => saveSettings({ randomNames }))
+  onToggle("set-ooga-booga", (oogaBooga) => saveSettings({ oogaBooga }))
   onToggle("set-keep-awake-lid", (keepAwakeLidClosed) => saveSettings({ keepAwakeLidClosed }))
   onSelect("set-default-location", (v) => {
     setCurrentLocation(Number(v))
