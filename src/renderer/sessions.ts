@@ -7,11 +7,13 @@ import * as chat from "./chat/index.ts"
 import { focusSession, isFocused, showMaster } from "./focus.ts"
 import { applyStatus, createPane } from "./pane.ts"
 import { initProjectActions } from "./project-actions.ts"
+import { playDing } from "./ding.ts"
 import { removeSessionUI } from "./removal.ts"
 import { beginRename } from "./rename.ts"
 import { renderSidebar } from "./sidebar.ts"
 import { closedInfo, panes } from "./state.ts"
-import { fireFocusChanged } from "./store.ts"
+import { shouldDing } from "../shared/ding.ts"
+import { fireFocusChanged, settings } from "./store.ts"
 
 const addSession = (info: SessionView) => {
   if (info.status === "closed") {
@@ -67,8 +69,12 @@ const onUpdate = (info: SessionView) => {
   }
   // Focused session renamed or moved folders.
   const retarget = isFocused(info.id) && (p.info.cwd !== info.cwd || p.info.name !== info.name)
+  const ding = shouldDing(p.info.status, info.status) && settings().doneSounds
   p.info = info
   applyStatus(p)
+  if (ding) {
+    playDing(info.role === "master" ? "master" : "worker")
+  }
   renderSidebar()
   if (retarget) {
     fireFocusChanged()
@@ -94,5 +100,6 @@ export const initSessions = async () => {
   api.onUpdate(onUpdate)
   api.onBeginRename(renameFromMenu)
   api.onChatEvent(({ id, event }) => chat.event(id, event))
+  api.onChatReset(({ id, events }) => chat.reset(id, events))
   await restore()
 }

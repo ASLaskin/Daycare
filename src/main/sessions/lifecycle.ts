@@ -44,7 +44,7 @@ export const makeLifecycle = (core: Core): Lifecycle => {
   }
 
   const startSession = (s: Session, resume: boolean) => {
-    const args = claudeArgs(s, resume, core.mcpDir, endpoint)
+    const args = claudeArgs(s, resume, core.mcpDir, endpoint, { oogaBooga: run(settings.get).oogaBooga })
     const dir = fs.existsSync(s.cwd) ? s.cwd : asDirPath(os.homedir())
     run(chat.start({ id: s.id, cwd: dir, env: childEnv(s), args, transcriptPath: resume && canResume(s) ? s.transcriptPath : null }))
     if (s.task && !resume) {
@@ -114,7 +114,7 @@ export const makeLifecycle = (core: Core): Lifecycle => {
       return null
     }
     const used = [...sessions.values()].filter((x) => x.role === "master").map((x) => x.icon)
-    return nextIcon(new Set(used))
+    return nextIcon(new Set(used), run(settings.get).iconPack)
   }
 
   const nameFor = (options: CreateOptions) => {
