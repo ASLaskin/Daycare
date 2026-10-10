@@ -4,8 +4,11 @@ import { Context, Effect, Layer } from "effect"
 import { execFile } from "node:child_process"
 import fs from "node:fs"
 import path from "node:path"
+import type { AccountId, DirPath } from "../../shared/ids.ts"
 import { at, type Json, parseJson, str } from "../../shared/json.ts"
 import type { UsageLimit } from "../../shared/usage.ts"
+import { keychainService } from "../accounts/keychain.ts"
+import { configDirFor, configHomeFor } from "../accounts/paths.ts"
 import { AppPaths } from "../AppPaths.ts"
 import { RateLimited, UsageUnavailable } from "./errors.ts"
 import { normalizeUsage, retryAfterMs } from "./normalize.ts"
@@ -13,11 +16,11 @@ import { normalizeUsage, retryAfterMs } from "./normalize.ts"
 const tokenFromJson = (raw: string): string | null => str(at(parseJson(raw) ?? null, "claudeAiOauth", "accessToken"))
 
 // OAuth token from the Mac keychain, else the credentials file.
-const oauthToken = (home: string) =>
+const oauthToken = (configDir: DirPath | null, configHome: DirPath) =>
   Effect.callback<string | null>((resume) => {
     const fromFile = () => {
       try {
-        resume(Effect.succeed(tokenFromJson(fs.readFileSync(path.join(home, ".claude", ".credentials.json"), "utf8"))))
+        resume(Effect.succeed(tokenFromJson(fs.readFileSync(path.join(configHome, ".credentials.json"), "utf8"))))
       } catch {
         resume(Effect.succeed(null))
       }
@@ -25,7 +28,7 @@ const oauthToken = (home: string) =>
     if (process.platform !== "darwin") {
       return fromFile()
     }
-    execFile("security", ["find-generic-password", "-s", "Claude Code-credentials", "-w"], (err, out) => {
+    execFile("security", ["find-generic-password", "-s", keychainService(configDir), "-w"], (err, out) => {
       const token = err ? null : tokenFromJson(out)
       if (!token) {
         return fromFile()
@@ -34,9 +37,9 @@ const oauthToken = (home: string) =>
     })
   })
 
-const fetchUsage = (home: string) =>
+const fetchUsage = (configDir: DirPath | null, configHome: DirPath) =>
   Effect.gen(function* () {
-    const token = yield* oauthToken(home)
+    const token = yield* oauthToken(configDir, configHome)
     if (!token) {
       return yield* new UsageUnavailable({ reason: "Not signed in to Claude Code" })
     }
@@ -67,13 +70,13 @@ const fetchUsage = (home: string) =>
 
 export class UsageSource extends Context.Service<
   UsageSource,
-  { readonly fetch: Effect.Effect<ReadonlyArray<UsageLimit>, RateLimited | UsageUnavailable> }
+  { readonly fetch: (account: AccountId) => Effect.Effect<ReadonlyArray<UsageLimit>, RateLimited | UsageUnavailable> }
 >()("daycare/UsageSource") {
   static readonly layer = Layer.effect(
     UsageSource,
     Effect.gen(function* () {
-      const { home } = yield* AppPaths
-      return UsageSource.of({ fetch: fetchUsage(home) })
+      const { home, userData } = yield* AppPaths
+      return UsageSource.of({ fetch: (account) => fetchUsage(configDirFor(userData, account), configHomeFor(home, userData, account)) })
     }),
   )
 }

@@ -3,10 +3,13 @@
 import { Effect } from "effect"
 import fs from "node:fs"
 import type { ChatEvent } from "../../shared/chat.ts"
-import type { DirPath, RequestId, SessionId } from "../../shared/ids.ts"
+import type { AccountId, DirPath, RequestId, SessionId } from "../../shared/ids.ts"
 import type { PermissionDecision } from "../../shared/ipc.ts"
 import { parseJson } from "../../shared/json.ts"
 import type { NewMaster, SessionRecord, SessionView } from "../../shared/session.ts"
+import type { Settings } from "../../shared/settings.ts"
+import type { AccountInUse } from "../accounts/actions.ts"
+import { makeSessionAccountActions } from "./accounts.ts"
 import type { Core } from "./core.ts"
 import type { Lifecycle } from "./lifecycle.ts"
 import { type CreateOptions, decodeRecords, type Session, view } from "./model.ts"
@@ -26,11 +29,15 @@ export interface SessionsShape {
   readonly chatRespond: (id: SessionId, requestId: RequestId, decision: PermissionDecision) => Effect.Effect<boolean>
   readonly chatHistory: (id: SessionId) => Effect.Effect<ReadonlyArray<ChatEvent>>
   readonly restore: Effect.Effect<void>
+  readonly switchAccount: (to: AccountId) => Effect.Effect<Settings>
+  readonly removeAccount: (id: AccountId) => Effect.Effect<Settings, AccountInUse>
   // Folders whose project skills apply
   readonly projectDirs: Effect.Effect<ReadonlyArray<DirPath>>
+  // Coordinator mode only; interrupts running work
+  readonly restartCoordinator: Effect.Effect<void>
 }
 
-const deleteDetail = (workers: number) =>
+export const deleteDetail = (workers: number) =>
   workers
     ? `This ends it and its ${workers} worker${workers === 1 ? "" : "s"} and removes them from Daycare.`
     : "This ends it and removes it from Daycare."
@@ -86,12 +93,16 @@ export const makeService = (core: Core, lifecycle: Lifecycle): SessionsShape => 
         model: r.model,
         permissionMode: r.permissionMode,
         name: r.name,
+        accountId: r.accountId,
         ...(r.parentId ? { parentId: r.parentId } : {}),
       },
       r,
     )
 
+  const accountActions = makeSessionAccountActions(core, lifecycle)
+
   return {
+    ...accountActions,
     list: Effect.sync(() => [...sessions.values()].map(view)),
     get: (id) =>
       Effect.sync(() => {
@@ -181,6 +192,7 @@ export const makeService = (core: Core, lifecycle: Lifecycle): SessionsShape => 
       const workers = records.filter((r) => r.role === "worker" && r.parentId !== null && masterIds.has(r.parentId))
       ;[...masters, ...workers].forEach(restoreRecord)
     }),
+    restartCoordinator: Effect.void,
     projectDirs: Effect.gen(function* () {
       const current = yield* settings.get
       const dirs = [...[...sessions.values()].map((s) => s.cwd), ...current.locations.map((l) => l.path)]

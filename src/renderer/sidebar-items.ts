@@ -1,5 +1,6 @@
 // Sidebar entries for open and closed masters.
 
+import { iconFile, iconInPack } from "../shared/icons.ts"
 import type { SessionId } from "../shared/ids.ts"
 import type { SessionView } from "../shared/session.ts"
 import { api } from "./api.ts"
@@ -7,7 +8,7 @@ import { baseName, el, setText } from "./dom.ts"
 import { focusSession } from "./focus.ts"
 import { keyedRows, type Row, syncChildren } from "./keyed.ts"
 import { masterActions } from "./session-actions.ts"
-import { paintContext, paintName, paintStatus, renamable, showsContext } from "./sidebar-tags.ts"
+import { accountTag, paintContext, paintName, paintStatus, renamable, showsContext } from "./sidebar-tags.ts"
 import { workerDot, workerRow } from "./sidebar-worker.ts"
 import { closedInfo, workersOf } from "./state.ts"
 import { settings } from "./store.ts"
@@ -19,7 +20,7 @@ export interface OpenView {
 }
 
 // Closed masters get a still sprite frame.
-const avatarSrc = (m: SessionView) => `icons/${m.icon}.${m.status === "closed" ? "png" : "gif"}`
+const avatarSrc = (m: SessionView) => `icons/${iconFile(iconInPack(m.icon ?? "", settings().iconPack), m.status === "closed")}`
 
 // Avatar, name, and status shared by open and closed masters.
 const masterShell = (current: () => SessionView) => {
@@ -61,6 +62,7 @@ const openRow = (first: OpenView): Row<OpenView> => {
   const meta = el("div", "meta")
   const summary = el("span")
   const ctx = el("span")
+  const acct = el("span", "acct-tag")
   const progress = el("div", "progress")
   const fill = el("span")
   progress.append(fill)
@@ -85,7 +87,9 @@ const openRow = (first: OpenView): Row<OpenView> => {
     const isFolded = folded.has(m.id)
     setText(summary, workerSummary(m.id))
     paintContext(ctx, m.context)
-    syncChildren(meta, showsContext(m.context) ? [summary, ctx] : [summary])
+    const account = accountTag(m.accountId)
+    setText(acct, account ?? "")
+    syncChildren(meta, [summary, ...(showsContext(m.context) ? [ctx] : []), ...(account ? [acct] : [])])
     meta.classList.toggle("foldable", workers.length > 0)
     meta.classList.toggle("folded", isFolded)
     meta.title = workers.length ? (isFolded ? "Show workers" : "Fold workers into dots") : ""
@@ -110,7 +114,8 @@ const openRow = (first: OpenView): Row<OpenView> => {
 
 const closedMeta = (m: SessionView) => {
   const workers = [...closedInfo.values()].filter((w) => w.parentId === m.id).length
-  const parts = [baseName(m.cwd), ...(workers ? [`${workers} worker${workers === 1 ? "" : "s"}`] : [])]
+  const account = accountTag(m.accountId)
+  const parts = [baseName(m.cwd), ...(workers ? [`${workers} worker${workers === 1 ? "" : "s"}`] : []), ...(account ? [account] : [])]
   return parts.filter(Boolean).join(", ")
 }
 

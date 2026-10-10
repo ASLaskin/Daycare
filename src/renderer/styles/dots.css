@@ -15,6 +15,8 @@
 .status-dot.needs_you { background: var(--needs); }
 .status-dot.done { background: var(--done); }
 .status-dot.exited { background: var(--exited); }
+.status-dot.interrupted { background: var(--needs); }
+.status-dot.incomplete { background: var(--exited); }
 .status-dot.closed { background: var(--faint); opacity: 0.5; }
 html[data-motion="off"] .status-dot { animation: none; }
 @media (prefers-reduced-motion: reduce) {

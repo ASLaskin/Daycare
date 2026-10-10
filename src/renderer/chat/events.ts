@@ -99,6 +99,16 @@ const rateLimit = (s: ChatSession, ev: ChatEventOf<"rate-limit">) => {
   renderFoot(s)
 }
 
+// Ends an orphaned turn
+const interrupted = (s: ChatSession, ev: ChatEventOf<"interrupted">) => {
+  ;[...s.tools]
+    .filter(([, card]) => !card.done)
+    .forEach(([toolUseId]) => toolEnd(s, { kind: "tool-end", toolUseId, isError: true, content: "interrupted", structured: null }))
+  notice(s, "error", `Interrupted: ${ev.reason}.`)
+  closeTurn(s)
+  setRunning(s, false)
+}
+
 const HANDLERS: { readonly [K in ChatEvent["kind"]]: (s: ChatSession, ev: ChatEventOf<K>) => void } = {
   ready,
   state: (s, ev) => setRunning(s, ev.state === "running"),
@@ -121,6 +131,11 @@ const HANDLERS: { readonly [K in ChatEvent["kind"]]: (s: ChatSession, ev: ChatEv
   "rate-limit": rateLimit,
   error: (s, ev) => notice(s, "error", ev.message || "Something went wrong."),
   exit: endSession,
+  notice: (s, ev) => notice(s, "info", ev.message),
+  interrupted,
+  "history-evicted": (s) => notice(s, "info", "Earlier history is unavailable. Daycare keeps the most recent 8 MiB."),
+  oversized: (s, ev) =>
+    notice(s, "info", `A ${ev.original} event of ${Math.round(ev.bytes / 1024)} KiB was too large to keep. Preview:`, cap(ev.preview)),
 }
 
 // Draw one event; counts every kind main replays

@@ -1,10 +1,12 @@
 // App settings schema, defaults and merging.
 
 import { Option, Schema } from "effect"
-import { DirPath } from "./ids.ts"
+import { Account, DEFAULT_ACCOUNT } from "./accounts.ts"
+import { AccountId, DirPath } from "./ids.ts"
+import { IconPack } from "./icons.ts"
 import { isJsonObject, type Json } from "./json.ts"
 import { SAME_AS_MASTER } from "./models.ts"
-import { PermissionMode } from "./session.ts"
+import { PermissionMode, Provider } from "./session.ts"
 
 export const Location = Schema.Struct({ label: Schema.String, path: DirPath })
 export type Location = typeof Location.Type
@@ -22,13 +24,18 @@ export type Layout = typeof Layout.Type
 export const Settings = Schema.Struct({
   askOnNew: Schema.Boolean,
   randomNames: Schema.Boolean,
+  doneSounds: Schema.Boolean,
   showIcons: Schema.Boolean,
+  iconPack: IconPack,
   showContext: Schema.Boolean,
   defaultLocation: Schema.Int,
   masterModel: Schema.String,
   workerModel: Schema.String,
   autoWorkerModel: Schema.Boolean,
   permissionMode: PermissionMode,
+  oogaBooga: Schema.Boolean,
+  // Coordinator only
+  provider: Provider,
   keepAwake: KeepAwake,
   keepAwakeLidClosed: Schema.Boolean,
   appIcon: AppIcon,
@@ -48,6 +55,9 @@ export const Settings = Schema.Struct({
   maxCols: Schema.Int,
   stageGap: Schema.Finite,
   locations: Schema.Array(Location),
+  // Added accounts; Default is implicit
+  accounts: Schema.Array(Account),
+  activeAccount: AccountId,
 })
 export type Settings = typeof Settings.Type
 
@@ -55,13 +65,17 @@ export type Settings = typeof Settings.Type
 export const baseSettings: Omit<Settings, "locations"> = {
   askOnNew: false,
   randomNames: true,
+  doneSounds: true,
   showIcons: true,
+  iconPack: "pokemon",
   showContext: true,
   defaultLocation: 0,
   masterModel: "opus",
   workerModel: SAME_AS_MASTER.id,
   autoWorkerModel: false,
   permissionMode: "default",
+  oogaBooga: false,
+  provider: "claude",
   keepAwake: "while-running",
   keepAwakeLidClosed: false,
   appIcon: "random",
@@ -73,12 +87,14 @@ export const baseSettings: Omit<Settings, "locations"> = {
   monoFont: "system",
   layout: "stack",
   splits: {},
-  sidebarWidth: 264,
+  sidebarWidth: 288,
   sidebarCollapsed: false,
   railWidth: 252,
   zoomDblClick: true,
   maxCols: 4,
   stageGap: 10,
+  accounts: [],
+  activeAccount: DEFAULT_ACCOUNT,
 }
 
 // Defaults overlaid with each decodable field of raw

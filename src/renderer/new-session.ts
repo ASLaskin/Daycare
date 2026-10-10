@@ -60,7 +60,7 @@ export const newSession = (locIndex = currentLoc) => {
     openSheet(locIndex)
     return
   }
-  api.createMaster({ task: "", cwd: loc.path, model: s.masterModel, permissionMode: s.permissionMode })
+  api.createMaster({ task: "", cwd: loc.path, model: s.masterModel, permissionMode: s.permissionMode, provider: s.provider })
 }
 
 // Moves an untouched active master to the picked location.

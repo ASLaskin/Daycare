@@ -1,5 +1,6 @@
 import type { DirPath, RequestId, SessionId, TaskId, ToolUseId } from "../../shared/ids.ts"
 import type { Json, JsonObject } from "../../shared/json.ts"
+import type { SessionView } from "../../shared/session.ts"
 
 export interface TextBlock {
   readonly kind: "text"
@@ -64,6 +65,8 @@ export interface Stats {
 
 export interface ChatSession {
   readonly id: SessionId
+  // Session as mounted, for rebuilding the pane
+  readonly info: SessionView
   readonly name: string
   cwd: DirPath
   readonly host: HTMLElement

@@ -18,6 +18,32 @@ const details = (card: HTMLElement, input: Json) => {
   card.append(more, pre)
 }
 
+const CHOICE_LABEL: Readonly<Record<string, string>> = {
+  accept: "Allow",
+  acceptForSession: "Allow for this session",
+  acceptWithExecpolicyAmendment: "Allow and remember this command",
+  decline: "Deny",
+  cancel: "Deny and stop the turn",
+}
+const REFUSALS = new Set(["decline", "cancel", "deny"])
+// Answers the Allow, Always and Deny buttons cover
+const CLAUDE_CHOICES = new Set(["allow", "always", "deny"])
+
+// One button per answer the request offers
+const choiceButtons = (actions: HTMLElement, { buttons, answer }: CardParts, choices: ReadonlyArray<string>) => {
+  const firstAllow = choices.find((c) => !REFUSALS.has(c))
+  choices.forEach((choice) => {
+    const refuse = REFUSALS.has(choice)
+    const label = CHOICE_LABEL[choice] ?? choice
+    const b = button(refuse ? "ghost chat-deny" : choice === firstAllow ? "primary small" : "ghost", label)
+    b.addEventListener("click", () =>
+      answer({ allow: !refuse, choice, ...(refuse ? { message: "Denied by the user" } : {}) }, !refuse, label),
+    )
+    actions.append(b)
+    buttons.push(b)
+  })
+}
+
 // Allow or deny card for an ordinary tool
 export const buildGeneric = (parts: CardParts, l: ToolLabel) => {
   const { ev, card, buttons, answer } = parts
@@ -31,6 +57,12 @@ export const buildGeneric = (parts: CardParts, l: ToolLabel) => {
   details(card, ev.input)
 
   const actions = el("div", "chat-perm-actions")
+  const offered = ev.choices?.some((c) => !CLAUDE_CHOICES.has(c)) ? ev.choices : undefined
+  if (offered) {
+    choiceButtons(actions, parts, offered)
+    card.append(actions)
+    return
+  }
   const allow = button("primary small", "Allow")
   const deny = button("ghost chat-deny", "Deny")
   actions.append(allow, deny)

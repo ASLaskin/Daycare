@@ -4,12 +4,14 @@ import { randomUUID } from "node:crypto"
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
+import { activeAccountOf, DEFAULT_ACCOUNT, hasAccount } from "../../shared/accounts.ts"
 import { asClaudeSessionId, asDirPath, asSessionId } from "../../shared/ids.ts"
 import type { SessionRecord } from "../../shared/session.ts"
 import type { Core } from "./core.ts"
 import { cleanEnv } from "./env.ts"
 import { claudeArgs, MCP_TIMEOUT_MS } from "./launch.ts"
 import { canResume, type CreateOptions, type Session, view } from "./model.ts"
+import { makeMover } from "./move.ts"
 import { defaultMasterName, nextIcon } from "./naming.ts"
 import { contextTokens, firstLine, lastAssistantText } from "./transcripts.ts"
 
@@ -24,13 +26,17 @@ export interface Lifecycle {
 
 export const makeLifecycle = (core: Core): Lifecycle => {
   const { sessions, deps, run } = core
-  const { chat, endpoint, ui, settings, usage } = deps
+  const { chat, endpoint, ui, settings, usage, accounts } = deps
+  const moveSession = makeMover(core)
 
-  const childEnv = () => ({
-    ...cleanEnv(process.env),
-    DAYCARE_TOKEN: endpoint.token,
-    MCP_TOOL_TIMEOUT: String(MCP_TIMEOUT_MS),
-  })
+  const childEnv = (s: Session) =>
+    run(
+      accounts.childEnv(s.accountId, {
+        ...cleanEnv(process.env),
+        DAYCARE_TOKEN: endpoint.token,
+        MCP_TOOL_TIMEOUT: String(MCP_TIMEOUT_MS),
+      }),
+    )
 
   const sendText = (s: Session, text: string) => {
     s.hadTurn = true
@@ -38,9 +44,9 @@ export const makeLifecycle = (core: Core): Lifecycle => {
   }
 
   const startSession = (s: Session, resume: boolean) => {
-    const args = claudeArgs(s, resume, core.mcpDir, endpoint)
+    const args = claudeArgs(s, resume, core.mcpDir, endpoint, { oogaBooga: run(settings.get).oogaBooga })
     const dir = fs.existsSync(s.cwd) ? s.cwd : asDirPath(os.homedir())
-    run(chat.start({ id: s.id, cwd: dir, env: childEnv(), args, transcriptPath: resume && canResume(s) ? s.transcriptPath : null }))
+    run(chat.start({ id: s.id, cwd: dir, env: childEnv(s), args, transcriptPath: resume && canResume(s) ? s.transcriptPath : null }))
     if (s.task && !resume) {
       sendText(s, s.task)
     }
@@ -60,6 +66,13 @@ export const makeLifecycle = (core: Core): Lifecycle => {
   const sessionExited = (s: Session) => {
     if (core.isQuitting()) {
       return
+    }
+    const restartOn = s.restartOn
+    s.restartOn = null
+    if (restartOn && !s.closing) {
+      moveSession(s, restartOn)
+      core.persist()
+      return startSession(s, true)
     }
     if (!s.closing) {
       return removeSession(s)
@@ -101,7 +114,7 @@ export const makeLifecycle = (core: Core): Lifecycle => {
       return null
     }
     const used = [...sessions.values()].filter((x) => x.role === "master").map((x) => x.icon)
-    return nextIcon(new Set(used))
+    return nextIcon(new Set(used), run(settings.get).iconPack)
   }
 
   const nameFor = (options: CreateOptions) => {
@@ -121,6 +134,7 @@ export const makeLifecycle = (core: Core): Lifecycle => {
   }
 
   const createSession = (options: CreateOptions, restored: SessionRecord | null = null): Session => {
+    const current = run(settings.get)
     const s: Session = {
       id: restored?.id ?? asSessionId(randomUUID()),
       role: options.role,
@@ -141,6 +155,12 @@ export const makeLifecycle = (core: Core): Lifecycle => {
       hadTurn: restored?.hadTurn ?? false,
       context: restored ? contextTokens(restored.transcriptPath) : 0,
       closing: false,
+      accountId: restored?.accountId ?? options.accountId ?? activeAccountOf(current),
+      restartOn: null,
+    }
+    // Account removed since this session last ran
+    if (!hasAccount(current.accounts, s.accountId)) {
+      moveSession(s, DEFAULT_ACCOUNT)
     }
     sessions.set(s.id, s)
     ui.send("session:created", view(s))

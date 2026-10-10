@@ -1,9 +1,11 @@
 // Sidebar plan usage box.
 
+import { accountLabel, activeAccountOf } from "../shared/accounts.ts"
 import type { Usage, UsageLimit } from "../shared/usage.ts"
 import { api } from "./api.ts"
 import { type Level, ring } from "./context-meter.ts"
 import { $, el } from "./dom.ts"
+import { settings } from "./store.ts"
 
 const TIME_FORMAT: Intl.DateTimeFormatOptions = { hour: "numeric", minute: "2-digit" }
 
@@ -73,7 +75,8 @@ const usageRows = () => {
 const renderRing = () => {
   const top = Math.max(0, ...(usage?.limits ?? []).map((l) => Math.round(l.percent)))
   $("#usage-ring-icon").replaceChildren(ring(top / 100, usageLevel(top)))
-  const head = el("div", "usage-head", "Plan usage")
+  const s = settings()
+  const head = el("div", "usage-head", s.accounts.length ? `Plan usage, ${accountLabel(s.accounts, activeAccountOf(s))}` : "Plan usage")
   $("#usage-tip").replaceChildren(head, ...usageRows())
 }
 

@@ -1,6 +1,7 @@
 // Per chat model switcher under the composer.
 
 import { MODEL_CHOICES, modelBestFor, modelLabel } from "../../shared/models.ts"
+import type { SessionView } from "../../shared/session.ts"
 import { api } from "../api.ts"
 import { fillModels } from "../model-options.ts"
 import { errorText, notice } from "./turn.ts"
@@ -17,8 +18,13 @@ const render = (s: ChatSession, current: string) => {
   s.model.title = bestFor ? `${modelLabel(current)} is best for ${bestFor}` : "Model for this chat"
 }
 
-export const wireModelPicker = (s: ChatSession, initial: string) => {
-  let current = initial
+// Claude aliases only, so hidden for other providers
+export const wireModelPicker = (s: ChatSession, info: Pick<SessionView, "provider" | "model">) => {
+  if (info.provider !== "claude") {
+    s.model.hidden = true
+    return
+  }
+  let current = info.model
   render(s, current)
   s.model.addEventListener("change", () => {
     const next = s.model.value

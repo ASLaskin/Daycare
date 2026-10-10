@@ -5,6 +5,7 @@ import { Effect, Layer, ManagedRuntime, PubSub, Result, Stream } from "effect"
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
+import { Accounts } from "../src/main/accounts/Accounts.ts"
 import { AppPaths } from "../src/main/AppPaths.ts"
 import { Ui } from "../src/main/Ui.ts"
 import { Chat, type ChatMessage, type ChatStart } from "../src/main/chat/Chat.ts"
@@ -14,12 +15,14 @@ import type { HookPayload } from "../src/main/control/hook.ts"
 import type { ToolCall } from "../src/main/control/tools.ts"
 import { Power } from "../src/main/power/Power.ts"
 import { PowerBlocker } from "../src/main/power/PowerBlocker.ts"
+import { ClaudeBinary } from "../src/main/sessions/Claude.ts"
 import { Sessions } from "../src/main/sessions/Sessions.ts"
 import { SettingsStore } from "../src/main/settings/SettingsStore.ts"
 import { Usage } from "../src/main/usage/Usage.ts"
 import { UsageSource } from "../src/main/usage/UsageSource.ts"
 import type { ChatEvent } from "../src/shared/chat.ts"
-import { asClaudeSessionId, asDirPath, asFilePath, asRequestId, asSessionId, asToolUseId, type SessionId } from "../src/shared/ids.ts"
+import { DEFAULT_ACCOUNT } from "../src/shared/accounts.ts"
+import { type AccountId, asClaudeSessionId, asDirPath, asFilePath, asRequestId, asSessionId, asToolUseId, type SessionId } from "../src/shared/ids.ts"
 import type { EventChannel, Events } from "../src/shared/ipc.ts"
 import { arr, at, type Json, type JsonObject, obj, parseJson, str } from "../src/shared/json.ts"
 import type { SessionView } from "../src/shared/session.ts"
@@ -77,17 +80,24 @@ const sent: Array<{ channel: EventChannel; payload: Events[EventChannel] }> = []
 // Session id carried by an event payload
 const payloadId = (p: Events[EventChannel]) => (typeof p === "object" && p !== null && "id" in p ? p.id : null)
 let confirmAnswer = true
+let chooseAnswer = 0
+let chooseCalls = 0
 const FakeUi = Layer.succeed(
   Ui,
   Ui.of({
     send: <C extends EventChannel>(channel: C, payload: Events[C]) => void sent.push({ channel, payload }),
     notify: () => {},
     confirm: () => Effect.succeed(confirmAnswer),
+    choose: () =>
+      Effect.sync(() => {
+        chooseCalls += 1
+        return chooseAnswer
+      }),
   }),
 )
 
 const FakeBlocker = Layer.succeed(PowerBlocker, PowerBlocker.of({ start: () => 1, stop: () => {}, isStarted: () => false }))
-const QuietUsage = Layer.succeed(UsageSource, UsageSource.of({ fetch: Effect.succeed([]) }))
+const QuietUsage = Layer.succeed(UsageSource, UsageSource.of({ fetch: () => Effect.succeed([]) }))
 
 const root = asDirPath(fs.mkdtempSync(path.join(os.tmpdir(), "daycare-sessions-")))
 const userData = asDirPath(path.join(root, "userData"))
@@ -97,17 +107,15 @@ fs.mkdirSync(work, { recursive: true })
 const makeRuntime = () => {
   const paths = Layer.succeed(AppPaths, AppPaths.of({ userData, appRoot: root, home: root }))
   const endpoint = Layer.succeed(ControlEndpoint, ControlEndpoint.of({ url: "http://127.0.0.1:9", token: "secret-token" }))
-  const settings = SettingsStore.layer
+  const claude = Layer.succeed(ClaudeBinary, ClaudeBinary.of({ path: asFilePath("/usr/bin/false") }))
   const deps = Layer.mergeAll(
     FakeChatLayer,
     Power.layer({ osascript: "/usr/bin/false", pmset: "/usr/bin/false", sentinel: path.join(root, "lid"), lidGraceMs: 1000, isMac: false }).pipe(
       Layer.provide(FakeBlocker),
     ),
-    settings,
     Usage.layer.pipe(Layer.provide(QuietUsage)),
-    FakeUi,
-    endpoint,
-  ).pipe(Layer.provideMerge(paths))
+    Accounts.layer,
+  ).pipe(Layer.provideMerge(Layer.mergeAll(SettingsStore.layer, FakeUi, endpoint, claude)), Layer.provideMerge(paths))
   return ManagedRuntime.make(Sessions.layer.pipe(Layer.provideMerge(deps)))
 }
 
@@ -173,6 +181,8 @@ afterAll(async () => {
 
 beforeEach(() => {
   confirmAnswer = true
+  chooseAnswer = 0
+  chooseCalls = 0
 })
 
 const newMaster = (task = "") => sessions((s) => s.createMaster({ task, cwd: work, model: "sonnet", permissionMode: "default" }))
@@ -413,5 +423,92 @@ describe("persistence", () => {
     expect((await sessions((s) => s.list)).map((s) => s.name)).toEqual(["Old", "Term"])
     expect(chatOf(asSessionId("old-2"))).toBeDefined()
     expect(savedRecord(asSessionId("old-2"))).not.toHaveProperty("kind")
+  })
+})
+
+describe("accounts", () => {
+  const addAccount = (label: string) => runtime.runPromise(Accounts.use((a) => a.add(label)))
+  const switchTo = (id: AccountId) => sessions((s) => s.switchAccount(id))
+  const configEnv = (id: SessionId) => chatOf(id).opts.env["CLAUDE_CONFIG_DIR"]
+  const accountDir = (id: AccountId) => path.join(userData, "accounts", id)
+  const closeAll = async () => {
+    const masters = (await sessions((s) => s.list)).filter((s) => s.role === "master")
+    await Promise.all(masters.map((m) => sessions((s) => s.close(m.id))))
+    await tick()
+  }
+
+  test("new sessions use the active account; running ones keep theirs on a keep switch", async () => {
+    await closeAll()
+    const workAccount = await addAccount("Work")
+    await switchTo(workAccount.id)
+    expect(chooseCalls).toBe(0)
+    const m = await newMaster()
+    expect(configEnv(m.id)).toBe(accountDir(workAccount.id))
+    expect(m.accountId).toBe(workAccount.id)
+    expect(savedRecord(m.id)).toMatchObject({ accountId: workAccount.id })
+
+    const before = chats.length
+    await switchTo(DEFAULT_ACCOUNT)
+    expect(chooseCalls).toBe(1)
+    expect(chats.length).toBe(before)
+    expect(chatOf(m.id).stopped).toBe(false)
+    const fresh = await newMaster()
+    expect(configEnv(fresh.id)).toBeUndefined()
+    expect(fresh.accountId).toBe(DEFAULT_ACCOUNT)
+  })
+
+  test("restart stops running sessions and resumes them on the new account with their transcript", async () => {
+    await closeAll()
+    const workAccount = await addAccount("Side")
+    const m = await newMaster()
+    expect(m.accountId).toBe(DEFAULT_ACCOUNT)
+    const transcript = path.join(root, ".claude", "projects", "-work", "abc.jsonl")
+    fs.mkdirSync(path.join(root, ".claude", "projects", "-work", "abc", "subagents"), { recursive: true })
+    fs.writeFileSync(transcript, '{"type":"user"}\n')
+    await hook(m.id, { hook_event_name: "SessionStart", transcript_path: asFilePath(transcript), session_id: asClaudeSessionId("abc") })
+
+    chooseAnswer = 1
+    await switchTo(workAccount.id)
+    await tick()
+    const moved = path.join(accountDir(workAccount.id), "projects", "-work", "abc.jsonl")
+    expect(fs.readFileSync(moved, "utf8")).toBe('{"type":"user"}\n')
+    expect(fs.existsSync(path.join(accountDir(workAccount.id), "projects", "-work", "abc", "subagents"))).toBe(true)
+    const args = chatOf(m.id).opts.args ?? []
+    expect(args.slice(args.indexOf("--resume"), args.indexOf("--resume") + 2)).toEqual(["--resume", "abc"])
+    expect(configEnv(m.id)).toBe(accountDir(workAccount.id))
+    expect((await get(m.id)).accountId).toBe(workAccount.id)
+    expect(savedRecord(m.id)).toMatchObject({ accountId: workAccount.id, transcriptPath: moved })
+  })
+
+  test("cancel leaves the active account alone", async () => {
+    const active = (await runtime.runPromise(SettingsStore.use((s) => s.get))).activeAccount
+    chooseAnswer = 2
+    const next = await switchTo(DEFAULT_ACCOUNT)
+    expect(next.activeAccount).toBe(active)
+  })
+
+  test("an account in use cannot be removed; once closed its sessions move to Default", async () => {
+    const { activeAccount } = await runtime.runPromise(SettingsStore.use((s) => s.get))
+    const m = await newMaster()
+    expect(m.accountId).toBe(activeAccount)
+    await expect(sessions((s) => s.removeAccount(activeAccount))).rejects.toThrow("running on")
+    await closeAll()
+    const next = await sessions((s) => s.removeAccount(activeAccount))
+    expect(next.accounts.some((a) => a.id === activeAccount)).toBe(false)
+    expect(next.activeAccount).toBe(DEFAULT_ACCOUNT)
+    expect((await get(m.id)).accountId).toBe(DEFAULT_ACCOUNT)
+    expect(fs.existsSync(accountDir(activeAccount))).toBe(false)
+  })
+
+  test("restored sessions start on the account they were saved with", async () => {
+    await closeAll()
+    const workAccount = await addAccount("Again")
+    await switchTo(workAccount.id)
+    const m = await newMaster()
+    await switchTo(DEFAULT_ACCOUNT)
+    await runtime.dispose()
+    runtime = makeRuntime()
+    await sessions((s) => s.restore)
+    expect(configEnv(m.id)).toBe(accountDir(workAccount.id))
   })
 })

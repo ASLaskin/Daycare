@@ -5,6 +5,7 @@ import { dialog, ipcMain, shell } from "electron"
 import { execFile } from "node:child_process"
 import { asDirPath, type DirPath } from "../../shared/ids.ts"
 import { Invoke, type InvokeChannel, type InvokePayload, type InvokeResult } from "../../shared/ipc.ts"
+import { Accounts } from "../accounts/Accounts.ts"
 import { AppPaths } from "../AppPaths.ts"
 import { Ui } from "../Ui.ts"
 import { Power } from "../power/Power.ts"
@@ -24,6 +25,7 @@ export const Ipc = Layer.effectDiscard(
     const sessions = yield* Sessions
     const settings = yield* SettingsStore
     const usage = yield* Usage
+    const accounts = yield* Accounts
     const power = yield* Power
     const skills = yield* Skills
     const updater = yield* Updater
@@ -57,10 +59,19 @@ export const Ipc = Layer.effectDiscard(
             }
           })
         }),
+      "open:url": (url) => (url.startsWith("https://") ? Effect.promise(() => shell.openExternal(url)) : Effect.void),
       "update:info": () => updater.info,
       "update:run": (source) => updater.run(source),
       "usage:get": () => usage.get,
       "usage:refresh": () => usage.refresh({ manual: true }),
+
+      "accounts:list": () => accounts.list,
+      "accounts:add": (label) => accounts.add(label),
+      "accounts:remove": (id) => sessions.removeAccount(id),
+      "accounts:switch": (id) => sessions.switchAccount(id),
+      "accounts:login": (id) => accounts.login(id),
+      "accounts:login-code": ({ id, code }) => accounts.loginCode(id, code),
+      "accounts:login-cancel": (id) => accounts.cancelLogin(id),
 
       "session:list": () => sessions.list,
       "master:create": (options) => sessions.createMaster(options),
@@ -69,6 +80,7 @@ export const Ipc = Layer.effectDiscard(
       "session:reopen": (id) => sessions.reopen(id),
       "session:delete": (id) => sessions.remove(id),
       "session:menu": sessionMenu,
+      "coordinator:restart": () => sessions.restartCoordinator,
 
       "power:status": () => power.status,
       "power:restore": () => power.restore,

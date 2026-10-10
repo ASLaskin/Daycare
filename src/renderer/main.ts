@@ -4,7 +4,9 @@ import "./fonts.css"
 import "./styles/index.css"
 import "./skills/skills.css"
 import "./chat/chat.css"
+import { initAccountPicker } from "./account-picker.ts"
 import { applyAppearance } from "./appearance.ts"
+import { initCoordinatorView } from "./coordinator-view.ts"
 import { $ } from "./dom.ts"
 import { relayoutAll } from "./layout.ts"
 import { initSidebarCollapse } from "./sidebar-collapse.ts"
@@ -32,6 +34,7 @@ onSettingsChanged(() => {
 })
 
 initUsage()
+initAccountPicker()
 initSidebarResize()
 initSidebarCollapse()
 initSettingsView()
@@ -42,4 +45,5 @@ $("#toggle-rail").onclick = toggleRail
 skills.mountManager($("#skills-panel"))
 skills.mountRail($("#skill-rail"))
 renderTabs()
+initCoordinatorView()
 await initSessions()
