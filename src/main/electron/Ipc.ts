@@ -7,6 +7,7 @@ import { asDirPath, type DirPath } from "../../shared/ids.ts"
 import { Invoke, type InvokeChannel, type InvokePayload, type InvokeResult } from "../../shared/ipc.ts"
 import { AppPaths } from "../AppPaths.ts"
 import { Ui } from "../Ui.ts"
+import { prepareImages } from "../chat/images.ts"
 import { Power } from "../power/Power.ts"
 import { ClaudeBinary } from "../sessions/Claude.ts"
 import { Sessions } from "../sessions/Sessions.ts"
@@ -14,6 +15,7 @@ import { SettingsStore } from "../settings/SettingsStore.ts"
 import { Skills } from "../skills/Skills.ts"
 import { Updater } from "../updater/Updater.ts"
 import { Usage } from "../usage/Usage.ts"
+import { downscale } from "./downscale.ts"
 import { MainWindow } from "./Window.ts"
 import { showSessionMenu } from "./sessionMenu.ts"
 
@@ -79,7 +81,8 @@ export const Ipc = Layer.effectDiscard(
       "skills:plugin": (input) => withProjectDirs((dirs) => skills.setPlugin(input, dirs)),
       "skills:restore": (input) => withProjectDirs((dirs) => skills.restore(input, dirs)),
 
-      "chat:send": ({ id, text }) => sessions.chatSend(id, text),
+      "chat:send": ({ id, text, images }) =>
+        prepareImages(images, downscale).pipe(Effect.flatMap((ready) => sessions.chatSend(id, text, ready))),
       "chat:interrupt": (id) => sessions.chatInterrupt(id),
       "chat:permission": ({ id, requestId, decision }) => sessions.chatRespond(id, requestId, decision),
       "chat:history": (id) => sessions.chatHistory(id),

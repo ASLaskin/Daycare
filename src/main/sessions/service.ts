@@ -3,6 +3,7 @@
 import { Effect } from "effect"
 import fs from "node:fs"
 import type { ChatEvent } from "../../shared/chat.ts"
+import type { ChatImage } from "../../shared/images.ts"
 import type { DirPath, RequestId, SessionId } from "../../shared/ids.ts"
 import type { PermissionDecision } from "../../shared/ipc.ts"
 import { parseJson } from "../../shared/json.ts"
@@ -20,7 +21,7 @@ export interface SessionsShape {
   readonly close: (id: SessionId) => Effect.Effect<void>
   readonly reopen: (id: SessionId) => Effect.Effect<void>
   readonly remove: (id: SessionId) => Effect.Effect<void>
-  readonly chatSend: (id: SessionId, text: string) => Effect.Effect<void>
+  readonly chatSend: (id: SessionId, text: string, images: ReadonlyArray<ChatImage>) => Effect.Effect<void>
   readonly chatInterrupt: (id: SessionId) => Effect.Effect<void>
   readonly chatRespond: (id: SessionId, requestId: RequestId, decision: PermissionDecision) => Effect.Effect<boolean>
   readonly chatHistory: (id: SessionId) => Effect.Effect<ReadonlyArray<ChatEvent>>
@@ -146,14 +147,14 @@ export const makeService = (core: Core, lifecycle: Lifecycle): SessionsShape => 
         lifecycle.removeSession(s)
         lifecycle.killSession(s)
       }),
-    chatSend: (id, text) =>
+    chatSend: (id, text, images) =>
       Effect.sync(() => {
         const s = sessions.get(id)
         if (!s) {
           return
         }
         s.hadTurn = true
-        run(chat.send(id, text))
+        run(chat.send(id, text, images))
         core.setStatus(s, "working", "thinking")
         core.persist()
       }),

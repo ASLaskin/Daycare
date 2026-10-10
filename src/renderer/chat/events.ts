@@ -8,6 +8,7 @@ import { setRunning } from "./running.ts"
 import { stick } from "./scroll.ts"
 import { renderTasks, task } from "./tasks.ts"
 import { textDelta, textFinal } from "./text.ts"
+import { sentThumbs } from "./thumbs.ts"
 import { settleThinking, thinking } from "./thinking.ts"
 import { toolEnd, toolStart } from "./tools.ts"
 import { clearEmpty, closeTurn, notice } from "./turn.ts"
@@ -30,14 +31,24 @@ const ready = (s: ChatSession, ev: ChatEventOf<"ready">) => {
   renderFoot(s)
 }
 
-const userMessage = (s: ChatSession, text: string) => {
+const omittedNote = (n: number) => el("div", "chat-user-omitted", `${n} earlier image${n === 1 ? "" : "s"} not shown`)
+
+const userMessage = (s: ChatSession, ev: ChatEventOf<"user">) => {
   closeTurn(s)
   clearEmpty(s)
   s.tasks.clear()
   renderTasks(s)
   prune(s)
   const m = el("div", "chat-msg chat-user")
-  m.append(el("div", "chat-bubble", text))
+  if (ev.images.length) {
+    m.append(sentThumbs(ev.images))
+  }
+  if (ev.omittedImages) {
+    m.append(omittedNote(ev.omittedImages))
+  }
+  if (ev.text) {
+    m.append(el("div", "chat-bubble", ev.text))
+  }
   s.thread.insertBefore(m, s.working)
   s.pinned = true
   stick(s)
@@ -87,6 +98,7 @@ const endSession = (s: ChatSession, ev: ChatEventOf<"exit">) => {
   s.input.disabled = true
   s.input.placeholder = "Session ended"
   s.send.disabled = true
+  s.attach.disabled = true
   stick(s)
 }
 
@@ -105,7 +117,7 @@ const rateLimit = (s: ChatSession, ev: ChatEventOf<"rate-limit">) => {
 const HANDLERS: { readonly [K in ChatEvent["kind"]]: (s: ChatSession, ev: ChatEventOf<K>) => void } = {
   ready,
   state: (s, ev) => setRunning(s, ev.state === "running"),
-  user: (s, ev) => userMessage(s, ev.text),
+  user: userMessage,
   "text-delta": (s, ev) => {
     settleThinking(s)
     textDelta(s, ev)

@@ -241,7 +241,7 @@ describe("chat events drive status", () => {
 
   test("sending a message marks the session working", async () => {
     const m = await newMaster()
-    await sessions((s) => s.chatSend(m.id, "hello"))
+    await sessions((s) => s.chatSend(m.id, "hello", []))
     expect((await get(m.id)).status).toBe("working")
     expect(chatOf(m.id).sent).toEqual(["hello"])
     expect((await get(m.id)).hadTurn).toBe(true)

@@ -1,4 +1,5 @@
 import { el } from "../dom.ts"
+import { ipcMessage } from "../ipc-error.ts"
 import { prune } from "./caps.ts"
 import { stick } from "./scroll.ts"
 import type { ChatSession } from "./types.ts"
@@ -39,4 +40,4 @@ export const notice = (s: ChatSession, kind: string, text: string, extra?: strin
   stick(s)
 }
 
-export const errorText = (err: unknown) => (err instanceof Error && err.message ? err.message : "unknown error")
+export const errorText = (err: unknown) => ipcMessage(err, "unknown error")

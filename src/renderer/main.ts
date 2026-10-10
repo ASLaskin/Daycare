@@ -6,6 +6,7 @@ import "./skills/skills.css"
 import "./chat/chat.css"
 import { applyAppearance } from "./appearance.ts"
 import { $ } from "./dom.ts"
+import { initDropGuard } from "./drop-guard.ts"
 import { relayoutAll } from "./layout.ts"
 import { initSidebarCollapse } from "./sidebar-collapse.ts"
 import { initSidebarResize } from "./sidebar-resize.ts"
@@ -31,6 +32,7 @@ onSettingsChanged(() => {
   renderSettings()
 })
 
+initDropGuard()
 initUsage()
 initSidebarResize()
 initSidebarCollapse()

@@ -1,3 +1,4 @@
+import type { ChatImage } from "../shared/images.ts"
 import type { RequestId, SessionId, SkillId } from "../shared/ids.ts"
 import type { Bridge, EventChannel, Events, InvokeChannel, InvokePayload, InvokeResult } from "../shared/ipc.ts"
 import type { PermissionDecision } from "../shared/ipc.ts"
@@ -65,7 +66,7 @@ export const api = {
   setSkillPlugin: (id: SkillId, enabled: boolean) => bridge.invoke("skills:plugin", { id, enabled }),
   restoreSkill: (id: SkillId) => bridge.invoke("skills:restore", { id }),
 
-  chatSend: (id: SessionId, text: string) => bridge.invoke("chat:send", { id, text }),
+  chatSend: (id: SessionId, text: string, images: ReadonlyArray<ChatImage>) => bridge.invoke("chat:send", { id, text, images }),
   chatInterrupt: call("chat:interrupt"),
   chatPermission: (id: SessionId, requestId: RequestId, decision: PermissionDecision) =>
     bridge.invoke("chat:permission", { id, requestId, decision }),

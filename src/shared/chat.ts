@@ -1,5 +1,6 @@
 // Chat events sent from main to the renderer.
 
+import type { ChatImage } from "./images.ts"
 import type { ClaudeSessionId, DirPath, RequestId, TaskId, ToolUseId } from "./ids.ts"
 import type { Json, JsonObject } from "./json.ts"
 
@@ -75,7 +76,13 @@ export type ChatEvent =
       // Set when the CLI withdrew the prompt
       readonly reason?: "cancelled"
     }
-  | { readonly kind: "user"; readonly text: string }
+  | {
+      readonly kind: "user"
+      readonly text: string
+      readonly images: ReadonlyArray<ChatImage>
+      // Images left out of history to bound its size
+      readonly omittedImages: number
+    }
   | { readonly kind: "rate-limit"; readonly percent: number }
   | { readonly kind: "error"; readonly message: string }
   | { readonly kind: "exit"; readonly code: number | null; readonly stderrTail: string }

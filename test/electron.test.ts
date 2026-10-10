@@ -25,6 +25,8 @@ mock.module("electron", () => ({
   shell: {},
   Menu: {},
   BrowserWindow: class {},
+  // Decoder that sees every image as small
+  nativeImage: { createFromBuffer: () => ({ isEmpty: () => false, getSize: () => ({ width: 10, height: 10 }) }) },
 }))
 
 // Modules under test, loaded after the electron mock
@@ -64,6 +66,7 @@ describe("Ipc", () => {
   const FakeSessions = Layer.succeed(Sessions, {
     rename: record("rename"),
     close: record("close"),
+    chatSend: record("chatSend"),
     list: Effect.succeed([]),
   } as never)
   const none = <S>(tag: S) => Layer.succeed(tag as never, {} as never)
@@ -99,6 +102,20 @@ describe("Ipc", () => {
       await expect(Promise.resolve(handlers.get("session:close")!({}, 7))).rejects.toThrow()
     })
     expect(calls).toEqual([["rename", ["a", "New"]]])
+  })
+
+  test("chat:send checks images before the session sees them", async () => {
+    calls.length = 0
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0]).toString("base64")
+    const pdf = Buffer.from("%PDF-1.7 file").toString("base64")
+    await withIpc(async () => {
+      await handlers.get("chat:send")!({}, { id: "a", text: "hi", images: [{ mediaType: "image/png", data: png }] })
+      await expect(Promise.resolve(handlers.get("chat:send")!({}, { id: "a", text: "hi", images: [{ mediaType: "image/png", data: pdf }] }))).rejects.toThrow(
+        "Only PNG, JPEG, GIF and WebP images are supported.",
+      )
+      await expect(Promise.resolve(handlers.get("chat:send")!({}, { id: "a", text: "hi", images: [{ mediaType: "image/tiff", data: png }] }))).rejects.toThrow()
+    })
+    expect(calls).toEqual([["chatSend", ["a", "hi", [{ mediaType: "image/png", data: png }]]]])
   })
 })
 

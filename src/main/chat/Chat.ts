@@ -3,11 +3,13 @@
 import { Context, Effect, Layer, PubSub, Scope, Stream } from "effect"
 import { randomUUID } from "node:crypto"
 import type { ChatEvent } from "../../shared/chat.ts"
+import type { ChatImage } from "../../shared/images.ts"
 import type { ClaudeSessionId, FilePath, RequestId, SessionId } from "../../shared/ids.ts"
 import type { PermissionDecision } from "../../shared/ipc.ts"
 import { ChatProcess, type ChatStart } from "./ChatProcess.ts"
 import type { StreamNormalizer } from "./normalize.ts"
 import { HISTORY_MAX } from "./transcript.ts"
+import { userContent } from "./userContent.ts"
 
 export type { ChatStart }
 
@@ -30,7 +32,7 @@ export interface ChatShape {
   // Stream of every chat's events.
   readonly subscribe: Effect.Effect<Stream.Stream<ChatMessage>, never, Scope.Scope>
   readonly start: (opts: ChatStart) => Effect.Effect<void>
-  readonly send: (id: SessionId, text: string) => Effect.Effect<void>
+  readonly send: (id: SessionId, text: string, images?: ReadonlyArray<ChatImage>) => Effect.Effect<void>
   readonly interrupt: (id: SessionId) => Effect.Effect<void>
   readonly respond: (id: SessionId, requestId: RequestId, decision: PermissionDecision) => Effect.Effect<boolean>
   readonly stop: (id: SessionId) => Effect.Effect<void>
@@ -70,14 +72,14 @@ const make = (claudePath: FilePath) =>
         chats.set(opts.id, c)
       })
 
-    const send = (id: SessionId, text: string) =>
+    const send = (id: SessionId, text: string, images: ReadonlyArray<ChatImage> = []) =>
       Effect.sync(() => {
         const c = live(id)
         if (!c) {
           return
         }
-        c.emitAll([{ kind: "user", text }])
-        c.write({ type: "user", message: { role: "user", content: text }, parent_tool_use_id: null })
+        c.emitAll([{ kind: "user", text, images, omittedImages: 0 }])
+        c.write({ type: "user", message: { role: "user", content: userContent(text, images) }, parent_tool_use_id: null })
       })
 
     const interrupt = (id: SessionId) =>

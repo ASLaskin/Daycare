@@ -9,6 +9,7 @@ import { Chat } from "../src/main/chat/Chat.ts"
 import { historyFromTranscript } from "../src/main/chat/transcript.ts"
 import type { ChatEvent } from "../src/shared/chat.ts"
 import { asDirPath, asFilePath, asRequestId, asSessionId, type FilePath } from "../src/shared/ids.ts"
+import { asBase64, type ChatImage } from "../src/shared/images.ts"
 import { at, type Json, parseJson, str, strings } from "../src/shared/json.ts"
 
 const FAKE = path.join(import.meta.dir, "fixtures", "fake-claude.js")
@@ -307,6 +308,18 @@ test("turns sent before the child spawns are flushed in order, surviving backpre
   expect(run((chat) => chat.history(m.id)).filter((e) => e.kind === "user").length).toBe(52)
 })
 
+test("images go to claude as content blocks and stay in history", async () => {
+  const image = { mediaType: "image/png" as const, data: asBase64("iVBORw0KGgo=") }
+  const m = launch([{ waitStdin: 2 }, { exit: 0 }])
+  run((chat) => chat.send(m.id, "what is this", [image]))
+  run((chat) => chat.send(m.id, "", [image]))
+  expect(await until(() => kinds(m.ev(), "exit").length === 1)).toBe(true)
+  const block = { type: "image", source: { type: "base64", media_type: "image/png", data: image.data } }
+  expect(m.stdin().map((l) => at(l, "message", "content"))).toEqual([[block, { type: "text", text: "what is this" }], [block]])
+  const users = kinds(run((chat) => chat.history(m.id)), "user")
+  expect(users.map((u) => [u.text, u.images])).toEqual([["what is this", [image]], ["", [image]]])
+})
+
 test("history is capped and deltas are streamed but not kept", async () => {
   const delta = (t: string) =>
     J({ type: "stream_event", event: { type: "content_block_delta", index: 1, delta: { type: "text_delta", text: t } }, parent_tool_use_id: null })
@@ -407,7 +420,7 @@ describe("transcript replay", () => {
 
   test("skips sidechain and meta entries and keeps block ids distinct", () => {
     expect(JSON.stringify(rebuilt)).not.toContain("subagent chatter")
-    expect(JSON.stringify(rebuilt)).not.toContain("Image")
+    expect(JSON.stringify(rebuilt)).not.toContain("[Image")
     expect(new Set(rebuilt.flatMap((e) => ("block" in e ? [e.block] : []))).size).toBe(2)
   })
 
@@ -423,6 +436,19 @@ describe("transcript replay", () => {
     const long = historyFromTranscript(capped)
     expect(long.length).toBe(2000)
     expect(item(long)).toMatchObject({ text: "tail" })
+  })
+
+  test("restores images sent as content parts", () => {
+    const tpi = asFilePath(path.join(dir, "images.jsonl"))
+    const source = { type: "base64", media_type: "image/jpeg", data: "/9j/4A==" }
+    fs.writeFileSync(
+      tpi,
+      J({ type: "user", message: { role: "user", content: [{ type: "image", source }, { type: "text", text: "see" }] }, uuid: "i1" }) +
+        J({ type: "user", message: { role: "user", content: [{ type: "image", source }] }, uuid: "i2" }),
+    )
+    const users = kinds(historyFromTranscript(tpi), "user")
+    const image: ChatImage = { mediaType: "image/jpeg", data: asBase64("/9j/4A==") }
+    expect(users.map((u) => [u.text, u.images])).toEqual([["see", [image]], ["", [image]]])
   })
 
   test("a session started with a transcript serves it as history", async () => {

@@ -6,6 +6,8 @@ import { asToolUseId, type FilePath } from "../../shared/ids.ts"
 import { arr, at, type JsonObject, num, obj, str } from "../../shared/json.ts"
 import { cap, flatten, structuredOf, toolResults, toolTitle } from "./content.ts"
 import { parseLine } from "./framing.ts"
+import { keepRecentImages } from "./historyImages.ts"
+import { imagesFromContent } from "./userContent.ts"
 
 export const HISTORY_MAX = 2000
 
@@ -19,7 +21,7 @@ export const historyFromTranscript = (transcriptPath: FilePath | null): Array<Ch
   } catch {
     return []
   }
-  return raw
+  const events = raw
     .split("\n")
     .map(parseLine)
     // Main thread entries only, no subagent turns or CLI notes.
@@ -34,21 +36,23 @@ export const historyFromTranscript = (transcriptPath: FilePath | null): Array<Ch
       return events
     }, [])
     .slice(-HISTORY_MAX)
+  return keepRecentImages(events)
 }
 
 const replayUser = (e: JsonObject): ReadonlyArray<ChatEvent> => {
   const content = at(e, "message", "content")
   if (typeof content === "string") {
-    return content.trim() ? [{ kind: "user", text: cap(content) }] : []
+    return content.trim() ? [{ kind: "user", text: cap(content), images: [], omittedImages: 0 }] : []
   }
   if (!Array.isArray(content)) {
     return []
   }
   const results = toolResults(content)
   if (!results.length) {
-    // User text sent as content parts.
+    // User text and images sent as content parts.
     const text = flatten(content)
-    return text.trim() ? [{ kind: "user", text }] : []
+    const images = imagesFromContent(content)
+    return text.trim() || images.length ? [{ kind: "user", text, images, omittedImages: 0 }] : []
   }
   return results.map(
     (p): ChatEvent => ({

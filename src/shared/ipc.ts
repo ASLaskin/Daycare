@@ -2,6 +2,7 @@
 
 import { Schema } from "effect"
 import type { ChatEvent } from "./chat.ts"
+import { ChatImage } from "./images.ts"
 import { DirPath, type FilePath, RequestId, SessionId } from "./ids.ts"
 import type { PowerStatus } from "./power.ts"
 import { NewMaster, type SessionView } from "./session.ts"
@@ -49,7 +50,7 @@ export const Invoke = {
   "skills:plugin": SetSkillPlugin,
   "skills:restore": RestoreSkill,
 
-  "chat:send": Schema.Struct({ id: Id, text: Schema.String }),
+  "chat:send": Schema.Struct({ id: Id, text: Schema.String, images: Schema.Array(ChatImage) }),
   "chat:interrupt": Id,
   "chat:permission": Schema.Struct({ id: Id, requestId: RequestId, decision: PermissionDecision }),
   "chat:history": Id,
