@@ -6,6 +6,10 @@ import { execFile } from "node:child_process"
 import { asDirPath, type DirPath } from "../../shared/ids.ts"
 import { Invoke, type InvokeChannel, type InvokePayload, type InvokeResult } from "../../shared/ipc.ts"
 import { Accounts } from "../accounts/Accounts.ts"
+import { isRunnablePath } from "../../shared/media.ts"
+import { handleMedia, MediaAllowlist } from "../attachments/MediaProtocol.ts"
+import { existingPath, resolveMentions } from "../attachments/paths.ts"
+import { validateUrl } from "../attachments/urls.ts"
 import { AppPaths } from "../AppPaths.ts"
 import { Ui } from "../Ui.ts"
 import { Power } from "../power/Power.ts"
@@ -37,6 +41,9 @@ export const Ipc = Layer.effectDiscard(
     const withProjectDirs = <A, E>(f: (dirs: ReadonlyArray<DirPath>) => Effect.Effect<A, E>) => Effect.flatMap(sessions.projectDirs, f)
 
     const sessionMenu = showSessionMenu(sessions, ui, win)
+
+    const media = new MediaAllowlist()
+    handleMedia(media)
 
     const handlers: Handlers = {
       "app:defaults": () => Effect.succeed({ cwd: home, claude: claude.path }),
@@ -90,6 +97,23 @@ export const Ipc = Layer.effectDiscard(
       "skills:set": (input) => withProjectDirs((dirs) => skills.setState(input, dirs)),
       "skills:plugin": (input) => withProjectDirs((dirs) => skills.setPlugin(input, dirs)),
       "skills:restore": (input) => withProjectDirs((dirs) => skills.restore(input, dirs)),
+
+      "attachment:resolve": (req) =>
+        resolveMentions(req, home).pipe(Effect.tap((found) => Effect.sync(() => found.forEach((r) => media.allow(r.path))))),
+      "attachment:open-url": (raw) =>
+        validateUrl(raw).pipe(Effect.flatMap((url) => Effect.promise(() => shell.openExternal(url)))),
+      // Folders open in Finder; runnable files are only revealed
+      "attachment:open": (raw) =>
+        existingPath(raw, home).pipe(
+          Effect.flatMap((found) =>
+            !found.isDir && isRunnablePath(found.path)
+              ? Effect.sync(() => shell.showItemInFolder(found.path))
+              : Effect.promise(() => shell.openPath(found.path)).pipe(
+                  Effect.flatMap((err) => (err ? Effect.fail({ message: err }) : Effect.void)),
+                ),
+          ),
+        ),
+      "attachment:reveal": (raw) => existingPath(raw, home).pipe(Effect.map((found) => shell.showItemInFolder(found.path))),
 
       "chat:send": ({ id, text }) => sessions.chatSend(id, text),
       "chat:interrupt": (id) => sessions.chatInterrupt(id),

@@ -1,19 +1,17 @@
+// Rail width, dragged from the panel's left edge.
+
 import { settings } from "../store.ts"
-import { RAIL_DEFAULT_WIDTH, rail, saveRail } from "./rail-state.ts"
+import { RAIL_DEFAULT_WIDTH, saveRail } from "./state.ts"
 
 const MIN_WIDTH = 200
 const MAX_WIDTH = 480
 
-export const applyRailWidth = () => {
-  if (!rail.els) {
-    return
-  }
+export const applyRailWidth = (root: HTMLElement) => {
   const w = settings().railWidth
-  const width = Number.isFinite(w) && w >= MIN_WIDTH ? Math.min(MAX_WIDTH, w) : RAIL_DEFAULT_WIDTH
-  rail.els.root.style.setProperty("--sr-panel", `${width}px`)
+  const px = Number.isFinite(w) && w >= MIN_WIDTH ? Math.min(MAX_WIDTH, w) : RAIL_DEFAULT_WIDTH
+  root.style.setProperty("--sr-panel", `${px}px`)
 }
 
-// Drag handle on the panel's left edge
 export const wireRailHandle = (handle: HTMLElement, root: HTMLElement) => {
   let drag: { w: number | null; right: number } | null = null
   handle.addEventListener("pointerdown", (e) => {

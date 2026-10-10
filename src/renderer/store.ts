@@ -22,6 +22,7 @@ const emitter = () => {
 
 const settingsChanged = emitter()
 const focusChanged = emitter()
+const sessionsChanged = emitter()
 
 let current: Settings | null = null
 
@@ -55,3 +56,5 @@ export const applySettings = (next: Settings) => {
 export const onSettingsChanged = settingsChanged.on
 export const onFocusChanged = focusChanged.on
 export const fireFocusChanged = focusChanged.fire
+export const onSessionsChanged = sessionsChanged.on
+export const fireSessionsChanged = sessionsChanged.fire

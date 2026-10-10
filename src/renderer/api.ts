@@ -76,6 +76,11 @@ export const api = {
   setSkillPlugin: (id: SkillId, enabled: boolean) => bridge.invoke("skills:plugin", { id, enabled }),
   restoreSkill: (id: SkillId) => bridge.invoke("skills:restore", { id }),
 
+  resolvePaths: call("attachment:resolve"),
+  openLink: call("attachment:open-url"),
+  openPath: call("attachment:open"),
+  revealPath: call("attachment:reveal"),
+
   chatSend: (id: SessionId, text: string) => bridge.invoke("chat:send", { id, text }),
   chatInterrupt: call("chat:interrupt"),
   chatModel: (id: SessionId, model: string) => bridge.invoke("chat:model", { id, model }),

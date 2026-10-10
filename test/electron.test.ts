@@ -23,6 +23,7 @@ mock.module("electron", () => ({
   },
   dialog: {},
   shell: {},
+  protocol: { handle: () => {} },
   Menu: {},
   BrowserWindow: class {},
 }))

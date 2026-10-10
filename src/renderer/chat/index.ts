@@ -3,6 +3,7 @@
 import type { ChatEvent } from "../../shared/chat.ts"
 import type { SessionId } from "../../shared/ids.ts"
 import type { SessionView } from "../../shared/session.ts"
+import { forgetAttachments } from "../attachments/store.ts"
 import { onSettingsChanged } from "../store.ts"
 import { prune } from "./caps.ts"
 import { autosize, wireComposer } from "./composer.ts"
@@ -188,4 +189,5 @@ export const dispose = (id: SessionId) => {
   s.perms.clear()
   s.tasks.clear()
   sessions.delete(id)
+  forgetAttachments(id)
 }

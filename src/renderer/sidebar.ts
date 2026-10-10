@@ -8,6 +8,7 @@ import { isRenaming } from "./rename.ts"
 import { closedRows, openRows } from "./sidebar-items.ts"
 import { closedDots, openDots } from "./sidebar-strip.ts"
 import { closedInfo, panes } from "./state.ts"
+import { fireSessionsChanged } from "./store.ts"
 
 const newestFirst = (a: SessionView, b: SessionView) => b.createdAt - a.createdAt
 
@@ -24,4 +25,5 @@ export const renderSidebar = () => {
   const openViews = open.map((info) => ({ info, active: info.id === active }))
   syncChildren($("#master-list"), [...openRows(openViews), ...(closed.length ? [closedHeading] : []), ...closedRows(closed)])
   syncChildren($("#master-strip"), [...openDots(openViews), ...(closed.length ? [closedDivider] : []), ...closedDots(closed)])
+  fireSessionsChanged()
 }

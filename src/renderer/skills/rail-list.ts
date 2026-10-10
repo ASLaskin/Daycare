@@ -1,9 +1,9 @@
 import type { SkillRow } from "../../shared/skills.ts"
 import { el } from "../dom.ts"
 import { focused, insertIntoFocused } from "../focus.ts"
-import { focusedCwd, railRows, runnable } from "./rail-filter.ts"
+import { railRows } from "./rail-filter.ts"
 import { rail } from "./rail-state.ts"
-import { fmt, store } from "./state.ts"
+import { store } from "./state.ts"
 
 const flash = (text: string, kind: "ok" | "warn") => {
   if (!rail.els) {
@@ -60,12 +60,9 @@ export const renderRailList = () => {
   if (!rail.els) {
     return
   }
-  const { list, count } = rail.els
-  const data = store.data
+  const { list } = rail.els
   const rows = railRows(rail.query)
   rail.visible = rows
-  const cwd = focusedCwd()
-  count.textContent = data ? fmt(data.skills.filter((r) => runnable(r, cwd)).length) : ""
   if (!rows.some((r) => r.id === rail.activeId)) {
     rail.activeId = rows[0]?.id ?? null
   }

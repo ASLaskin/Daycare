@@ -5,6 +5,7 @@ import { Effect, Fiber, Layer } from "effect"
 import path from "node:path"
 import { Accounts } from "./accounts/Accounts.ts"
 import { AppPaths } from "./AppPaths.ts"
+import { registerMediaScheme } from "./attachments/MediaProtocol.ts"
 import { Chat } from "./chat/Chat.ts"
 import { ControlEndpoint, ControlHttpServer, ControlRoutes } from "./control/ControlServer.ts"
 import { coordinatorSessions } from "./coordinator/CoordinatorSessions.ts"
@@ -26,6 +27,7 @@ import { Usage } from "./usage/Usage.ts"
 import { UsageSource } from "./usage/UsageSource.ts"
 
 app.setName("Daycare")
+registerMediaScheme()
 
 const Platform = Layer.mergeAll(ElectronPaths, ClaudeBinary.layer, Skills.layer)
 
