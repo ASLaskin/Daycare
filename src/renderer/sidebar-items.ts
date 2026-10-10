@@ -1,5 +1,6 @@
 // Sidebar entries for open and closed masters.
 
+import { iconFile, iconInPack } from "../shared/icons.ts"
 import type { SessionId } from "../shared/ids.ts"
 import type { SessionView } from "../shared/session.ts"
 import { api } from "./api.ts"
@@ -19,7 +20,7 @@ export interface OpenView {
 }
 
 // Closed masters get a still sprite frame.
-const avatarSrc = (m: SessionView) => `icons/${m.icon}.${m.status === "closed" ? "png" : "gif"}`
+const avatarSrc = (m: SessionView) => `icons/${iconFile(iconInPack(m.icon ?? "", settings().iconPack), m.status === "closed")}`
 
 // Avatar, name, and status shared by open and closed masters.
 const masterShell = (current: () => SessionView) => {

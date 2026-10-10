@@ -1,6 +1,7 @@
 // App settings schema, defaults and merging.
 
 import { Option, Schema } from "effect"
+import { IconPack } from "./icons.ts"
 import { DirPath } from "./ids.ts"
 import { isJsonObject, type Json } from "./json.ts"
 import { PermissionMode, Provider } from "./session.ts"
@@ -23,6 +24,7 @@ export const Settings = Schema.Struct({
   randomNames: Schema.Boolean,
   doneSounds: Schema.Boolean,
   showIcons: Schema.Boolean,
+  iconPack: IconPack,
   showContext: Schema.Boolean,
   defaultLocation: Schema.Int,
   model: Schema.String,
@@ -57,6 +59,7 @@ export const baseSettings: Omit<Settings, "locations"> = {
   randomNames: true,
   doneSounds: true,
   showIcons: true,
+  iconPack: "pokemon",
   showContext: true,
   defaultLocation: 0,
   model: "opus",
@@ -73,7 +76,7 @@ export const baseSettings: Omit<Settings, "locations"> = {
   monoFont: "system",
   layout: "stack",
   splits: {},
-  sidebarWidth: 264,
+  sidebarWidth: 288,
   sidebarCollapsed: false,
   railWidth: 252,
   zoomDblClick: true,

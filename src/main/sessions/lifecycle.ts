@@ -101,7 +101,7 @@ export const makeLifecycle = (core: Core): Lifecycle => {
       return null
     }
     const used = [...sessions.values()].filter((x) => x.role === "master").map((x) => x.icon)
-    return nextIcon(new Set(used))
+    return nextIcon(new Set(used), run(settings.get).iconPack)
   }
 
   const nameFor = (options: CreateOptions) => {
