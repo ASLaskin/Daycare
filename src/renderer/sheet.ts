@@ -1,7 +1,7 @@
 // New session popup form.
 
 import { asDirPath } from "../shared/ids.ts"
-import type { NewMaster, PermissionMode } from "../shared/session.ts"
+import type { NewMaster, PermissionMode, Provider } from "../shared/session.ts"
 import { api } from "./api.ts"
 import { $, baseName, el, tildify } from "./dom.ts"
 import { settings } from "./store.ts"
@@ -18,6 +18,7 @@ const form = () => {
     cwd: field<HTMLSelectElement>("cwd"),
     model: field<HTMLSelectElement>("model"),
     permissionMode: field<HTMLSelectElement>("permissionMode"),
+    provider: field<HTMLSelectElement>("provider"),
   }
 }
 
@@ -38,6 +39,7 @@ export const openSheet = (locIndex: number) => {
   f.cwd.value = s.locations[locIndex]?.path ?? ""
   f.model.value = s.model
   f.permissionMode.value = s.permissionMode
+  f.provider.value = s.provider
   sheet().classList.remove("hidden")
   f.task.focus()
 }
@@ -49,6 +51,7 @@ const readForm = (): NewMaster => {
     task: f.task.value.trim(),
     model: f.model.value,
     permissionMode: f.permissionMode.value as PermissionMode,
+    provider: f.provider.value as Provider,
     cwd: asDirPath(f.cwd.value),
     ...(name ? { name } : {}),
   }

@@ -46,6 +46,7 @@ export const mount = (info: SessionView, host: HTMLElement) => {
   const ro = new ResizeObserver(() => onResize(s))
   const s: ChatSession = {
     id: info.id,
+    info,
     name: info.name,
     cwd: info.cwd,
     host,
@@ -113,6 +114,22 @@ export const hydrate = (id: SessionId, events: ReadonlyArray<ChatEvent>) => {
     }, 50)
     s.timers.add(t)
   }
+}
+
+// Redraw a mounted pane from authoritative history
+export const reset = (id: SessionId, events: ReadonlyArray<ChatEvent>) => {
+  const s = sessions.get(id)
+  if (!s) {
+    return
+  }
+  const draft = s.input.value
+  mount(s.info, s.host)
+  const fresh = sessions.get(id)
+  if (fresh && draft) {
+    fresh.input.value = draft
+    autosize(fresh.input)
+  }
+  hydrate(id, events)
 }
 
 export const event = (id: SessionId, ev: ChatEvent) => {

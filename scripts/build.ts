@@ -1,6 +1,6 @@
-// Bundles main, preload and renderer into dist.
+// Bundles main, preload, renderer and the coordinator into dist.
 
-import { cpSync, mkdirSync, readdirSync, rmSync } from "node:fs"
+import { cpSync, mkdirSync, rmSync } from "node:fs"
 import path from "node:path"
 
 const root = path.resolve(import.meta.dir, "..")
@@ -26,6 +26,14 @@ const builds = await Promise.all([
     external: ["electron"],
     sourcemap: "linked",
   }),
+  // Run by Bun from outside the app archive
+  Bun.build({
+    entrypoints: [path.join(root, "src/coordinator/main.ts"), path.join(root, "src/coordinator/mcp.ts")],
+    outdir: path.join(out, "coordinator"),
+    naming: "[name].js",
+    target: "bun",
+    sourcemap: "linked",
+  }),
   Bun.build({
     entrypoints: [path.join(root, "src/renderer/index.html")],
     outdir: path.join(out, "renderer"),
@@ -44,8 +52,6 @@ if (failed.length) {
 const icons = path.join(root, "assets/icons")
 const iconsOut = path.join(out, "renderer/icons")
 mkdirSync(iconsOut, { recursive: true })
-readdirSync(icons)
-  .filter((file) => /\.(gif|png)$/.test(file))
-  .forEach((file) => cpSync(path.join(icons, file), path.join(iconsOut, file)))
+cpSync(icons, iconsOut, { recursive: true })
 
 console.log(`Built ${builds.flatMap((b) => b.outputs).length} files into dist/`)

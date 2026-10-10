@@ -40,6 +40,7 @@ export const api = {
   onUpdateLog: on("update:log"),
   getUsage: ask("usage:get"),
   refreshUsage: ask("usage:refresh"),
+  restartCoordinator: ask("coordinator:restart"),
   onUsage: on("usage:update"),
 
   listSessions: ask("session:list"),
@@ -71,4 +72,6 @@ export const api = {
     bridge.invoke("chat:permission", { id, requestId, decision }),
   chatHistory: call("chat:history"),
   onChatEvent: on("chat:event"),
+  onChatReset: on("chat:reset"),
+  onCoordinatorStatus: on("coordinator:status"),
 }

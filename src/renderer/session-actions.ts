@@ -25,7 +25,7 @@ export const relocateMaster = async (id: SessionId, cwd: DirPath) => {
   if (!info || !isPristine(info) || info.cwd === cwd) {
     return
   }
-  await api.createMaster({ task: "", cwd, model: info.model, permissionMode: info.permissionMode })
+  await api.createMaster({ task: "", cwd, model: info.model, permissionMode: info.permissionMode, provider: info.provider })
   api.deleteSession(id)
 }
 
