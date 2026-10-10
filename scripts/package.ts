@@ -29,7 +29,8 @@ const [outDir] = await packager({
   out: path.join(root, "out"),
   overwrite: true,
   prune: false,
-  asar: true,
+  // Unpacked for Bun
+  asar: { unpack: "**/dist/coordinator/**" },
   ignore: [
     /^\/(?!(dist|assets|package\.json)(\/|$))/,
     // Drop assets the renderer already bundles

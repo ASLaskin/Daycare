@@ -1,0 +1,23 @@
+/* Blocking coordinator status screen. */
+
+.coordinator-block {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  background: var(--overlay);
+  backdrop-filter: blur(6px);
+  text-align: center;
+}
+.coordinator-block[hidden] { display: none; }
+.coordinator-block h2 { margin: 0; font-size: 16px; color: var(--text); }
+.coordinator-block p { margin: 0; max-width: 460px; color: var(--muted); line-height: 1.5; }
+
+/* Fields that only apply on the coordinator. */
+.provider-field { display: none; }
+body.coordinator .provider-field { display: revert; }

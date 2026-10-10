@@ -17,6 +17,8 @@ export const PermissionDecision = Schema.Struct({
   message: Schema.optionalKey(Schema.String),
   updatedInput: Schema.optionalKey(Schema.Json),
   updatedPermissions: Schema.optionalKey(Schema.Array(Schema.Json)),
+  // An exact offered choice, picked from the request's own answers
+  choice: Schema.optionalKey(Schema.String),
 })
 export type PermissionDecision = typeof PermissionDecision.Type
 
@@ -39,6 +41,7 @@ export const Invoke = {
   "session:reopen": Id,
   "session:delete": Id,
   "session:menu": Id,
+  "coordinator:restart": None,
 
   "power:status": None,
   "power:restore": None,
@@ -90,6 +93,7 @@ export interface InvokeResult {
   "session:reopen": void
   "session:delete": void
   "session:menu": void
+  "coordinator:restart": void
 
   "power:status": PowerStatus
   "power:restore": PowerStatus
@@ -106,7 +110,16 @@ export interface InvokeResult {
   "chat:history": ReadonlyArray<ChatEvent>
 }
 
+export type CoordinatorStatus =
+  | { readonly state: "connecting" }
+  | { readonly state: "connected" }
+  | { readonly state: "mismatch"; readonly coordinator: string; readonly app: string }
+  | { readonly state: "unavailable"; readonly message: string }
+
 export interface Events {
+  "coordinator:status": CoordinatorStatus
+  // Authoritative history replacing everything a pane has drawn
+  "chat:reset": { readonly id: SessionId; readonly events: ReadonlyArray<ChatEvent> }
   "session:created": SessionView
   "session:update": SessionView
   "session:removed": { readonly id: SessionId; readonly parentId: SessionId | null }

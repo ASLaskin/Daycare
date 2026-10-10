@@ -11,6 +11,7 @@ export class LineFramer {
   push(chunk: string): { readonly lines: ReadonlyArray<string>; readonly dropped: boolean } {
     this.buf += chunk
     const lines: Array<string> = []
+    let dropped = false
     let start = 0
     let nl: number
     while ((nl = this.buf.indexOf("\n", start)) !== -1) {
@@ -21,10 +22,13 @@ export class LineFramer {
         this.discarding = false
         continue
       }
+      if (line.length > MAX_LINE) {
+        dropped = true
+        continue
+      }
       lines.push(line)
     }
     this.buf = this.buf.slice(start)
-    let dropped = false
     if (this.buf.length > MAX_LINE) {
       this.buf = ""
       this.discarding = true
@@ -44,7 +48,7 @@ export class LineFramer {
 }
 
 export const parseLine = (line: string): JsonObject | null => {
-  if (!line.trim() || line.length > MAX_LINE) {
+  if (!line.trim()) {
     return null
   }
   return obj(parseJson(line) ?? undefined)

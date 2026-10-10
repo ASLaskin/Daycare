@@ -15,6 +15,7 @@ export const renderGeneral = () => {
   input("set-keep-awake-lid").checked = s.keepAwakeLidClosed
   $("#keep-awake-lid-row").classList.toggle("collapsed", s.keepAwake === "off")
   locationOptions(select("set-default-location"), s.defaultLocation)
+  select("set-provider").value = s.provider
   select("set-model").value = s.model
   select("set-permission").value = s.permissionMode
   renderLocationRows()
@@ -29,6 +30,7 @@ export const wireGeneral = () => {
     setCurrentLocation(Number(v))
     return saveSettings({ defaultLocation: Number(v) })
   })
+  onSelect("set-provider", (v) => saveSettings({ provider: v as Settings["provider"] }))
   onSelect("set-model", (model) => saveSettings({ model }))
   onSelect("set-permission", (v) => saveSettings({ permissionMode: v as Settings["permissionMode"] }))
   onSelect("set-keep-awake", (v) => saveSettings({ keepAwake: v as Settings["keepAwake"] }))
