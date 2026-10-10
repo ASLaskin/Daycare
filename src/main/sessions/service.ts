@@ -3,10 +3,12 @@
 import { Effect } from "effect"
 import fs from "node:fs"
 import type { ChatEvent } from "../../shared/chat.ts"
-import type { DirPath, RequestId, SessionId } from "../../shared/ids.ts"
+import type { AccountId, DirPath, RequestId, SessionId } from "../../shared/ids.ts"
 import type { PermissionDecision } from "../../shared/ipc.ts"
 import { parseJson } from "../../shared/json.ts"
 import type { NewMaster, SessionRecord, SessionView } from "../../shared/session.ts"
+import type { Settings } from "../../shared/settings.ts"
+import { type AccountInUse, makeAccountActions } from "./accounts.ts"
 import type { Core } from "./core.ts"
 import type { Lifecycle } from "./lifecycle.ts"
 import { type CreateOptions, decodeRecords, type Session, view } from "./model.ts"
@@ -25,6 +27,8 @@ export interface SessionsShape {
   readonly chatRespond: (id: SessionId, requestId: RequestId, decision: PermissionDecision) => Effect.Effect<boolean>
   readonly chatHistory: (id: SessionId) => Effect.Effect<ReadonlyArray<ChatEvent>>
   readonly restore: Effect.Effect<void>
+  readonly switchAccount: (to: AccountId) => Effect.Effect<Settings>
+  readonly removeAccount: (id: AccountId) => Effect.Effect<Settings, AccountInUse>
   // Folders whose project skills apply
   readonly projectDirs: Effect.Effect<ReadonlyArray<DirPath>>
 }
@@ -85,12 +89,16 @@ export const makeService = (core: Core, lifecycle: Lifecycle): SessionsShape => 
         model: r.model,
         permissionMode: r.permissionMode,
         name: r.name,
+        accountId: r.accountId,
         ...(r.parentId ? { parentId: r.parentId } : {}),
       },
       r,
     )
 
+  const accountActions = makeAccountActions(core, lifecycle)
+
   return {
+    ...accountActions,
     list: Effect.sync(() => [...sessions.values()].map(view)),
     get: (id) =>
       Effect.sync(() => {

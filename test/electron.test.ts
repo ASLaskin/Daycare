@@ -40,6 +40,7 @@ const { Power } = await import("../src/main/power/Power.ts")
 const { Skills } = await import("../src/main/skills/Skills.ts")
 const { Usage } = await import("../src/main/usage/Usage.ts")
 const { ClaudeBinary } = await import("../src/main/sessions/Claude.ts")
+const { Accounts } = await import("../src/main/accounts/Accounts.ts")
 
 const tmp = () => asDirPath(fs.mkdtempSync(path.join(os.tmpdir(), "daycare-electron-")))
 
@@ -50,6 +51,7 @@ const FakeUi = Layer.succeed(
     send: <C extends EventChannel>(channel: C, payload: Events[C]) => void sent.push({ channel, payload }),
     notify: () => {},
     confirm: () => Effect.succeed(true),
+    choose: () => Effect.succeed(0),
   }),
 )
 const paths = (appRoot: DirPath, userData = tmp()) => Layer.succeed(AppPaths, AppPaths.of({ appRoot, userData, home: userData }))
@@ -74,6 +76,7 @@ describe("Ipc", () => {
     paths(asDirPath("/app")),
     none(SettingsStore),
     none(Usage),
+    none(Accounts),
     none(Power),
     none(Skills),
     none(Updater),

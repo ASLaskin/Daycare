@@ -1,7 +1,8 @@
 // App settings schema, defaults and merging.
 
 import { Option, Schema } from "effect"
-import { DirPath } from "./ids.ts"
+import { Account, DEFAULT_ACCOUNT } from "./accounts.ts"
+import { AccountId, DirPath } from "./ids.ts"
 import { isJsonObject, type Json } from "./json.ts"
 import { PermissionMode } from "./session.ts"
 
@@ -45,6 +46,9 @@ export const Settings = Schema.Struct({
   maxCols: Schema.Int,
   stageGap: Schema.Finite,
   locations: Schema.Array(Location),
+  // Added accounts; Default is implicit
+  accounts: Schema.Array(Account),
+  activeAccount: AccountId,
 })
 export type Settings = typeof Settings.Type
 
@@ -74,6 +78,8 @@ export const baseSettings: Omit<Settings, "locations"> = {
   zoomDblClick: true,
   maxCols: 4,
   stageGap: 10,
+  accounts: [],
+  activeAccount: DEFAULT_ACCOUNT,
 }
 
 // Defaults overlaid with each decodable field of raw

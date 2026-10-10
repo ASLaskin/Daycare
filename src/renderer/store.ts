@@ -45,6 +45,13 @@ export const saveSettings = async (patch: Partial<Settings>) => {
   return current
 }
 
+// Settings returned by a main side action
+export const applySettings = (next: Settings) => {
+  current = next
+  settingsChanged.fire()
+  return current
+}
+
 export const onSettingsChanged = settingsChanged.on
 export const onFocusChanged = focusChanged.on
 export const fireFocusChanged = focusChanged.fire

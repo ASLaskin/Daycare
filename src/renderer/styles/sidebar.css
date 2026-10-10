@@ -106,3 +106,4 @@
 .master-item .meta, .master-item .progress, .master-item .worker-list { margin-left: 33px; }
 .master-item.no-avatar .meta, .master-item.no-avatar .progress, .master-item.no-avatar .worker-list { margin-left: 0; }
 .rename-input { font: inherit; font-weight: 600; padding: 1px 6px; margin: -2px 0; width: 100%; min-width: 0; border-radius: var(--r-sm); }
+.master-item .meta .acct-tag { margin-left: auto; color: var(--faint); font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40%; }

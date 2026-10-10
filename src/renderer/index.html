@@ -20,6 +20,7 @@
         <div class="usage-head">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 11.5a5.5 5.5 0 0 1 11 0"/><path d="M8 11.5l2.6-3.4"/></svg>
           <span>Plan usage</span>
+          <select id="account-picker" class="account-picker hidden" title="Account for new sessions and usage" aria-label="Account"></select>
         </div>
         <div id="usage-body" class="usage-body"></div>
       </div>
@@ -264,6 +265,18 @@
               <button type="button" id="reset-layout" class="ghost">Reset sizes</button>
               <span class="hint">Puts the sidebar, skills rail, and every split back to their defaults.</span>
             </div>
+          </div>
+        </div>
+
+        <div id="panel-accounts" class="settings-panel hidden">
+          <div class="card">
+            <div class="card-title">Claude accounts</div>
+            <div class="hint">Each account signs in on its own and has its own plan usage. Default is your usual Claude Code login in ~/.claude. Added accounts share its CLAUDE.md, settings, skills, agents, commands, and plugins. Pick the active account next to Plan usage in the sidebar.</div>
+            <div id="account-rows" class="account-rows"></div>
+            <form id="add-account" class="add-account">
+              <input id="new-account-label" type="text" spellcheck="false" placeholder="Name, like Work or Personal" />
+              <button type="submit" class="ghost">Add and log in</button>
+            </form>
           </div>
         </div>
 

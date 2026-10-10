@@ -1,10 +1,13 @@
 // Patchable name, status, and context bits of sidebar rows.
 
+import { accountLabel } from "../shared/accounts.ts"
+import type { AccountId } from "../shared/ids.ts"
 import type { SessionStatus, SessionView } from "../shared/session.ts"
 import { contextLevel, fmtTokens, showContext } from "./context-meter.ts"
 import { el, setClass, setText } from "./dom.ts"
 import { beginRename } from "./rename.ts"
 import { STATUS_LABEL } from "./status.ts"
+import { settings } from "./store.ts"
 
 export const paintStatus = (node: HTMLElement, status: SessionStatus) => {
   setClass(node, `status ${status}`)
@@ -33,4 +36,10 @@ export const renamable = (cls: string, current: () => SessionView) => {
     beginRename(name, s.id, s.name)
   }
   return name
+}
+
+// Account label, only once more than Default exists
+export const accountTag = (id: AccountId): string | null => {
+  const { accounts } = settings()
+  return accounts.length ? accountLabel(accounts, id) : null
 }

@@ -1,7 +1,7 @@
 // Session model shared by main and renderer.
 
 import { Schema } from "effect"
-import { ClaudeSessionId, DirPath, FilePath, SessionId } from "./ids.ts"
+import { AccountId, ClaudeSessionId, DirPath, FilePath, SessionId } from "./ids.ts"
 
 export const SessionRole = Schema.Literals(["master", "worker"])
 export type SessionRole = typeof SessionRole.Type
@@ -30,6 +30,7 @@ export interface SessionView {
   // User has sent at least one message
   readonly hadTurn: boolean
   readonly context: number
+  readonly accountId: AccountId
 }
 
 // One persisted entry of sessions.json
@@ -47,6 +48,7 @@ export const SessionRecord = Schema.Struct({
   hadTurn: Schema.Boolean,
   createdAt: Schema.Number,
   closed: Schema.Boolean,
+  accountId: AccountId,
 })
 export type SessionRecord = typeof SessionRecord.Type
 
