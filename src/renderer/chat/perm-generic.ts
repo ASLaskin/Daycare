@@ -26,7 +26,7 @@ const CHOICE_LABEL: Readonly<Record<string, string>> = {
   cancel: "Deny and stop the turn",
 }
 const REFUSALS = new Set(["decline", "cancel", "deny"])
-// Claude's answers, which the Allow, Always and Deny buttons already cover
+// Answers the Allow, Always and Deny buttons cover
 const CLAUDE_CHOICES = new Set(["allow", "always", "deny"])
 
 // One button per answer the request offers

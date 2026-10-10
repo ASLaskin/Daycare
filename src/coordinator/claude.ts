@@ -49,24 +49,24 @@ export const startClaude = (
   }
   // Not yet taken by the SDK
   const inputs: Array<Pending> = []
-  // Taken, awaiting a reply frame stamped with the message's uuid
+  // Taken, awaiting a reply stamped with its uuid
   const unconfirmed = new Map<string, Pending>()
   const answers = new Map<RequestId, (answer: Answer) => boolean>()
   let wake = () => {}
   let closed = false
   let child: ChildProcess | null = null
 
-  // Stops taking input and refuses whatever was never taken
+  // Stops input, refusing anything never taken
   const end = (reason: string) => {
     closed = true
     inputs.splice(0).forEach((i) => i.refuse(new Refused(reason)))
-    // Taken but never answered: claude may have read them, so delivery is uncertain
+    // Taken but unanswered: delivery uncertain
     unconfirmed.forEach((i) => i.refuse(new Error(reason)))
     unconfirmed.clear()
     wake()
   }
 
-  // User messages handed to the SDK as they arrive
+  // User messages for the SDK
   async function* prompts(): AsyncGenerator<SDKUserMessage> {
     while (!closed) {
       const next = inputs.shift()
@@ -119,7 +119,7 @@ export const startClaude = (
     options: {
       pathToClaudeCodeExecutable: claudePath,
       systemPrompt: { type: "preset", preset: "claude_code", append: master ? MASTER_PROMPT : WORKER_PROMPT },
-      // Workers are visible Daycare sessions; Claude's own subagents would be hidden
+      // Workers replace Claude's own subagents
       disallowedTools: ["Task", "Agent"],
       ...(master
         ? {
@@ -127,7 +127,7 @@ export const startClaude = (
             allowedTools: DAYCARE_TOOLS.map((name) => `mcp__daycare__${name}`),
           }
         : {}),
-      // Own process group; tools that start their own group escape it (see docs/decisions.md)
+      // Own process group
       spawnClaudeCodeProcess: (o) => {
         const spawned = spawnGroup(o.command, o.args, { env: o.env, ...(o.cwd ? { cwd: o.cwd } : {}), signal: o.signal })
         child = spawned
@@ -143,7 +143,7 @@ export const startClaude = (
     },
   })
 
-  // A ready event confirms creation only with the saved native id
+  // Ready confirms creation only with the saved native id
   const emit = (event: ChatEvent) => {
     update({ type: "event", event })
     if (event.kind !== "ready") {
@@ -162,7 +162,7 @@ export const startClaude = (
     try {
       for await (const message of q) {
         const json = obj(toJson(message))
-        // claude stamps the first reply to each message with its uuid
+        // First reply carries the message uuid
         const stamped = unconfirmed.get(str(json?.["user_message_uuid"]) ?? "")
         if (stamped) {
           unconfirmed.delete(stamped.message.uuid ?? "")

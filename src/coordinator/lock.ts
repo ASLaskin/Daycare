@@ -9,7 +9,6 @@ const LOCK_NB = 4
 const flock = { args: [FFIType.i32, FFIType.i32], returns: FFIType.i32 } as const
 const errnoPointer = { args: [], returns: FFIType.ptr } as const
 
-// ponytail: the macOS branch is untested until it runs on a Mac
 const libc = () => {
   switch (process.platform) {
     case "linux": {
@@ -25,16 +24,16 @@ const libc = () => {
   }
 }
 
-// Held until release or process death; null when another process holds it
+// Null when another process holds it
 export const takeLock = (file: FilePath): { readonly release: () => void } | null => {
   const c = libc()
   const fd = openSync(file, "a", 0o600)
   if (c.flock(fd, LOCK_EX | LOCK_NB) === 0) {
-    // Lets clients find the running coordinator to stop it
+    // Records the pid for clients
     ftruncateSync(fd, 0)
     writeSync(fd, `${process.pid}\n`)
     let held = true
-    // Closes once; a reused fd number must never be closed again
+    // Closes at most once
     return {
       release: () => {
         if (held) {

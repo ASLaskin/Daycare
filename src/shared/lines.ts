@@ -1,6 +1,6 @@
 // Splits streamed text into complete lines.
 
-// Feed chunks; overflow fires when an unterminated line exceeds limit
+// Feed chunks; overflow fires on an over-limit line
 export const lineSplitter = (limit: number, onLine: (line: string) => void, onOverflow: () => void) => {
   let pending = ""
   return (chunk: string) => {

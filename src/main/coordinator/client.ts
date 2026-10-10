@@ -24,7 +24,7 @@ interface Pending {
   readonly reject: (error: Error) => void
 }
 
-// Stays connected, resubscribing for a fresh snapshot after every drop
+// Reconnects and resubscribes after every drop
 export const connect = (socket: string, version: string, on: CoordinatorHandlers) => {
   const pending = new Map<number, Pending>()
   let live: net.Socket | null = null

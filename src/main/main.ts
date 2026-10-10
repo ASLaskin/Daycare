@@ -46,7 +46,7 @@ const Services = Layer.mergeAll(
   Updater.layer,
 ).pipe(Layer.provideMerge(Window), Layer.provideMerge(Control))
 
-// Sessions plus the ControlHandlers it provides; the coordinator is default on Linux, opt-in on macOS until verified there
+// Sessions and ControlHandlers; coordinator default on Linux only
 const onCoordinator = process.env["DAYCARE_COORDINATOR"] ? process.env["DAYCARE_COORDINATOR"] === "1" : process.platform === "linux"
 const SessionsLive = onCoordinator ? coordinatorSessions(app.getVersion()) : Sessions.layer
 const Core = SessionsLive.pipe(Layer.provideMerge(Services))

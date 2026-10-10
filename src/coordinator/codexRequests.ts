@@ -10,16 +10,16 @@ export type CodexRequest =
       readonly kind: "approval"
       readonly choices: ReadonlyArray<string>
       readonly event: ChatEvent
-      // Codex's reply for an answer, or null when the choice was not offered
+      // Codex reply for an answer, null if not offered
       readonly reply: (answer: Answer) => Json | null
     }
   | { readonly kind: "unsupported"; readonly message: string }
-  // Answered without asking: Daycare's own orchestration tools
+  // Auto-answered: Daycare orchestration tools
   | { readonly kind: "auto"; readonly result: Json }
 
 const DECISIONS = ["accept", "acceptForSession", "decline", "cancel"]
 
-// Label of an offered decision: a string, or an object keyed by its name
+// Label of an offered decision
 const decisionLabel = (d: Json) => str(d) ?? Object.keys(obj(d) ?? {})[0] ?? null
 
 const permission = (request: RequestId, params: JsonObject, name: string, title: string, input: Json): ChatEvent => {
@@ -78,7 +78,7 @@ const permissionsApproval = (request: RequestId, params: JsonObject): CodexReque
   }
 }
 
-// Only tool-call approvals; forms need a schema-driven UI
+// Tool-call approvals only
 const elicitation = (request: RequestId, params: JsonObject): CodexRequest => {
   if (at(params, "_meta", "codex_approval_kind") !== "mcp_tool_call") {
     return { kind: "unsupported", message: `daycare does not support MCP ${str(params["mode"]) ?? "elicitation"} requests yet` }

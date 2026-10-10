@@ -1,4 +1,4 @@
-// Stdio MCP server giving one master the Daycare tools over the coordinator socket.
+// Stdio MCP server exposing Daycare tools to one master.
 
 import net from "node:net"
 import pkg from "../../package.json" with { type: "json" }
@@ -23,7 +23,7 @@ const pending = new Map<number, (reply: Reply) => void>()
 let nextId = 1
 let link: Promise<net.Socket> | null = null
 
-// Requests-only coordinator connection, opened on first use and after a drop
+// Requests-only connection, reopened after a drop
 const coordinator = (): Promise<net.Socket> => {
   link ??= new Promise((resolve, reject) => {
     const socket = net.createConnection(socketPath(runtimeDir(process.env)))
@@ -123,7 +123,7 @@ process.stdin.on(
     () => console.error("daycare mcp: dropped an oversized line"),
   ),
 )
-// Ends once stdin closes and the coordinator connection is gone
+// Ends when stdin and the connection close
 process.stdin.on("end", () => {
   void link?.then((s) => s.end()).catch(() => {})
 })

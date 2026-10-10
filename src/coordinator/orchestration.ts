@@ -15,7 +15,7 @@ const DEFAULT_WAIT_SECONDS = 900
 export const MAX_WAIT_SECONDS = 1700
 // How long a provider has to confirm it took a message
 export const ACK_MS = 30_000
-// MCP tool timeout given to providers; longer than the longest wait
+// MCP tool timeout given to providers
 export const TOOL_TIMEOUT_SECONDS = 1800
 
 export const DAYCARE_TOOLS = Object.keys(Tools)
@@ -51,7 +51,7 @@ interface Waiter {
   readonly finish: (timedOut: boolean) => void
 }
 
-// Provider confirmation, uncertain after the deadline or an ambiguous failure
+// Provider confirmation, or uncertain
 export const delivery = async (accepted: Promise<void>, ms = ACK_MS): Promise<"provider" | "uncertain"> => {
   let timer: ReturnType<typeof setTimeout> | undefined
   const late = new Promise<"uncertain">((resolve) => {
@@ -74,7 +74,7 @@ export const makeOrchestration = (core: OrchestrationCore, ackMs = ACK_MS) => {
 
   const workers = (master: SessionId) => core.sessions().filter((s) => s.parentId === master)
 
-  // A worker by id, else by case-insensitive name
+  // Worker by id, else case-insensitive name
   const worker = (master: SessionId, ref: string) => {
     const all = workers(master)
     const found = all.find((w) => w.id === ref) ?? all.find((w) => w.name.toLowerCase() === ref.toLowerCase())
@@ -87,7 +87,7 @@ export const makeOrchestration = (core: OrchestrationCore, ackMs = ACK_MS) => {
   // Absent once deleted
   const find = (id: SessionId) => core.sessions().find((s) => s.id === id)
 
-  // Stopped working: turn over, waiting on the user, closed, or deleted
+  // Done: turn over, needs user, closed, or deleted
   const settled = (id: SessionId) => {
     const s = find(id)
     return !s || core.needsUser(id) || s.closed || (s.state !== "creating" && s.state !== "running")
@@ -102,7 +102,7 @@ export const makeOrchestration = (core: OrchestrationCore, ackMs = ACK_MS) => {
     error: s.error,
   })
 
-  // Latest reply text, and whether older history was discarded
+  // Latest reply text and whether history was truncated
   const lastReply = (id: SessionId) => {
     const h = core.history(id)
     if ("error" in h) {
@@ -126,7 +126,6 @@ export const makeOrchestration = (core: OrchestrationCore, ackMs = ACK_MS) => {
       master,
       name: input.name,
       provider,
-      // Model names do not carry across providers
       model: input.model ?? (provider === master.provider ? master.model : null),
       cwd: input.cwd ?? master.cwd,
     })
@@ -154,7 +153,6 @@ export const makeOrchestration = (core: OrchestrationCore, ackMs = ACK_MS) => {
       }
       const waiter: Waiter = { ids, finish }
       const timer = setTimeout(() => finish(true), seconds * 1000)
-      // The caller went away; nothing is left to answer
       const abandon = () => {
         waiters.delete(waiter)
         clearTimeout(timer)

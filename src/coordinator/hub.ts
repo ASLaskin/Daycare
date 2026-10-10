@@ -16,7 +16,7 @@ export type Launch = (session: StoredSession, update: (u: ProviderUpdate) => voi
 // False when the subscriber can take no more
 export type Subscriber = (msg: ServerMessage) => boolean
 
-// Serialized history one snapshot may carry, under the client's line limit
+// History budget for one snapshot
 export const SNAPSHOT_BUDGET = 192 * 1024 * 1024
 
 export type CommandResult = { readonly result: Json } | { readonly error: string }
@@ -32,15 +32,15 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
   const unavailable = loaded.flatMap((l) => ("error" in l ? [l.error] : []))
   const providers = new Map<SessionId, { readonly handle: ProviderHandle; readonly run: number }>()
   const approvals = new Map<string, Approval>()
-  // Run being launched, current before its handle is stored
+  // Run being launched, before its handle exists
   const launching = new Map<SessionId, number>()
-  // Providers still shutting down after close; a new run waits for them
+  // Providers still shutting down after close
   const closing = new Map<SessionId, Promise<void>>()
   const subscribers = new Set<Subscriber>()
   let seq = 0
-  // Set synchronously when shutdown begins; no new work is admitted after
+  // Set when shutdown begins
   let stopping: Promise<void> | null = null
-  // Re-checks orchestration waits; set once orchestration exists
+  // Re-checks orchestration waits
   let settleWaits = () => {}
 
   const session = (id: SessionId) => {
@@ -73,13 +73,13 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
     broadcast({ kind: "session", session: live(loaded.session) })
   }
 
-  // Recorded under the run that produced it, by default the session's latest
+  // Recorded under its run, by default the latest
   const chat = (id: SessionId, event: ChatEvent, run = session(id).run) => {
     record(db, id, run, event)
     broadcast({ kind: "chat", session: id, event })
   }
 
-  // Ends a turn in progress whose provider is gone, then marks the session interrupted
+  // Ends an orphaned turn and marks the session interrupted
   const lose = (id: SessionId, reason: string) => {
     const { state } = session(id)
     if (state === "running" || state === "creating") {
@@ -88,7 +88,6 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
     store.interrupt(db, id)
   }
 
-  // Withdraws every pending approval of a session
   const cancelApprovals = (id: SessionId) =>
     [...approvals.values()]
       .filter((a) => a.session === id)
@@ -97,7 +96,7 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
         chat(id, { kind: "permission-resolved", requestId: a.request, allowed: false, reason: "cancelled" })
       })
 
-  // Output from a run that is no longer live: kept under its own run, never changes state
+  // Output from a dead run: stored, never changes state
   const stale = (id: SessionId, run: number, u: ProviderUpdate) => {
     switch (u.type) {
       case "event":
@@ -106,7 +105,6 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
       case "error":
         chat(id, { kind: "error", message: u.message }, run)
         return
-      // The thread exists, so its id is kept
       case "native":
         store.patch(db, id, { nativeId: u.nativeId })
         refresh(id)
@@ -120,7 +118,6 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
   }
 
   const update = (id: SessionId, run: number, u: ProviderUpdate) => {
-    // A removed session's provider may still be shutting down; nothing it says has anywhere to go
     if (!sessions.has(id)) {
       return
     }
@@ -151,7 +148,7 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
         }
         return
       case "approval": {
-        // The choices travel with the saved event, so replayed history can offer them
+        // Choices are saved with the event for replay
         const event = u.event.kind === "permission" ? { ...u.event, choices: u.choices } : u.event
         const approval: Approval = { session: id, request: u.request, choices: u.choices, event }
         approvals.set(approvalKey(id, u.request), approval)
@@ -178,12 +175,11 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
     }
   }
 
-  // The running provider, launched on demand
+  // Running provider, launched on demand
   const provider = (id: SessionId): ProviderHandle => {
     if (stopping) {
       throw new Error("coordinator is stopping")
     }
-    // Two providers on one native conversation would interleave its transcript
     if (closing.has(id)) {
       throw new Error("the session's previous provider has not stopped yet; try again shortly, or restart the coordinator to recover")
     }
@@ -208,7 +204,7 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
     }
   }
 
-  // Coordinator-accepted on return; the promise settles on provider acceptance
+  // Promise settles on provider acceptance
   const send = (id: SessionId, text: string): Promise<void> => {
     if (session(id).closed) {
       throw new Error("session is closed")
@@ -221,7 +217,7 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
     return accepted
   }
 
-  // UI sends answer on coordinator acceptance; provider refusals arrive as session errors
+  // Answers on coordinator acceptance
   const sendAccepted = (id: SessionId, text: string) => {
     send(id, text).catch(() => {})
   }
@@ -232,7 +228,6 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
     store.createSession(db, {
       ...s,
       id,
-      // Claude takes a caller-chosen id; Codex reports its thread id
       nativeId: s.provider === "claude" ? asNativeId(store.newId()) : null,
       state: "creating",
       closed: false,
@@ -260,18 +255,17 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
   )
   settleWaits = orchestration.settle
 
-  // Turns lost to a coordinator that stopped without shutting down
+  // Turns lost to an unclean stop
   recovered.filter((id) => sessions.has(id)).forEach((id) => chat(id, { kind: "interrupted", reason: "the coordinator restarted" }))
 
   // A master with its workers, or a single worker
   const family = (id: SessionId) =>
     session(id).role === "master" ? [id, ...[...sessions.values()].filter((w) => w.parentId === id).map((w) => w.id)] : [id]
 
-  // Stops a session's agent, if any, and withdraws its approvals
+  // Stops a session's agent and withdraws its approvals
   const stopOne = (id: SessionId, reason: string) => {
     const running = providers.get(id)
     if (running) {
-      // The guard clears only on observed termination; after a failure it holds
       const closed: Promise<void> = running.handle.close().then(() => {
         if (closing.get(id) === closed) {
           closing.delete(id)
@@ -358,7 +352,7 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
         }
         return {}
       }
-      // Workers before their master, whose record they reference
+      // Workers before their master
       case "remove":
         family(command.session)
           .reverse()
@@ -387,7 +381,7 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
       }
     },
 
-    // An orchestration tool for a master; waits stay pending until they settle or signal aborts
+    // Orchestration tool call for a master
     tool: async (master: SessionId, name: string, input: Json, signal: AbortSignal): Promise<CommandResult> => {
       if (stopping) {
         return { error: "coordinator is stopping" }
@@ -399,11 +393,11 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
       }
     },
 
-    // Snapshot and registration in one step, so no event falls between them
+    // Snapshot and subscribe atomically
     subscribe: (send: Subscriber, budget = SNAPSHOT_BUDGET): Snapshot => {
       subscribers.add(send)
       const list = [...sessions.values()].sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id))
-      // Newest sessions first; older ones past the budget are left out
+      // Newest sessions first, within budget
       let used = 0
       const histories = new Map(
         [...list].reverse().map((s): readonly [SessionId, SessionHistory] => {
@@ -426,7 +420,7 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
       subscribers.delete(send)
     },
 
-    // Stops admitting work, marks running work interrupted, then waits for every provider; idempotent
+    // Graceful shutdown; idempotent
     shutdown: (): Promise<void> => {
       if (stopping) {
         return stopping
@@ -437,7 +431,7 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
         cancelApprovals(id)
         return { id, closed: handle.close() }
       })
-      // Sessions closed earlier may still be shutting down
+      // Includes sessions still closing
       const ending = [...live, ...[...closing.entries()].map(([id, closed]) => ({ id, closed }))]
       stopping = Promise.allSettled(ending.map((c) => c.closed)).then((results) =>
         results.forEach((r, i) => {

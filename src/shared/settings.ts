@@ -26,7 +26,7 @@ export const Settings = Schema.Struct({
   defaultLocation: Schema.Int,
   model: Schema.String,
   permissionMode: PermissionMode,
-  // New chats on the coordinator; ignored by the in-Electron path
+  // Coordinator only
   provider: Provider,
   keepAwake: KeepAwake,
   keepAwakeLidClosed: Schema.Boolean,

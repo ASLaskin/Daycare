@@ -19,13 +19,13 @@ export const databasePath = (platform: NodeJS.Platform, env: NodeJS.ProcessEnv, 
       : path.join(env["XDG_STATE_HOME"] || path.join(home, ".local", "state"), "daycare", "coordinator.db"),
   )
 
-// Bun cannot read inside app.asar, so the packaged app unpacks dist/coordinator
+// Unpacked coordinator, readable by Bun
 export const scriptPath = (appRoot: DirPath): FilePath =>
   asFilePath(path.join(appRoot.replace(/app\.asar$/, "app.asar.unpacked"), "dist", "coordinator", "main.js"))
 
 const MARK = "DAYCARE:"
 
-// Marked name=value lines; anything else the shell's startup files print is ignored
+// Marked name=value lines only
 export const parseLogin = (out: string): Readonly<Record<string, string>> =>
   Object.fromEntries(
     out.split("\n").flatMap((line) => {
@@ -35,7 +35,7 @@ export const parseLogin = (out: string): Readonly<Record<string, string>> =>
     }),
   )
 
-// PATH and executables as the user's interactive login shell sees them, .zshrc included
+// PATH and executables from the login shell
 const loginShell = () => {
   const script = `printf '${MARK}PATH=%s\\n' "$PATH"; for n in bun claude codex; do printf '${MARK}%s=%s\\n' "$n" "$(command -v $n)"; done`
   try {

@@ -22,7 +22,6 @@ const absolute = (name: string): FilePath => {
   return asFilePath(value)
 }
 
-// Checked per launch, so a missing provider leaves the coordinator running
 const executable = (name: string): FilePath => {
   const file = absolute(name)
   const stat = statSync(file, { throwIfNoEntry: false })

@@ -28,7 +28,7 @@ export const StoredSession = Schema.Struct({
   closed: Schema.Boolean,
   error: Schema.NullOr(Schema.String),
   createdAt: Schema.Number,
-  // Provider launches so far; scopes streamed partials
+  // Provider launch count; scopes streamed partials
   run: Schema.Number,
 })
 export type StoredSession = typeof StoredSession.Type
@@ -73,24 +73,24 @@ export const Command = Schema.Union([
     message: Schema.optionalKey(Schema.String),
     updatedInput: Schema.optionalKey(Schema.Json),
   }),
-  // Close and reopen act on a master's workers too; reopen starts no agent
+  // Close and reopen include a master's workers
   Schema.Struct({ method: Schema.Literal("close"), session: SessionId }),
   Schema.Struct({ method: Schema.Literal("reopen"), session: SessionId }),
   Schema.Struct({ method: Schema.Literal("rename"), session: SessionId, name: Schema.String }),
   // Permanently deletes the session, a master's workers, and their history
   Schema.Struct({ method: Schema.Literal("remove"), session: SessionId }),
-  // An orchestration tool call on behalf of a master; may stay pending while a wait blocks
+  // Orchestration tool call for a master; may block
   Schema.Struct({ method: Schema.Literal("tool"), master: SessionId, name: Schema.String, input: Schema.Json }),
 ])
 export type Command = typeof Command.Type
 
 export const Created = Schema.Struct({ session: SessionId })
 
-// Taken by the coordinator; says nothing about provider delivery
+// Accepted by the coordinator, not yet delivered
 export const Accepted = Schema.Struct({ accepted: Schema.Literal("coordinator") })
 
 export const ClientMessage = Schema.Union([
-  // subscribe: false for requests-only clients, which get ready instead of a snapshot
+  // false: requests-only, gets ready instead of a snapshot
   Schema.Struct({ type: Schema.Literal("hello"), version: Schema.String, subscribe: Schema.optionalKey(Schema.Boolean) }),
   Schema.Struct({ type: Schema.Literal("request"), id: Schema.Number, command: Command }),
 ])

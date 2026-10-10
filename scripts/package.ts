@@ -29,7 +29,7 @@ const [outDir] = await packager({
   out: path.join(root, "out"),
   overwrite: true,
   prune: false,
-  // Bun runs the coordinator and cannot read inside the archive
+  // Unpacked for Bun
   asar: { unpack: "**/dist/coordinator/**" },
   ignore: [
     /^\/(?!(dist|assets|package\.json)(\/|$))/,

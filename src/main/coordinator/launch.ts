@@ -9,7 +9,7 @@ import type { CoordinatorSetup } from "./paths.ts"
 
 export const UNIT = "daycare-coordinator.service"
 
-// systemd treats % as a specifier; quoting keeps spaces in paths
+// Quotes paths for systemd
 const quote = (value: string) => `"${value.replace(/[\\"]/g, "\\$&").replace(/%/g, "%%")}"`
 
 export const unitFile = (setup: CoordinatorSetup) =>
@@ -33,7 +33,7 @@ export const unitFile = (setup: CoordinatorSetup) =>
 
 const unitPath = (home: DirPath) => path.join(process.env["XDG_CONFIG_HOME"] || path.join(home, ".config"), "systemd", "user", UNIT)
 
-// Rewrites the unit only when it changed, replacing a hand-made link
+// Rewrites the unit only when changed
 const writeUnit = (file: string, text: string) => {
   const link = lstatSync(file, { throwIfNoEntry: false })?.isSymbolicLink() ?? false
   const current = link ? null : (() => {
@@ -62,7 +62,6 @@ export const startCoordinator = (setup: CoordinatorSetup, home: DirPath) => {
     systemctl("start", UNIT)
     return
   }
-  // A second copy finds the lock taken and exits, so no running check is needed
   spawn(setup.bun, [setup.script], { detached: true, stdio: "ignore", env: { ...process.env, ...setup.env } }).unref()
 }
 
@@ -70,13 +69,12 @@ const STOP_WAIT_MS = 20_000
 
 const ps = (pid: number, field: string) => execFileSync("ps", ["-p", String(pid), "-o", `${field}=`], { encoding: "utf8" }).trim()
 
-// The process named in the lock file, only if it is a coordinator that started before writing it
+// Pid from the lock file, if still that coordinator
 const runningCoordinator = (): number | null => {
   try {
     const file = lockPath(runtimeDir(process.env))
     const pid = Number(readFileSync(file, "utf8").trim())
     const started = Date.parse(ps(pid, "lstart"))
-    // A reused process id belongs to a process started after the lock file was written; lstart has whole seconds
     const writtenAfterStart = started <= statSync(file).mtimeMs + 1000
     return pid > 0 && writtenAfterStart && ps(pid, "command").includes("coordinator/main.") ? pid : null
   } catch {
@@ -93,7 +91,7 @@ const alive = (pid: number) => {
   }
 }
 
-// Stops and starts it again, interrupting running work
+// Restarts it, interrupting running work
 export const restartCoordinator = async (setup: CoordinatorSetup, home: DirPath) => {
   if (process.platform === "linux") {
     systemctl("restart", UNIT)
@@ -106,7 +104,6 @@ export const restartCoordinator = async (setup: CoordinatorSetup, home: DirPath)
     while (alive(pid) && Date.now() < deadline) {
       await new Promise((resolve) => setTimeout(resolve, 100))
     }
-    // A new copy would only find the lock still held
     if (alive(pid)) {
       throw new Error(`the coordinator did not stop within ${STOP_WAIT_MS / 1000} seconds; try again`)
     }

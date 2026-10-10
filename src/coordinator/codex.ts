@@ -26,7 +26,7 @@ const POLICY: Readonly<Record<PermissionMode, { readonly approvalPolicy: string;
   bypassPermissions: { approvalPolicy: "never", sandbox: "danger-full-access" },
 }
 
-// Codex's bubblewrap sandbox failing to start, as the pilot saw on Ubuntu 24.04
+// Codex bubblewrap sandbox startup failure
 const SANDBOX_WARNING = /bubblewrap|bwrap/i
 
 const UNSANDBOXED_NOTICE =
@@ -57,7 +57,7 @@ export const startCodex = (session: StoredSession, codexPath: FilePath, update: 
   const event = (e: ChatEvent) => update({ type: "event", event: e })
   const fail = (message: string) => update({ type: "error", message })
 
-  // Refuses every outstanding request and input; idempotent
+  // Refuses every outstanding request and input
   const finish = (reason: string) => {
     if (ended) {
       return
@@ -84,10 +84,9 @@ export const startCodex = (session: StoredSession, codexPath: FilePath, update: 
     })
 
   // Accepted once Codex answers turn/start
-  // Unsandboxed sessions ask before commands Codex does not consider safe
+  // Unsandboxed sessions ask before unsafe commands
   const approvalPolicy = () => (unsandboxed ? "untrusted" : POLICY[session.permissionMode].approvalPolicy)
 
-  // Policy is sent with each turn, so a late sandbox warning applies from the next one
   const startTurn = (text: string): Promise<void> =>
     request("turn/start", { threadId: thread, input: [{ type: "text", text }], approvalPolicy: approvalPolicy() }).then(
       () => undefined,
@@ -162,7 +161,7 @@ export const startCodex = (session: StoredSession, codexPath: FilePath, update: 
     pending.delete(id)
     const error = obj(msg["error"])
     if (error) {
-      // Codex answered: the request was definitely refused
+      // Definitely refused
       waiting.reject(new Refused(str(error["message"]) ?? "codex error"))
       return
     }

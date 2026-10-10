@@ -62,7 +62,7 @@ export const NewMaster = Schema.Struct({
   model: Schema.String,
   permissionMode: PermissionMode,
   name: Schema.optionalKey(Schema.String),
-  // Used on the coordinator only; the in-Electron path runs Claude
+  // Coordinator only
   provider: Schema.optionalKey(Provider),
 })
 export type NewMaster = typeof NewMaster.Type

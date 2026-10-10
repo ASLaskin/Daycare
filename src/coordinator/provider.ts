@@ -7,7 +7,7 @@ import type { Json } from "../shared/json.ts"
 
 export type ProviderUpdate =
   | { readonly type: "event"; readonly event: ChatEvent }
-  // Provider-chosen native id; stored before update returns
+  // Native id; stored before update returns
   | { readonly type: "native"; readonly nativeId: NativeId }
   // Provider confirmed the saved native id
   | { readonly type: "created" }
@@ -23,10 +23,10 @@ export interface Answer {
 }
 
 export interface ProviderHandle {
-  // Resolves once the provider has taken the input; rejects if it refused it
+  // Resolves when taken; rejects when refused
   readonly input: (text: string) => Promise<void>
   readonly interrupt: () => void
-  // False unless the request is pending and the choice was offered
+  // False unless pending and the choice was offered
   readonly answer: (request: RequestId, answer: Answer) => boolean
   // Resolves once the provider and its process group are gone
   readonly close: () => Promise<void>

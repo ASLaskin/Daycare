@@ -9,9 +9,9 @@ import { lockPath, socketPath } from "../shared/runtime.ts"
 import type { Hub, Subscriber } from "./hub.ts"
 import { takeLock } from "./lock.ts"
 
-// Unsent bytes a connection may queue beyond its snapshot before it is dropped
+// Queued bytes allowed beyond the snapshot
 export const OUTBOX_LIMIT = 4 * 1024 * 1024
-// A connection whose queued output makes no progress this long is dropped
+// Stall timeout for queued output
 export const STALL_MS = 60_000
 const LINE_LIMIT = 16 * 1024 * 1024
 // Longest socket path Node can connect to on Linux and macOS
@@ -33,7 +33,7 @@ const privateDir = (dir: string) => {
 
 const line = (msg: ServerMessage) => `${JSON.stringify(msg)}\n`
 
-// Complete lines from a socket; unterminated input over the limit ends it
+// Complete lines from a socket, capped in length
 const onLines = (socket: net.Socket, handle: (line: string) => void) => {
   socket.setEncoding("utf8")
   socket.on("data", lineSplitter(LINE_LIMIT, handle, () => socket.destroy()))
@@ -48,10 +48,9 @@ const connection = (socket: net.Socket, hub: Hub, version: string, stallMs: numb
   let stall: ReturnType<typeof setInterval> | null = null
   let delivered = 0
 
-  // bytesWritten counts queued bytes too, so delivery is the difference
   const flushed = () => socket.bytesWritten - socket.writableLength
 
-  // Drops a connection whose queued output stops moving
+  // Drops connections whose output stalls
   const watch = () => {
     if (stall || socket.writableLength === 0) {
       return
@@ -71,7 +70,7 @@ const connection = (socket: net.Socket, hub: Hub, version: string, stallMs: numb
     }, stallMs)
   }
 
-  // Queues one frame, or drops a client whose queue would pass its allowance
+  // Queues a frame, dropping clients over allowance
   const send: Subscriber = (msg) => {
     if (socket.destroyed) {
       return false
@@ -136,7 +135,7 @@ const connection = (socket: net.Socket, hub: Hub, version: string, stallMs: numb
       })
       return
     }
-    // Events the command causes are written before its response
+    // Command events are written before its response
     write({ type: "response", id, ...hub.command(command) })
   })
   socket.on("error", () => socket.destroy())

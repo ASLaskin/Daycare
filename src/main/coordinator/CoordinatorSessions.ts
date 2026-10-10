@@ -1,4 +1,4 @@
-// Sessions backed by the coordinator; IPC stays unchanged.
+// Sessions backed by the coordinator.
 
 import { Context, Effect, Layer, Schema } from "effect"
 import type { ChatEvent } from "../../shared/chat.ts"
@@ -34,7 +34,7 @@ const make = (version: string) =>
     const ui = yield* Ui
     const settingsStore = yield* SettingsStore
     const { appRoot, home } = yield* AppPaths
-    // Why the coordinator could not be started, shown instead of a bare socket error
+    // Why the coordinator failed to start
     let launchError: string | null = null
     const setup = () => coordinatorSetup(appRoot, home)
     try {
@@ -49,13 +49,13 @@ const make = (version: string) =>
 
     const upsert = (v: SessionView) => {
       const before = sessions.get(v.id)
-      // A reopened session needs its pane again, as the in-Electron path sends
+      // Reopened sessions need their pane again
       const created = !before || (before.status === "closed" && v.status !== "closed")
       ui.send(created ? "session:created" : "session:update", v)
       sessions.set(v.id, v)
     }
 
-    // Appends in place; a finished text replaces its streamed fragments, as stored history does
+    // Appends; finished text replaces streamed fragments
     const cache = (id: SessionId, event: ChatEvent) => {
       const current = history.get(id) ?? []
       const list = event.kind === "text" ? current.filter((e) => !(e.kind === "text-delta" && e.block === event.block)) : current
@@ -112,7 +112,7 @@ const make = (version: string) =>
 
     const request = (command: Command) => Effect.promise(() => client.request(command))
 
-    // Name and sprite chosen as the in-Electron path does
+    // Name and sprite, as the in-Electron path picks
     const createMaster = (options: NewMaster): Effect.Effect<SessionView> => {
       const provider = options.provider ?? "claude"
       const all = [...sessions.values()]
@@ -132,7 +132,7 @@ const make = (version: string) =>
                 locationLabel: current.locations.find((l) => l.path === options.cwd)?.label,
               }),
             icon: nextIcon(new Set(all.filter((v) => v.role === "master").map((v) => v.icon))),
-        // The model setting names a Claude model; Codex uses its own default
+        // Model setting applies to Claude only
             model: provider === "claude" ? options.model || null : null,
             permissionMode: options.permissionMode,
           }),
@@ -154,7 +154,7 @@ const make = (version: string) =>
       rename: (id, name) => request({ method: "rename", session: id, name }).pipe(Effect.asVoid),
       close: (id) => request({ method: "close", session: id }).pipe(Effect.asVoid),
       reopen: (id) => request({ method: "reopen", session: id }).pipe(Effect.asVoid),
-      // Asks first unless it is a master nobody has used yet, as the in-Electron path does
+      // Asks first, except for an unused master
       remove: (id) =>
         Effect.gen(function* () {
           const s = sessions.get(id)

@@ -12,7 +12,7 @@ const PREVIEW = 64 * 1024
 
 const decodeEvent = Schema.decodeUnknownResult(Schema.fromJsonString(ChatEvent))
 
-// Longest prefix within max UTF-8 bytes, cut on a character boundary
+// Longest UTF-8 prefix within max bytes
 export const utf8Prefix = (text: string, max: number): string => {
   const buf = Buffer.from(text)
   let end = Math.min(max, buf.length)
@@ -22,7 +22,7 @@ export const utf8Prefix = (text: string, max: number): string => {
   return buf.subarray(0, end).toString("utf8")
 }
 
-// Stored text for an event, a marked preview when oversized
+// Stored text for an event, previewed when oversized
 const stored = (event: ChatEvent): string => {
   const text = JSON.stringify(event)
   const bytes = Buffer.byteLength(text)
@@ -71,7 +71,7 @@ const evict = (db: Database, id: SessionId) => {
   ).run({ id })
 }
 
-// Persists one event; scope and block identify the partials a text completes
+// Persists one event
 export const record = (db: Database, id: SessionId, scope: number, event: ChatEvent) =>
   db.transaction(() => {
     if (event.kind === "text") {

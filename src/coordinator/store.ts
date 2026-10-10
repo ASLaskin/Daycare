@@ -128,7 +128,7 @@ export const patch = (db: Database, id: SessionId, fields: Patch) => {
   db.query(`UPDATE sessions SET ${sets} WHERE id = $id`).run({ ...values, id })
 }
 
-// Opens a turn: clears the error and marks a created session running
+// Opens a turn
 export const startTurn = (db: Database, id: SessionId) => {
   db.query(
     `UPDATE sessions SET error = NULL, state = CASE state WHEN 'creating' THEN 'creating' ELSE 'running' END WHERE id = $id`,
@@ -139,7 +139,7 @@ export const startTurn = (db: Database, id: SessionId) => {
 export const startRun = (db: Database, id: SessionId): number =>
   db.query<{ run: number }, { id: SessionId }>("UPDATE sessions SET run = run + 1 WHERE id = $id RETURNING run").get({ id })?.run ?? 0
 
-// Settles a finished turn; incomplete if creation never confirmed
+// Settles a finished turn
 export const finishTurn = (db: Database, id: SessionId) => {
   db.query(`UPDATE sessions SET state = CASE state WHEN 'creating' THEN 'incomplete' ELSE 'idle' END WHERE id = $id`).run({
     id,
@@ -158,7 +158,7 @@ export const deleteSession = (db: Database, id: SessionId) =>
     db.query("DELETE FROM sessions WHERE id = $id").run({ id })
   })()
 
-// Marks execution lost to a coordinator restart; returns the sessions it changed
+// Marks running work interrupted after a restart
 export const recover = (db: Database): ReadonlyArray<SessionId> =>
   db.query<{ id: SessionId }, []>(`${INTERRUPT} RETURNING id`).all().map((r) => r.id)
 

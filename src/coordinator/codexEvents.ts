@@ -103,7 +103,7 @@ const completed = (item: Item): ReadonlyArray<ChatEvent> => {
   }
 }
 
-// Events for one item notification; unknown item types are ignored
+// Events for one item notification
 const itemEvents = (method: string, params: Json | undefined, map: (item: Item) => ReadonlyArray<ChatEvent>): Events => {
   const raw = obj(params)?.["item"]
   if (!KNOWN.has(str(obj(raw)?.["type"]) ?? "")) {
@@ -112,7 +112,7 @@ const itemEvents = (method: string, params: Json | undefined, map: (item: Item) 
   return Result.map(decode(Item, method, raw), map)
 }
 
-// Chat events for one notification; malformed required data is an error
+// Chat events for one notification
 export const codexEvents = (method: string, params: Json | undefined): Events => {
   switch (method) {
     case "item/agentMessage/delta":

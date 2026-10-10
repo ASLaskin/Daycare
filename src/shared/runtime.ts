@@ -1,10 +1,10 @@
-// The coordinator's private runtime directory, shared by the coordinator and its clients.
+// Private runtime directory for the coordinator and clients.
 
 import os from "node:os"
 import path from "node:path"
 import { asFilePath, type FilePath } from "./ids.ts"
 
-// DAYCARE_RUNTIME_DIR, else $XDG_RUNTIME_DIR/daycare; macOS has no XDG_RUNTIME_DIR, so its per-user temp folder
+// DAYCARE_RUNTIME_DIR, else XDG_RUNTIME_DIR/daycare, else temp dir
 export const runtimeDir = (env: NodeJS.ProcessEnv, platform: NodeJS.Platform = process.platform, tmp: string = os.tmpdir()): string => {
   const dir = env["DAYCARE_RUNTIME_DIR"]
   if (dir) {

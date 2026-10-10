@@ -102,7 +102,7 @@ const rateLimit = (s: ChatSession, ev: ChatEventOf<"rate-limit">) => {
   renderFoot(s)
 }
 
-// Ends a turn whose provider is gone, leaving the composer usable
+// Ends an orphaned turn
 const interrupted = (s: ChatSession, ev: ChatEventOf<"interrupted">) => {
   ;[...s.tools]
     .filter(([, card]) => !card.done)

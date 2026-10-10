@@ -35,11 +35,11 @@ export const view = (s: LiveSession): SessionView => ({
   parentId: s.parentId,
   status: status(s),
   activity: s.error ?? "",
-  // Empty means the provider default, as on the in-Electron path
+  // Empty means the provider default
   model: s.model ?? "",
   provider: s.provider,
   permissionMode: s.permissionMode,
-  // A provider launches only when the user sends a message
+  // Launches on first message
   hadTurn: s.run > 0,
   cwd: s.cwd,
   task: null,
@@ -48,7 +48,7 @@ export const view = (s: LiveSession): SessionView => ({
   context: 0,
 })
 
-// The offered choice matching the renderer's decision, never a broader one
+// Offered choice matching the decision exactly
 export const pick = (offered: ReadonlyArray<string>, decision: PermissionDecision): string | null => {
   if (decision.choice !== undefined) {
     return offered.includes(decision.choice) ? decision.choice : null

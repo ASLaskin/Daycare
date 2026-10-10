@@ -10,7 +10,7 @@ export interface GroupOptions {
   readonly signal?: AbortSignal
 }
 
-// Leader of a new process group; children that start their own group are not covered
+// Leader of a new process group
 export const spawnGroup = (command: string, args: ReadonlyArray<string>, options: GroupOptions) =>
   spawn(command, args, { ...options, detached: true, stdio: ["pipe", "pipe", "inherit"] })
 
@@ -30,13 +30,12 @@ const exitWithin = (child: ChildProcess, ms: number) =>
         })
       })
 
-// Waits up to the grace for the leader to exit, kills what is left of its group, then waits for the leader
+// Waits for the leader, then kills its group
 export const stopGroup = async (child: ChildProcess, graceMs = STOP_GRACE_MS) => {
   await exitWithin(child, graceMs)
   if (!child.pid) {
     return
   }
-  // ponytail: a group id can be reused once every member exits; a per-session cgroup removes that race
   try {
     process.kill(-child.pid, "SIGKILL")
   } catch (e) {
