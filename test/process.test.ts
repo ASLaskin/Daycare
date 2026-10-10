@@ -1,16 +1,13 @@
 // Provider process groups: stopping a provider also ends what it left running.
 
 import { expect, test } from "bun:test"
-import { readFileSync } from "node:fs"
+import { spawnSync } from "node:child_process"
 import { spawnGroup, stopGroup } from "../src/coordinator/process.ts"
 
-// Running, not merely a zombie awaiting its reaper
+// Running, not merely a zombie awaiting its reaper (what an edgy comment from claude)
 const alive = (pid: number) => {
-  try {
-    return readFileSync(`/proc/${pid}/stat`, "utf8").split(" ")[2] !== "Z"
-  } catch {
-    return false
-  }
+  const stat = spawnSync("ps", ["-o", "stat=", "-p", String(pid)], { encoding: "utf8" }).stdout.trim()
+  return stat !== "" && !stat.startsWith("Z")
 }
 
 const descendantOf = async (child: ReturnType<typeof spawnGroup>) => {
