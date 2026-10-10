@@ -1,5 +1,6 @@
 import type { SkillRow, SkillsListing } from "../../shared/skills.ts"
 import { api } from "../api.ts"
+import { messageOf } from "../errors.ts"
 
 export const store: { data: SkillsListing | null; loadError: string } = { data: null, loadError: "" }
 
@@ -22,11 +23,7 @@ const renderAll = () => renderers.forEach((fn) => fn())
 export const fmt = (n: number) => (Number(n) || 0).toLocaleString("en-US")
 export const plural = (n: number, one: string, many: string) => `${fmt(n)} ${n === 1 ? one : many}`
 
-// Error message without Electron's IPC prefix
-export const messageOf = (err: unknown) => {
-  const raw = String((err instanceof Error ? err.message : err) || "Something went wrong.")
-  return raw.replace(/^Error invoking remote method '[^']*':\s*(Error:\s*)?/, "")
-}
+export { messageOf }
 
 export const applyResult = (result: SkillsListing) => {
   if (!Array.isArray(result?.skills)) {

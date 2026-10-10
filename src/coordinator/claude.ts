@@ -2,6 +2,7 @@
 
 import { type CanUseTool, type Options, type PermissionResult, type PermissionUpdate, query, type Query, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk"
 import type { ChildProcess } from "node:child_process"
+import { withConfigDir } from "../main/accounts/paths.ts"
 import { StreamNormalizer } from "../main/chat/normalize.ts"
 import { toolTitle } from "../main/chat/content.ts"
 import type { ChatEvent } from "../shared/chat.ts"
@@ -137,7 +138,7 @@ export const startClaude = (
       includePartialMessages: true,
       canUseTool,
       permissionMode: session.permissionMode,
-      env: { ...process.env, CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS: "1" },
+      env: { ...withConfigDir(process.env, session.configDir), CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS: "1" },
       ...(session.model ? { model: session.model } : {}),
       ...(session.state === "creating" ? { sessionId: nativeId } : { resume: nativeId }),
     },

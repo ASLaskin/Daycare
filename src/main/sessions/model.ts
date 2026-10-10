@@ -2,7 +2,8 @@
 
 import { Option, Schema } from "effect"
 import fs from "node:fs"
-import type { ClaudeSessionId, DirPath, FilePath, SessionId } from "../../shared/ids.ts"
+import { DEFAULT_ACCOUNT } from "../../shared/accounts.ts"
+import type { AccountId, ClaudeSessionId, DirPath, FilePath, SessionId } from "../../shared/ids.ts"
 import { isJsonObject, type Json } from "../../shared/json.ts"
 import { type PermissionMode, SessionRecord, type SessionRole, type SessionStatus, type SessionView } from "../../shared/session.ts"
 
@@ -27,6 +28,10 @@ export interface Session {
   context: number
   // Closing from the app, so it stays listed
   closing: boolean
+  // Account whose config dir the claude child uses
+  accountId: AccountId
+  // Account to resume on once the current child exits
+  restartOn: AccountId | null
 }
 
 export interface CreateOptions {
@@ -37,6 +42,7 @@ export interface CreateOptions {
   readonly task?: string
   readonly name?: string | undefined
   readonly parentId?: SessionId
+  readonly accountId?: AccountId
 }
 
 export const view = (s: Session): SessionView => ({
@@ -56,6 +62,7 @@ export const view = (s: Session): SessionView => ({
   finishedTurns: s.finishedTurns,
   hadTurn: s.hadTurn,
   context: s.context,
+  accountId: s.accountId,
 })
 
 export const record = (s: Session): SessionRecord => ({
@@ -72,6 +79,7 @@ export const record = (s: Session): SessionRecord => ({
   hadTurn: s.hadTurn,
   createdAt: s.createdAt,
   closed: s.status === "closed" || s.closing,
+  accountId: s.accountId,
 })
 
 const RECORD_DEFAULTS = {
@@ -82,6 +90,7 @@ const RECORD_DEFAULTS = {
   transcriptPath: null,
   hadTurn: false,
   closed: false,
+  accountId: DEFAULT_ACCOUNT,
 }
 
 // Decode saved records, filling fields older versions lacked

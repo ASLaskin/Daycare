@@ -3,6 +3,7 @@
 import { app } from "electron"
 import { Effect, Fiber, Layer } from "effect"
 import path from "node:path"
+import { Accounts } from "./accounts/Accounts.ts"
 import { AppPaths } from "./AppPaths.ts"
 import { Chat } from "./chat/Chat.ts"
 import { ControlEndpoint, ControlHttpServer, ControlRoutes } from "./control/ControlServer.ts"
@@ -38,13 +39,11 @@ const PowerLive = Layer.unwrap(
 
 const Control = ControlEndpoint.layer.pipe(Layer.provideMerge(ControlHttpServer))
 
-const Services = Layer.mergeAll(
-  SettingsStore.layer,
-  Usage.layer.pipe(Layer.provide(UsageSource.layer)),
-  ChatLive,
-  PowerLive,
-  Updater.layer,
-).pipe(Layer.provideMerge(Window), Layer.provideMerge(Control))
+const Services = Layer.mergeAll(Accounts.layer, Usage.layer.pipe(Layer.provide(UsageSource.layer)), ChatLive, PowerLive, Updater.layer).pipe(
+  Layer.provideMerge(SettingsStore.layer),
+  Layer.provideMerge(Window),
+  Layer.provideMerge(Control),
+)
 
 // Sessions and ControlHandlers; coordinator default on Linux only
 const onCoordinator = process.env["DAYCARE_COORDINATOR"] ? process.env["DAYCARE_COORDINATOR"] === "1" : process.platform === "linux"

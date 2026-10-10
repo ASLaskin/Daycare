@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import { openStore } from "../../src/coordinator/store.ts"
+import { DEFAULT_ACCOUNT } from "../../src/shared/accounts.ts"
 import type { SessionState, StoredSession } from "../../src/shared/coordinator.ts"
 import type { Provider } from "../../src/shared/session.ts"
 import { asDirPath, asFilePath, asSessionId } from "../../src/shared/ids.ts"
@@ -31,4 +32,6 @@ export const sample = (id: string, provider: Provider, state: SessionState): Sto
   error: null,
   createdAt: 1,
   run: 0,
+  accountId: DEFAULT_ACCOUNT,
+  configDir: null,
 })

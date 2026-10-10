@@ -5,7 +5,7 @@ import { expect, test } from "bun:test"
 import { type QueryFn, startClaude } from "../src/coordinator/claude.ts"
 import { type ProviderUpdate, Refused } from "../src/coordinator/provider.ts"
 import { asNativeId, type SessionState } from "../src/shared/coordinator.ts"
-import { asFilePath, asRequestId } from "../src/shared/ids.ts"
+import { asDirPath, asFilePath, asRequestId } from "../src/shared/ids.ts"
 import { sample } from "./fixtures/store.ts"
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
@@ -172,4 +172,23 @@ test("masters get the Daycare bridge and prompt; every role loses Claude's own s
   expect(wopts?.mcpServers).toBeUndefined()
   expect(wopts?.disallowedTools).toEqual(["Task", "Agent"])
   expect(appended(wopts)).toStartWith("You are a worker session")
+})
+
+test("claude runs on its account's config dir, or ~/.claude for Default", () => {
+  const added = fakeQuery()
+  startClaude({ ...sample("a", "claude", "idle"), nativeId: asNativeId("na"), configDir: asDirPath("/accounts/work") }, asFilePath("/bin/claude"), () => {}, added.run)
+  expect(added.options()?.env?.["CLAUDE_CONFIG_DIR"]).toBe("/accounts/work")
+  const inherited = process.env["CLAUDE_CONFIG_DIR"]
+  process.env["CLAUDE_CONFIG_DIR"] = "/inherited"
+  try {
+    const fallback = fakeQuery()
+    startClaude({ ...sample("d", "claude", "idle"), nativeId: asNativeId("nd") }, asFilePath("/bin/claude"), () => {}, fallback.run)
+    expect(fallback.options()?.env).not.toHaveProperty("CLAUDE_CONFIG_DIR")
+  } finally {
+    if (inherited === undefined) {
+      delete process.env["CLAUDE_CONFIG_DIR"]
+    } else {
+      process.env["CLAUDE_CONFIG_DIR"] = inherited
+    }
+  }
 })

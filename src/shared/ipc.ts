@@ -1,8 +1,9 @@
 // IPC channels between main and renderer.
 
 import { Schema } from "effect"
+import { type Account, type AccountStatus, LoginCode, type LoginProgress } from "./accounts.ts"
 import type { ChatEvent } from "./chat.ts"
-import { DirPath, type FilePath, RequestId, SessionId } from "./ids.ts"
+import { AccountId, DirPath, type FilePath, RequestId, SessionId } from "./ids.ts"
 import type { PowerStatus } from "./power.ts"
 import { NewMaster, type SessionView } from "./session.ts"
 import { type Settings, SettingsPatch } from "./settings.ts"
@@ -29,10 +30,19 @@ export const Invoke = {
   "dialog:pick-folder": None,
   "open:finder": DirPath,
   "open:vscode": DirPath,
+  "open:url": Schema.String,
   "update:info": None,
   "update:run": Schema.String,
   "usage:get": None,
   "usage:refresh": None,
+
+  "accounts:list": None,
+  "accounts:add": Schema.String,
+  "accounts:remove": AccountId,
+  "accounts:switch": AccountId,
+  "accounts:login": AccountId,
+  "accounts:login-code": LoginCode,
+  "accounts:login-cancel": AccountId,
 
   "session:list": None,
   "master:create": NewMaster,
@@ -81,10 +91,19 @@ export interface InvokeResult {
   "dialog:pick-folder": DirPath | null
   "open:finder": void
   "open:vscode": void
+  "open:url": void
   "update:info": BuildInfo | null
   "update:run": UpdateResult
   "usage:get": Usage
   "usage:refresh": Usage
+
+  "accounts:list": ReadonlyArray<AccountStatus>
+  "accounts:add": Account
+  "accounts:remove": Settings
+  "accounts:switch": Settings
+  "accounts:login": void
+  "accounts:login-code": void
+  "accounts:login-cancel": void
 
   "session:list": ReadonlyArray<SessionView>
   "master:create": SessionView
@@ -127,6 +146,7 @@ export interface Events {
   "shortcut:close": undefined
   "chat:event": { readonly id: SessionId; readonly event: ChatEvent }
   "usage:update": Usage
+  "account:login": LoginProgress
   "power:update": PowerStatus
   "update:log": string
 }

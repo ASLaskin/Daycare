@@ -135,6 +135,10 @@ const connection = (socket: net.Socket, hub: Hub, version: string, stallMs: numb
       })
       return
     }
+    if (command.method === "move") {
+      void hub.move(command.session, command.accountId, command.configDir).then((r) => write({ type: "response", id, ...r }))
+      return
+    }
     // Command events are written before its response
     write({ type: "response", id, ...hub.command(command) })
   })

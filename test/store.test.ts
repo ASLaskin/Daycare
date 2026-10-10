@@ -22,8 +22,18 @@ test("reopening keeps records and schema", () => {
   const s = { ...sample("a", "claude", "creating"), nativeId: asNativeId("n") }
   createSession(db.open(), s)
   const conn = db.open()
-  expect(conn.query<{ user_version: number }, []>("PRAGMA user_version").get()?.user_version).toBe(1)
+  expect(conn.query<{ user_version: number }, []>("PRAGMA user_version").get()?.user_version).toBe(2)
   expect(getSession(conn, s.id)).toEqual({ session: s })
+})
+
+test("sessions from before accounts open on Default", () => {
+  const db = fresh()
+  const s = sample("a", "claude", "idle")
+  const conn = db.open()
+  createSession(conn, s)
+  conn.run("ALTER TABLE sessions DROP COLUMN account_id; ALTER TABLE sessions DROP COLUMN config_dir; PRAGMA user_version = 1")
+  conn.close()
+  expect(getSession(db.open(), s.id)).toEqual({ session: s })
 })
 
 test("recovery marks lost execution without touching settled sessions", () => {

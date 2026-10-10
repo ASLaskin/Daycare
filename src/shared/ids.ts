@@ -20,6 +20,9 @@ export type TaskId = typeof TaskId.Type
 export const SkillId = Schema.String.pipe(Schema.brand("SkillId"))
 export type SkillId = typeof SkillId.Type
 
+export const AccountId = Schema.String.pipe(Schema.brand("AccountId"))
+export type AccountId = typeof AccountId.Type
+
 export const DirPath = Schema.String.pipe(Schema.brand("DirPath"))
 export type DirPath = typeof DirPath.Type
 
@@ -33,5 +36,6 @@ export const asRequestId = (s: string) => s as RequestId
 export const asToolUseId = (s: string) => s as ToolUseId
 export const asTaskId = (s: string) => s as TaskId
 export const asSkillId = (s: string) => s as SkillId
+export const asAccountId = (s: string) => s as AccountId
 export const asDirPath = (s: string) => s as DirPath
 export const asFilePath = (s: string) => s as FilePath

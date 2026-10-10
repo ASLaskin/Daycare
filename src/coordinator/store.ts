@@ -35,6 +35,8 @@ const MIGRATIONS = [
     body TEXT NOT NULL,
     PRIMARY KEY (session_id, seq)
   ) WITHOUT ROWID;`,
+  `ALTER TABLE sessions ADD COLUMN account_id TEXT NOT NULL DEFAULT 'default';
+  ALTER TABLE sessions ADD COLUMN config_dir TEXT;`,
 ]
 
 // Active sessions become interrupted, attempted creations incomplete
@@ -44,7 +46,7 @@ const INTERRUPT = `UPDATE sessions
     OR (state = 'creating' AND EXISTS (SELECT 1 FROM history WHERE session_id = sessions.id)))`
 
 const COLUMNS = `id, provider, native_id, role, parent_id, name, icon, cwd, model, permission_mode,
-  state, closed, error, created_at, run`
+  state, closed, error, created_at, run, account_id, config_dir`
 
 interface Row {
   readonly id: string
@@ -62,6 +64,8 @@ interface Row {
   readonly error: string | null
   readonly created_at: number
   readonly run: number
+  readonly account_id: string
+  readonly config_dir: string | null
 }
 
 export type Loaded = { readonly session: StoredSession } | { readonly error: string }
@@ -85,6 +89,8 @@ const decode = (r: Row): Loaded => {
     error: r.error,
     createdAt: r.created_at,
     run: r.run,
+    accountId: r.account_id,
+    configDir: r.config_dir,
   })
   return Result.isSuccess(result) ? { session: result.success } : { error: `session ${r.id}: ${result.failure.message}` }
 }
@@ -110,11 +116,19 @@ export const openStore = (file: FilePath): Database => {
 export const createSession = (db: Database, s: StoredSession) => {
   db.query(
     `INSERT INTO sessions (${COLUMNS}) VALUES ($id, $provider, $nativeId, $role, $parentId, $name, $icon, $cwd,
-      $model, $permissionMode, $state, $closed, $error, $createdAt, $run)`,
+      $model, $permissionMode, $state, $closed, $error, $createdAt, $run, $accountId, $configDir)`,
   ).run({ ...s, closed: s.closed ? 1 : 0 })
 }
 
-const PATCH_COLUMNS = { nativeId: "native_id", state: "state", error: "error", closed: "closed", name: "name" } as const
+const PATCH_COLUMNS = {
+  nativeId: "native_id",
+  state: "state",
+  error: "error",
+  closed: "closed",
+  name: "name",
+  accountId: "account_id",
+  configDir: "config_dir",
+} as const
 
 export type Patch = Partial<Pick<StoredSession, keyof typeof PATCH_COLUMNS>>
 

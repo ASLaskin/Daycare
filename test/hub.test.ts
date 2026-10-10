@@ -1,20 +1,28 @@
 // Hub ownership: approvals, ordered events, subscribers and recovery.
 
 import { afterEach, expect, test } from "bun:test"
+import fs from "node:fs"
+import { tmpdir } from "node:os"
+import path from "node:path"
 import { loadHistory, record } from "../src/coordinator/history.ts"
 import { type Launch, makeHub, type Subscriber } from "../src/coordinator/hub.ts"
 import type { Answer, ProviderUpdate } from "../src/coordinator/provider.ts"
 import { createSession } from "../src/coordinator/store.ts"
+import { DEFAULT_ACCOUNT } from "../src/shared/accounts.ts"
 import type { ChatEvent } from "../src/shared/chat.ts"
 import type { ServerMessage, SessionState } from "../src/shared/coordinator.ts"
 import { asNativeId } from "../src/shared/coordinator.ts"
-import { asRequestId, asSessionId } from "../src/shared/ids.ts"
+import { asAccountId, asDirPath, asRequestId, asSessionId } from "../src/shared/ids.ts"
 import { obj } from "../src/shared/json.ts"
 import { sample, tempDb } from "./fixtures/store.ts"
 
 const id = asSessionId("s")
 const dbs: Array<ReturnType<typeof tempDb>> = []
-afterEach(() => dbs.splice(0).forEach((db) => db.remove()))
+const dirs: Array<string> = []
+afterEach(() => {
+  dbs.splice(0).forEach((db) => db.remove())
+  dirs.splice(0).forEach((d) => fs.rmSync(d, { recursive: true, force: true }))
+})
 
 // Fake providers: each launch records its inputs and answers and exposes its update callback
 const fakeLaunch = () => {
@@ -162,7 +170,7 @@ test("restart restores records as interrupted without launching providers", () =
 
 test("a codex session starts without a native id and stores the reported one before update returns", () => {
   const { conn, hub, fake } = setup()
-  const created = hub.command({ method: "create", provider: "codex", cwd: sample("x", "codex", "idle").cwd, prompt: "go", model: null, permissionMode: "default" })
+  const created = hub.command({ method: "create", provider: "codex", cwd: sample("x", "codex", "idle").cwd, prompt: "go", model: null, permissionMode: "default", accountId: DEFAULT_ACCOUNT, configDir: null })
   const session = "result" in created ? obj(created.result)?.["session"] : null
   const row = () => conn.query<{ native_id: string | null }, [string]>("SELECT native_id FROM sessions WHERE id = ?").get(String(session))
   expect(row()?.native_id).toBeNull()
@@ -397,4 +405,58 @@ test("shutdown also waits for a close that started earlier", async () => {
   settle(false)
   await stopping
   expect(done).toBe(true)
+})
+
+// Session on one account's config dir, with another account to move to
+const accountsSetup = (state: SessionState) => {
+  const root = fs.mkdtempSync(path.join(tmpdir(), "daycare-accounts-"))
+  dirs.push(root)
+  const from = asDirPath(path.join(root, "from"))
+  const to = asDirPath(path.join(root, "to"))
+  const db = tempDb()
+  dbs.push(db)
+  const conn = db.open()
+  createSession(conn, { ...sample("s", "claude", state), nativeId: asNativeId("n"), configDir: from })
+  const fake = fakeLaunch()
+  return { conn, hub: makeHub(conn, fake.launch), fake, from, to, work: asAccountId("work") }
+}
+
+const stored = (hub: ReturnType<typeof makeHub>) => hub.subscribe(() => true).sessions[0]
+
+test("moving a running session stops it and carries its transcript to the new account", async () => {
+  const { hub, fake, from, to, work } = accountsSetup("idle")
+  const transcript = path.join(from, "projects", "-tmp", "n.jsonl")
+  fs.mkdirSync(path.dirname(transcript), { recursive: true })
+  fs.writeFileSync(transcript, "{}\n")
+  hub.command({ method: "send", session: id, text: "go" })
+  expect(await hub.move(id, work, to)).toEqual({ result: {} })
+  expect(fake.launches[0]?.closed).toBe(true)
+  expect(fs.readFileSync(path.join(to, "projects", "-tmp", "n.jsonl"), "utf8")).toBe("{}\n")
+  expect(stored(hub)).toMatchObject({ accountId: work, configDir: to, nativeId: "n", state: "interrupted", live: false })
+})
+
+test("a session whose transcript stays behind starts a new conversation on the new account", async () => {
+  const { conn, hub, to, work } = accountsSetup("idle")
+  await hub.move(id, work, to)
+  const moved = stored(hub)
+  expect(moved).toMatchObject({ accountId: work, configDir: to, state: "creating" })
+  expect(moved?.nativeId).not.toBe("n")
+  const h = loadHistory(conn, id)
+  expect("events" in h ? h.events.map((e) => e.kind) : []).toEqual(["notice"])
+})
+
+test("a session not yet started moves without a transcript", async () => {
+  const { conn, hub, to, work } = accountsSetup("creating")
+  await hub.move(id, work, to)
+  expect(stored(hub)).toMatchObject({ accountId: work, configDir: to, nativeId: "n", state: "creating" })
+  expect(loadHistory(conn, id)).toEqual({ evicted: false, events: [] })
+})
+
+test("codex sessions have no account to move", async () => {
+  const db = tempDb()
+  dbs.push(db)
+  const conn = db.open()
+  createSession(conn, sample("c", "codex", "idle"))
+  const hub = makeHub(conn, fakeLaunch().launch)
+  expect(await hub.move(asSessionId("c"), asAccountId("work"), null)).toEqual({ error: "only claude sessions have accounts" })
 })

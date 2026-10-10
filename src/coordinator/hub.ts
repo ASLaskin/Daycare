@@ -4,12 +4,13 @@ import type { Database } from "bun:sqlite"
 import type { ChatEvent } from "../shared/chat.ts"
 import type { Approval, Command, HubEvent, LiveSession, ServerMessage, SessionHistory, Snapshot, StoredSession } from "../shared/coordinator.ts"
 import { asNativeId } from "../shared/coordinator.ts"
-import { asSessionId, type SessionId } from "../shared/ids.ts"
+import { type AccountId, asSessionId, type DirPath, type SessionId } from "../shared/ids.ts"
 import type { Json } from "../shared/json.ts"
 import { loadHistory, record } from "./history.ts"
 import { ACK_MS, makeOrchestration, type WorkerSpec } from "./orchestration.ts"
 import type { ProviderHandle, ProviderUpdate } from "./provider.ts"
 import * as store from "./store.ts"
+import { carryTranscript } from "./transcript.ts"
 
 export type Launch = (session: StoredSession, update: (u: ProviderUpdate) => void) => ProviderHandle
 
@@ -223,7 +224,9 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
   }
 
   // Records a session before any provider process starts
-  const createSession = (s: Pick<StoredSession, "provider" | "role" | "parentId" | "name" | "icon" | "cwd" | "model" | "permissionMode">) => {
+  const createSession = (
+    s: Pick<StoredSession, "provider" | "role" | "parentId" | "name" | "icon" | "cwd" | "model" | "permissionMode" | "accountId" | "configDir">,
+  ) => {
     const id = asSessionId(store.newId())
     store.createSession(db, {
       ...s,
@@ -247,7 +250,18 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
       sessions: () => [...sessions.values()],
       needsUser,
       createWorker: (w: WorkerSpec) =>
-        createSession({ provider: w.provider, role: "worker", parentId: w.master.id, name: w.name, icon: null, cwd: w.cwd, model: w.model, permissionMode: w.master.permissionMode }),
+        createSession({
+          provider: w.provider,
+          role: "worker",
+          parentId: w.master.id,
+          name: w.name,
+          icon: null,
+          cwd: w.cwd,
+          model: w.model,
+          permissionMode: w.master.permissionMode,
+          accountId: w.master.accountId,
+          configDir: w.master.configDir,
+        }),
       send,
       history: (id) => loadHistory(db, id),
     },
@@ -282,6 +296,44 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
     cancelApprovals(id)
   }
 
+  // Repoints a stopped session, starting fresh when its transcript stays behind
+  const repoint = (id: SessionId, accountId: AccountId, configDir: DirPath | null) => {
+    const s = session(id)
+    const carried = s.nativeId !== null && carryTranscript(s.nativeId, s.configDir, configDir)
+    if (carried || s.state === "creating") {
+      store.patch(db, id, { accountId, configDir })
+      refresh(id)
+      return
+    }
+    store.patch(db, id, { accountId, configDir, nativeId: asNativeId(store.newId()), state: "creating" })
+    chat(id, { kind: "notice", message: "Started a new conversation: the previous one could not be moved to this account." })
+    refresh(id)
+  }
+
+  // Stops the session, then moves it once its provider is gone
+  const move = async (id: SessionId, accountId: AccountId, configDir: DirPath | null) => {
+    const s = session(id)
+    if (s.provider !== "claude") {
+      throw new Error("only claude sessions have accounts")
+    }
+    if (s.accountId === accountId) {
+      return
+    }
+    stopOne(id, "the session moved to another account")
+    refresh(id)
+    const stopped = closing.get(id)
+    // Blocks relaunch until moved
+    const moved = (stopped ?? Promise.resolve()).catch(() => {}).then(() => repoint(id, accountId, configDir))
+    closing.set(id, moved)
+    try {
+      await moved
+    } finally {
+      if (closing.get(id) === moved) {
+        closing.delete(id)
+      }
+    }
+  }
+
   const run = (command: Command): Json => {
     switch (command.method) {
       case "create": {
@@ -294,6 +346,8 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
           cwd: command.cwd,
           model: command.model,
           permissionMode: command.permissionMode,
+          accountId: command.accountId,
+          configDir: command.configDir,
         })
         if (command.prompt) {
           sendAccepted(id, command.prompt)
@@ -366,6 +420,8 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
         return {}
       case "tool":
         throw new Error("tool calls go through hub.tool")
+      case "move":
+        throw new Error("moves go through hub.move")
     }
   }
 
@@ -388,6 +444,18 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
       }
       try {
         return { result: await orchestration.run(master, name, input, signal) }
+      } catch (e) {
+        return { error: e instanceof Error ? e.message : String(e) }
+      }
+    },
+
+    move: async (id: SessionId, accountId: AccountId, configDir: DirPath | null): Promise<CommandResult> => {
+      if (stopping) {
+        return { error: "coordinator is stopping" }
+      }
+      try {
+        await move(id, accountId, configDir)
+        return { result: {} }
       } catch (e) {
         return { error: e instanceof Error ? e.message : String(e) }
       }

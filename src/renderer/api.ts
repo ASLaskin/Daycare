@@ -1,4 +1,4 @@
-import type { RequestId, SessionId, SkillId } from "../shared/ids.ts"
+import type { AccountId, RequestId, SessionId, SkillId } from "../shared/ids.ts"
 import type { Bridge, EventChannel, Events, InvokeChannel, InvokePayload, InvokeResult } from "../shared/ipc.ts"
 import type { PermissionDecision } from "../shared/ipc.ts"
 import type { NewMaster } from "../shared/session.ts"
@@ -35,6 +35,7 @@ export const api = {
   pickFolder: ask("dialog:pick-folder"),
   openFinder: call("open:finder"),
   openVSCode: call("open:vscode"),
+  openUrl: call("open:url"),
   updateInfo: ask("update:info"),
   runUpdate: call("update:run"),
   onUpdateLog: on("update:log"),
@@ -42,6 +43,15 @@ export const api = {
   refreshUsage: ask("usage:refresh"),
   restartCoordinator: ask("coordinator:restart"),
   onUsage: on("usage:update"),
+
+  listAccounts: ask("accounts:list"),
+  addAccount: call("accounts:add"),
+  removeAccount: call("accounts:remove"),
+  switchAccount: call("accounts:switch"),
+  loginAccount: call("accounts:login"),
+  loginCode: (id: AccountId, code: string) => bridge.invoke("accounts:login-code", { id, code }),
+  cancelLogin: call("accounts:login-cancel"),
+  onLogin: on("account:login"),
 
   listSessions: ask("session:list"),
   createMaster: (options: NewMaster) => bridge.invoke("master:create", options),

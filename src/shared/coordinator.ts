@@ -2,7 +2,7 @@
 
 import { Schema } from "effect"
 import { ChatEvent } from "./chat.ts"
-import { DirPath, RequestId, SessionId } from "./ids.ts"
+import { AccountId, DirPath, RequestId, SessionId } from "./ids.ts"
 import { PermissionMode, Provider, SessionRole } from "./session.ts"
 
 export const NativeId = Schema.String.pipe(Schema.brand("NativeId"))
@@ -30,6 +30,9 @@ export const StoredSession = Schema.Struct({
   createdAt: Schema.Number,
   // Provider launch count; scopes streamed partials
   run: Schema.Number,
+  accountId: AccountId,
+  // Claude config dir; null is ~/.claude
+  configDir: Schema.NullOr(DirPath),
 })
 export type StoredSession = typeof StoredSession.Type
 
@@ -62,6 +65,8 @@ export const Command = Schema.Union([
     icon: Schema.optionalKey(Schema.String),
     model: Schema.NullOr(Schema.String),
     permissionMode: PermissionMode,
+    accountId: AccountId,
+    configDir: Schema.NullOr(DirPath),
   }),
   Schema.Struct({ method: Schema.Literal("send"), session: SessionId, text: Schema.String }),
   Schema.Struct({ method: Schema.Literal("interrupt"), session: SessionId }),
@@ -79,6 +84,8 @@ export const Command = Schema.Union([
   Schema.Struct({ method: Schema.Literal("rename"), session: SessionId, name: Schema.String }),
   // Permanently deletes the session, a master's workers, and their history
   Schema.Struct({ method: Schema.Literal("remove"), session: SessionId }),
+  // Stops a Claude session and carries its transcript to another account
+  Schema.Struct({ method: Schema.Literal("move"), session: SessionId, accountId: AccountId, configDir: Schema.NullOr(DirPath) }),
   // Orchestration tool call for a master; may block
   Schema.Struct({ method: Schema.Literal("tool"), master: SessionId, name: Schema.String, input: Schema.Json }),
 ])

@@ -46,6 +46,7 @@ export const view = (s: LiveSession): SessionView => ({
   createdAt: s.createdAt,
   finishedTurns: 0,
   context: 0,
+  accountId: s.accountId,
 })
 
 // Offered choice matching the decision exactly

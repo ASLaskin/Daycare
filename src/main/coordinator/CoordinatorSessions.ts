@@ -1,10 +1,12 @@
 // Sessions backed by the coordinator.
 
 import { Context, Effect, Layer, Schema } from "effect"
+import { activeAccountOf, DEFAULT_ACCOUNT } from "../../shared/accounts.ts"
 import type { ChatEvent } from "../../shared/chat.ts"
-import { Accepted, type Approval, type Command, Created, type SessionHistory } from "../../shared/coordinator.ts"
+import { Accepted, type Approval, type Command, Created, type LiveSession, type SessionHistory } from "../../shared/coordinator.ts"
 import { asSessionId, type RequestId, type SessionId } from "../../shared/ids.ts"
 import type { NewMaster, SessionView } from "../../shared/session.ts"
+import { Accounts } from "../accounts/Accounts.ts"
 import { ControlHandlers } from "../control/ControlHandlers.ts"
 import { ToolError } from "../control/mcp.ts"
 import { Sessions, type SessionsShape } from "../sessions/Sessions.ts"
@@ -14,6 +16,7 @@ import { SettingsStore } from "../settings/SettingsStore.ts"
 import { Ui } from "../Ui.ts"
 import { runtimeDir, socketPath } from "../../shared/runtime.ts"
 import { AppPaths } from "../AppPaths.ts"
+import { makeCoordinatorAccounts } from "./accounts.ts"
 import { connect } from "./client.ts"
 import { restartCoordinator, startCoordinator } from "./launch.ts"
 import { coordinatorSetup } from "./paths.ts"
@@ -33,6 +36,7 @@ const make = (version: string) =>
   Effect.gen(function* () {
     const ui = yield* Ui
     const settingsStore = yield* SettingsStore
+    const accounts = yield* Accounts
     const { appRoot, home } = yield* AppPaths
     // Why the coordinator failed to start
     let launchError: string | null = null
@@ -46,6 +50,8 @@ const make = (version: string) =>
     const sessions = new Map<SessionId, SessionView>()
     const history = new Map<SessionId, Array<ChatEvent>>()
     const choices = new Map<string, ReadonlyArray<string>>()
+    // Sessions whose provider is running
+    const live = new Set<SessionId>()
 
     const upsert = (v: SessionView) => {
       const before = sessions.get(v.id)
@@ -53,6 +59,15 @@ const make = (version: string) =>
       const created = !before || (before.status === "closed" && v.status !== "closed")
       ui.send(created ? "session:created" : "session:update", v)
       sessions.set(v.id, v)
+    }
+
+    const track = (s: LiveSession) => {
+      if (s.live) {
+        live.add(s.id)
+      } else {
+        live.delete(s.id)
+      }
+      upsert(view(s))
     }
 
     // Appends; finished text replaces streamed fragments
@@ -65,6 +80,7 @@ const make = (version: string) =>
 
     const drop = (id: SessionId, parentId: SessionId | null) => {
       sessions.delete(id)
+      live.delete(id)
       history.delete(id)
       ui.send("session:removed", { id, parentId })
     }
@@ -77,7 +93,7 @@ const make = (version: string) =>
         // Deleted while this window was away
         const present = new Set(snapshot.sessions.map((s) => s.id))
         ;[...sessions.values()].filter((v) => !present.has(v.id)).forEach((v) => drop(v.id, v.parentId))
-        snapshot.sessions.forEach((s) => upsert(view(s)))
+        snapshot.sessions.forEach(track)
         Object.entries(snapshot.history).forEach(([raw, h]) => {
           const id = asSessionId(raw)
           const events = restored(h)
@@ -86,11 +102,12 @@ const make = (version: string) =>
         })
         choices.clear()
         snapshot.approvals.forEach(remember)
+        void Effect.runFork(coordinatorAccounts.rehome(snapshot.sessions))
       },
       event: (event) => {
         switch (event.kind) {
           case "session":
-            upsert(view(event.session))
+            track(event.session)
             return
           case "approval":
             remember(event.approval)
@@ -112,41 +129,53 @@ const make = (version: string) =>
 
     const request = (command: Command) => Effect.promise(() => client.request(command))
 
+    const coordinatorAccounts = makeCoordinatorAccounts({
+      settings: settingsStore,
+      ui,
+      accounts,
+      request,
+      sessions: () => [...sessions.values()],
+      isLive: (id) => live.has(id),
+    })
+
     // Name and sprite, as the in-Electron path picks
     const createMaster = (options: NewMaster): Effect.Effect<SessionView> => {
       const provider = options.provider ?? "claude"
       const all = [...sessions.values()]
-      return settingsStore.get.pipe(
-        Effect.flatMap((current) =>
-          request({
-            method: "create",
-            provider,
-            cwd: options.cwd,
-            prompt: options.task,
-            name:
-              options.name ||
-              defaultMasterName({
-                cwd: options.cwd,
-                taken: new Set(all.map((v) => v.name)),
-                randomNames: current.randomNames,
-                locationLabel: current.locations.find((l) => l.path === options.cwd)?.label,
-              }),
-            icon: nextIcon(new Set(all.filter((v) => v.role === "master").map((v) => v.icon)), current.iconPack),
-        // Model setting applies to Claude only
-            model: provider === "claude" ? options.model || null : null,
-            permissionMode: options.permissionMode,
-          }),
-        ),
-        Effect.flatMap(Schema.decodeUnknownEffect(Created)),
-        Effect.orDie,
-        Effect.flatMap(({ session }) => {
-          const created = sessions.get(session)
-          return created ? Effect.succeed(created) : Effect.die(new Error("coordinator did not report the new session"))
-        }),
-      )
+      return Effect.gen(function* () {
+        const current = yield* settingsStore.get
+        // Accounts and the model setting apply to Claude only
+        const accountId = provider === "claude" ? activeAccountOf(current) : DEFAULT_ACCOUNT
+        const result = yield* request({
+          method: "create",
+          provider,
+          cwd: options.cwd,
+          prompt: options.task,
+          name:
+            options.name ||
+            defaultMasterName({
+              cwd: options.cwd,
+              taken: new Set(all.map((v) => v.name)),
+              randomNames: current.randomNames,
+              locationLabel: current.locations.find((l) => l.path === options.cwd)?.label,
+            }),
+          icon: nextIcon(new Set(all.filter((v) => v.role === "master").map((v) => v.icon)), current.iconPack),
+          model: provider === "claude" ? options.model || null : null,
+          permissionMode: options.permissionMode,
+          accountId,
+          configDir: yield* accounts.configDir(accountId),
+        })
+        const { session } = yield* Schema.decodeUnknownEffect(Created)(result).pipe(Effect.orDie)
+        const created = sessions.get(session)
+        if (!created) {
+          return yield* Effect.die(new Error("coordinator did not report the new session"))
+        }
+        return created
+      })
     }
 
     const service: SessionsShape = {
+      ...coordinatorAccounts.actions,
       list: Effect.sync(() => [...sessions.values()]),
       get: (id) => Effect.sync(() => sessions.get(id) ?? null),
       create: () => Effect.die(new Error("worker sessions are created by the coordinator")),
