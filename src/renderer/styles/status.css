@@ -17,5 +17,7 @@
 .status.needs_you { color: var(--needs); }
 .status.done { color: var(--done); }
 .status.exited { color: var(--exited); }
+.status.interrupted { color: var(--needs); }
+.status.incomplete { color: var(--exited); }
 .status.closed { color: var(--faint); }
 @keyframes pulse { 50% { opacity: 0.3; transform: scale(0.8); } }

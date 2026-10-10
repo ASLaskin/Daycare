@@ -8,7 +8,8 @@ import type { PermissionDecision } from "../../shared/ipc.ts"
 import { parseJson } from "../../shared/json.ts"
 import type { NewMaster, SessionRecord, SessionView } from "../../shared/session.ts"
 import type { Settings } from "../../shared/settings.ts"
-import { type AccountInUse, makeAccountActions } from "./accounts.ts"
+import type { AccountInUse } from "../accounts/actions.ts"
+import { makeSessionAccountActions } from "./accounts.ts"
 import type { Core } from "./core.ts"
 import type { Lifecycle } from "./lifecycle.ts"
 import { type CreateOptions, decodeRecords, type Session, view } from "./model.ts"
@@ -31,9 +32,11 @@ export interface SessionsShape {
   readonly removeAccount: (id: AccountId) => Effect.Effect<Settings, AccountInUse>
   // Folders whose project skills apply
   readonly projectDirs: Effect.Effect<ReadonlyArray<DirPath>>
+  // Coordinator mode only; interrupts running work
+  readonly restartCoordinator: Effect.Effect<void>
 }
 
-const deleteDetail = (workers: number) =>
+export const deleteDetail = (workers: number) =>
   workers
     ? `This ends it and its ${workers} worker${workers === 1 ? "" : "s"} and removes them from Daycare.`
     : "This ends it and removes it from Daycare."
@@ -95,7 +98,7 @@ export const makeService = (core: Core, lifecycle: Lifecycle): SessionsShape => 
       r,
     )
 
-  const accountActions = makeAccountActions(core, lifecycle)
+  const accountActions = makeSessionAccountActions(core, lifecycle)
 
   return {
     ...accountActions,
@@ -176,6 +179,7 @@ export const makeService = (core: Core, lifecycle: Lifecycle): SessionsShape => 
       const workers = records.filter((r) => r.role === "worker" && r.parentId !== null && masterIds.has(r.parentId))
       ;[...masters, ...workers].forEach(restoreRecord)
     }),
+    restartCoordinator: Effect.void,
     projectDirs: Effect.gen(function* () {
       const current = yield* settings.get
       const dirs = [...[...sessions.values()].map((s) => s.cwd), ...current.locations.map((l) => l.path)]

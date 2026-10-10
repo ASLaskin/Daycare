@@ -23,6 +23,8 @@ export interface AccountsShape {
   readonly add: (label: string) => Effect.Effect<Account>
   // Env for a claude child on an account, creating its dir
   readonly childEnv: (id: AccountId, base: NodeJS.ProcessEnv) => Effect.Effect<NodeJS.ProcessEnv>
+  // CLAUDE_CONFIG_DIR for an account, creating it; null is ~/.claude
+  readonly configDir: (id: AccountId) => Effect.Effect<DirPath | null>
   // Folder holding an account's credentials file and transcripts
   readonly configHome: (id: AccountId) => DirPath
   readonly login: (id: AccountId) => Effect.Effect<void>
@@ -43,13 +45,15 @@ export class Accounts extends Context.Service<Accounts, AccountsShape>()("daycar
       const logins = makeLogins(claude.path, (p) => ui.send("account:login", p))
       yield* Effect.addFinalizer(() => Effect.sync(logins.cancelAll))
 
-      const envFor = (id: AccountId, base: NodeJS.ProcessEnv) => {
+      const prepare = (id: AccountId) => {
         const dir = configDirFor(userData, id)
         if (dir) {
           linkSharedConfig(home, dir)
         }
-        return withConfigDir(base, dir)
+        return dir
       }
+
+      const envFor = (id: AccountId, base: NodeJS.ProcessEnv) => withConfigDir(base, prepare(id))
 
       const runAuth = (id: AccountId, args: ReadonlyArray<string>) =>
         Effect.callback<string>((resume) => {
@@ -87,6 +91,7 @@ export class Accounts extends Context.Service<Accounts, AccountsShape>()("daycar
         list: settings.get.pipe(Effect.flatMap((s) => Effect.forEach(allAccounts(s.accounts), status, { concurrency: "unbounded" }))),
         add,
         childEnv: (id, base) => Effect.sync(() => envFor(id, base)),
+        configDir: (id) => Effect.sync(() => prepare(id)),
         configHome: (id) => configHomeFor(home, userData, id),
         login: (id) => Effect.sync(() => logins.start(id, envFor(id, cleanEnv(process.env)))),
         loginCode: (id, code) => Effect.sync(() => logins.submitCode(id, code)),

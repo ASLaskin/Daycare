@@ -3,10 +3,14 @@
 import { Schema } from "effect"
 import { AccountId, ClaudeSessionId, DirPath, FilePath, SessionId } from "./ids.ts"
 
+export const Provider = Schema.Literals(["claude", "codex"])
+export type Provider = typeof Provider.Type
+
 export const SessionRole = Schema.Literals(["master", "worker"])
 export type SessionRole = typeof SessionRole.Type
 
-export const SessionStatus = Schema.Literals(["starting", "idle", "working", "needs_you", "done", "exited", "closed"])
+// interrupted and incomplete come from the coordinator only
+export const SessionStatus = Schema.Literals(["starting", "idle", "working", "needs_you", "done", "exited", "interrupted", "incomplete", "closed"])
 export type SessionStatus = typeof SessionStatus.Type
 
 export const PermissionMode = Schema.Literals(["default", "acceptEdits", "bypassPermissions", "plan"])
@@ -22,6 +26,7 @@ export interface SessionView {
   readonly status: SessionStatus
   readonly activity: string
   readonly model: string
+  readonly provider: Provider
   readonly permissionMode: PermissionMode
   readonly cwd: DirPath
   readonly task: string | null
@@ -59,5 +64,7 @@ export const NewMaster = Schema.Struct({
   model: Schema.String,
   permissionMode: PermissionMode,
   name: Schema.optionalKey(Schema.String),
+  // Coordinator only
+  provider: Schema.optionalKey(Provider),
 })
 export type NewMaster = typeof NewMaster.Type

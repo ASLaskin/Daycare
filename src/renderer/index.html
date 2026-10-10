@@ -101,6 +101,12 @@
               <label>Default location
                 <select id="set-default-location"></select>
               </label>
+              <label class="provider-field">Default provider
+                <select id="set-provider">
+                  <option value="claude">Claude</option>
+                  <option value="codex">Codex</option>
+                </select>
+              </label>
               <label>Model
                 <select id="set-model">
                   <option value="opus">Opus</option>
@@ -297,6 +303,12 @@
       <div class="row">
         <label>Name
           <input name="name" placeholder="Automatic" />
+        </label>
+        <label class="provider-field">Provider
+          <select name="provider">
+            <option value="claude">Claude</option>
+            <option value="codex">Codex</option>
+          </select>
         </label>
         <label>Model
           <select name="model">

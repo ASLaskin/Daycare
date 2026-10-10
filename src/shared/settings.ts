@@ -4,7 +4,7 @@ import { Option, Schema } from "effect"
 import { Account, DEFAULT_ACCOUNT } from "./accounts.ts"
 import { AccountId, DirPath } from "./ids.ts"
 import { isJsonObject, type Json } from "./json.ts"
-import { PermissionMode } from "./session.ts"
+import { PermissionMode, Provider } from "./session.ts"
 
 export const Location = Schema.Struct({ label: Schema.String, path: DirPath })
 export type Location = typeof Location.Type
@@ -27,6 +27,8 @@ export const Settings = Schema.Struct({
   defaultLocation: Schema.Int,
   model: Schema.String,
   permissionMode: PermissionMode,
+  // Coordinator only
+  provider: Provider,
   keepAwake: KeepAwake,
   keepAwakeLidClosed: Schema.Boolean,
   appIcon: AppIcon,
@@ -61,6 +63,7 @@ export const baseSettings: Omit<Settings, "locations"> = {
   defaultLocation: 0,
   model: "opus",
   permissionMode: "default",
+  provider: "claude",
   keepAwake: "while-running",
   keepAwakeLidClosed: false,
   appIcon: "random",
