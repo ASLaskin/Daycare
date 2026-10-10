@@ -6,6 +6,7 @@ import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import { Chat } from "../src/main/chat/Chat.ts"
+import { LineFramer } from "../src/main/chat/framing.ts"
 import { historyFromTranscript } from "../src/main/chat/transcript.ts"
 import type { ChatEvent } from "../src/shared/chat.ts"
 import { asDirPath, asFilePath, asRequestId, asSessionId, type FilePath } from "../src/shared/ids.ts"
@@ -322,6 +323,15 @@ test("history is capped and deltas are streamed but not kept", async () => {
   expect(kinds(h.ev(), "text-delta").length).toBe(100)
   expect(hist.at(-2)!.kind).toBe("state")
   expect(hist.at(-1)!.kind).toBe("exit")
+})
+
+test("an oversized line ending in the chunk that crosses the limit is dropped", () => {
+  const f = new LineFramer()
+  const MiB = 1024 * 1024
+  f.push("x".repeat(8 * MiB - 1))
+  const r = f.push(`${"x".repeat(2 * MiB)}\n{"ok":1}\n`)
+  expect(r.dropped).toBe(true)
+  expect(r.lines).toEqual(['{"ok":1}'])
 })
 
 test("an oversized line yields an error event and framing recovers", async () => {

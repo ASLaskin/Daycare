@@ -1,4 +1,4 @@
-// Bundles main, preload and renderer into dist.
+// Bundles main, preload, renderer and the coordinator into dist.
 
 import { cpSync, mkdirSync, readdirSync, rmSync } from "node:fs"
 import path from "node:path"
@@ -24,6 +24,14 @@ const builds = await Promise.all([
     target: "node",
     format: "cjs",
     external: ["electron"],
+    sourcemap: "linked",
+  }),
+  // Run by Bun from outside the app archive
+  Bun.build({
+    entrypoints: [path.join(root, "src/coordinator/main.ts"), path.join(root, "src/coordinator/mcp.ts")],
+    outdir: path.join(out, "coordinator"),
+    naming: "[name].js",
+    target: "bun",
     sourcemap: "linked",
   }),
   Bun.build({

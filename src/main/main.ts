@@ -6,6 +6,7 @@ import path from "node:path"
 import { AppPaths } from "./AppPaths.ts"
 import { Chat } from "./chat/Chat.ts"
 import { ControlEndpoint, ControlHttpServer, ControlRoutes } from "./control/ControlServer.ts"
+import { coordinatorSessions } from "./coordinator/CoordinatorSessions.ts"
 import { AppIcon } from "./electron/AppIcon.ts"
 import { Boot } from "./electron/Boot.ts"
 import { ElectronPaths } from "./electron/ElectronPaths.ts"
@@ -45,8 +46,10 @@ const Services = Layer.mergeAll(
   Updater.layer,
 ).pipe(Layer.provideMerge(Window), Layer.provideMerge(Control))
 
-// Sessions plus the ControlHandlers it provides
-const Core = Sessions.layer.pipe(Layer.provideMerge(Services))
+// Sessions and ControlHandlers; coordinator default on Linux only
+const onCoordinator = process.env["DAYCARE_COORDINATOR"] ? process.env["DAYCARE_COORDINATOR"] === "1" : process.platform === "linux"
+const SessionsLive = onCoordinator ? coordinatorSessions(app.getVersion()) : Sessions.layer
+const Core = SessionsLive.pipe(Layer.provideMerge(Services))
 
 const App = Layer.mergeAll(ControlRoutes, Ipc, AppIcon).pipe(
   Layer.provideMerge(Core),

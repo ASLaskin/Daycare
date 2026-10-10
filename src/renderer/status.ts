@@ -7,5 +7,7 @@ export const STATUS_LABEL: Record<SessionStatus, string> = {
   needs_you: "Needs you",
   done: "Done",
   exited: "Exited",
+  interrupted: "Interrupted",
+  incomplete: "Incomplete",
   closed: "Closed",
 }
