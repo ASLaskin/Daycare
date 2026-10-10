@@ -4,7 +4,7 @@ import { expect, test } from "bun:test"
 import { spawnSync } from "node:child_process"
 import { spawnGroup, stopGroup } from "../src/coordinator/process.ts"
 
-// Running, not merely a zombie awaiting its reaper (what an edgy comment from claude)
+// Running, not merely a zombie awaiting its reaper
 const alive = (pid: number) => {
   const stat = spawnSync("ps", ["-o", "stat=", "-p", String(pid)], { encoding: "utf8" }).stdout.trim()
   return stat !== "" && !stat.startsWith("Z")
