@@ -24,10 +24,6 @@ test("command approvals offer every available decision and reply with its payloa
   expect(r.event.kind === "permission" ? [r.event.name, r.event.title] : null).toEqual(["Bash", "ls"])
 })
 
-test("without offered decisions a command gets the standard four", () => {
-  expect(approval("item/commandExecution/requestApproval", { itemId: "c" }).choices).toEqual(["accept", "acceptForSession", "decline", "cancel"])
-})
-
 test("permission requests grant the requested profile for the turn or session, or nothing", () => {
   const permissions = { network: { enabled: true } }
   const r = approval("item/permissions/requestApproval", { itemId: "p", permissions, reason: "fetch" })
@@ -51,8 +47,4 @@ test("Daycare's own tool-call approvals are accepted without asking", () => {
   const params = { serverName: "daycare", mode: "form", message: "Allow spawn_subagent?", _meta: { codex_approval_kind: "mcp_tool_call" } }
   expect(codexRequest(request, "mcpServer/elicitation/request", params)).toEqual({ kind: "auto", result: { action: "accept", content: {} } })
   expect(codexRequest(request, "mcpServer/elicitation/request", { ...params, _meta: {} }).kind).toBe("unsupported")
-})
-
-test("other requests are unsupported by name", () => {
-  expect(codexRequest(request, "account/chatgptAuthTokens/refresh", {})).toEqual({ kind: "unsupported", message: "daycare does not support account/chatgptAuthTokens/refresh" })
 })

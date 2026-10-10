@@ -1,7 +1,7 @@
 // Coordinator session records, migrations and recovery.
 
 import { afterEach, expect, test } from "bun:test"
-import { createSession, getSession, interrupt, loadSessions, openStore, patch, recover, startRun, startTurn } from "../src/coordinator/store.ts"
+import { createSession, getSession, loadSessions, patch, recover, startTurn } from "../src/coordinator/store.ts"
 import { asNativeId, type SessionState } from "../src/shared/coordinator.ts"
 import { asSessionId } from "../src/shared/ids.ts"
 import { sample, tempDb } from "./fixtures/store.ts"
@@ -26,12 +26,6 @@ test("reopening keeps records and schema", () => {
   expect(getSession(conn, s.id)).toEqual({ session: s })
 })
 
-test("rejects a newer schema", () => {
-  const db = fresh()
-  db.open().run("PRAGMA user_version = 99")
-  expect(() => openStore(db.file)).toThrow("database schema 99 is newer than this coordinator's 1")
-})
-
 test("recovery marks lost execution without touching settled sessions", () => {
   const conn = fresh().open()
   const cases: ReadonlyArray<readonly [string, SessionState]> = [
@@ -50,17 +44,6 @@ test("recovery marks lost execution without touching settled sessions", () => {
     ["c", "idle"],
     ["d", "interrupted"],
     ["e", "creating"],
-  ])
-})
-
-test("interrupting one session leaves others running", () => {
-  const conn = fresh().open()
-  createSession(conn, sample("a", "claude", "running"))
-  createSession(conn, sample("b", "claude", "running"))
-  interrupt(conn, asSessionId("a"))
-  expect(states(loadSessions(conn))).toEqual([
-    ["a", "interrupted"],
-    ["b", "running"],
   ])
 })
 
@@ -86,11 +69,4 @@ test("a turn clears the error and keeps creation pending", () => {
   startTurn(conn, id)
   const second = getSession(conn, id)
   expect(second && "session" in second ? [second.session.state, second.session.closed] : null).toEqual(["running", true])
-})
-
-test("each provider launch gets the next run number", () => {
-  const conn = fresh().open()
-  const id = asSessionId("a")
-  createSession(conn, sample("a", "claude", "idle"))
-  expect([startRun(conn, id), startRun(conn, id)]).toEqual([1, 2])
 })

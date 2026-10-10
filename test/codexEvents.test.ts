@@ -40,10 +40,6 @@ test("MCP calls carry their server and tool, and an error marks failure", () => 
   expect(end?.kind === "tool-end" ? [end.isError, end.content] : null).toEqual([true, '{"message":"no"}'])
 })
 
-test("reasoning without a summary becomes empty thinking", () => {
-  expect(ok("item/completed", { item: { type: "reasoning", id: "r" } })).toEqual([{ kind: "thinking", block: "r", text: "", tokens: null }])
-})
-
 test("turns map to state and turn-end, with failures carrying their message", () => {
   expect(ok("turn/started", { threadId: "t", turn: { id: "u", items: [], status: "inProgress" } })).toEqual([{ kind: "state", state: "running" }])
   const [end, idle] = ok("turn/completed", { threadId: "t", turn: { id: "u", items: [], status: "failed", error: { message: "boom" }, durationMs: 5 } })

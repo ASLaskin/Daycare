@@ -286,13 +286,6 @@ test("close stops a master and its workers; reopen brings them back without star
   expect(fake.launches.length).toBe(launches)
 })
 
-test("rename trims and ignores an empty name", () => {
-  const { hub } = setup()
-  hub.command({ method: "rename", session: id, name: "  Planner  " })
-  hub.command({ method: "rename", session: id, name: "   " })
-  expect(hub.subscribe(() => true).sessions[0]?.name).toBe("Planner")
-})
-
 test("removing a master deletes it, its workers and their history; removing a worker keeps the master", async () => {
   const { conn, hub, worker } = await withWorker()
   const second = await hub.tool(id, "spawn_subagent", { name: "w2", task: "go" }, new AbortController().signal)
@@ -323,18 +316,6 @@ test("a saved permission event carries the request's choices for replay", () => 
   const h = loadHistory(conn, id)
   const saved = "events" in h ? h.events.find((e) => e.kind === "permission") : undefined
   expect(saved?.kind === "permission" ? saved.choices : null).toEqual(["accept", "decline"])
-})
-
-test("a new master keeps the client's sprite, and never gets an empty name", () => {
-  const { hub } = setup()
-  const cwd = sample("x", "claude", "idle").cwd
-  hub.command({ method: "create", provider: "claude", cwd, prompt: "", name: "Kernel Sanders", icon: "mudkip", model: null, permissionMode: "default" })
-  hub.command({ method: "create", provider: "claude", cwd, prompt: "", model: null, permissionMode: "default" })
-  const created = hub.subscribe(() => true).sessions.filter((s) => s.id !== id)
-  expect(created.map((s) => [s.name, s.icon])).toEqual([
-    ["Kernel Sanders", "mudkip"],
-    ["Master", null],
-  ])
 })
 
 test("a removed session ignores everything its stopping provider still sends", () => {

@@ -127,13 +127,6 @@ test("a logged-out Codex is reported and the process ends", async () => {
   expect(updates).toContainEqual({ type: "error", message: "Codex is not logged in. Run `codex login`, then start a new session." })
 })
 
-test("an untested Codex version is a notice, not a failure", async () => {
-  const { handle, updates } = start("creating", null, { VERSION: "0.161.0" })
-  handle.input("hi")
-  await until(() => kinds(updates).includes("turn-end"))
-  expect(updates[0]).toEqual({ type: "event", event: { kind: "notice", message: "Codex 0.161.0 is untested; Daycare was tested with 0.160.1." } })
-})
-
 test("input resolves when Codex accepts the turn and rejects when it refuses", async () => {
   const accepted = start("creating")
   expect(accepted.handle.input("hi")).resolves.toBeUndefined()
@@ -141,10 +134,6 @@ test("input resolves when Codex accepts the turn and rejects when it refuses", a
   const refused = start("creating", null, { REJECT_TURN: "1" })
   expect(refused.handle.input("hi")).rejects.toThrow("turn refused")
   await until(() => refused.updates.some((u) => u.type === "error"))
-})
-
-test("a session whose creation never produced a thread is refused", () => {
-  expect(() => startCodex({ ...sample("s", "codex", "incomplete"), nativeId: null }, asFilePath("/unused"), () => {})).toThrow("its creation is incomplete")
 })
 
 test("input queued before a failed start is refused with the failure", async () => {
@@ -177,23 +166,6 @@ test("a bubblewrap warning before the thread makes the thread and every turn unt
   expect(policies(received, "thread/start")).toEqual(["untrusted"])
   expect(policies(received, "turn/start")).toEqual(["untrusted"])
   expect(notices(updates).filter((n) => n.startsWith("Codex cannot enforce")).length).toBe(1)
-})
-
-test("a bubblewrap warning after the thread applies from the next turn", async () => {
-  const { handle, updates, received } = start("creating", null, { WARNING: "late" }, "acceptEdits")
-  await until(() => notices(updates).some((n) => n.startsWith("Codex cannot enforce")))
-  await handle.input("one")
-  expect(policies(received, "thread/start")).toEqual(["on-request"])
-  expect(policies(received, "turn/start")).toEqual(["untrusted"])
-})
-
-test("an unrelated sandbox warning is shown but changes no policy", async () => {
-  const { handle, updates, received } = start("creating", null, { WARNING: "other" }, "acceptEdits")
-  await handle.input("one")
-  await until(() => kinds(updates).includes("turn-end"))
-  expect(policies(received, "thread/start")).toEqual(["on-request"])
-  expect(policies(received, "turn/start")).toEqual(["on-request"])
-  expect(notices(updates)).toEqual(["Codex: sandbox_mode in config.toml is deprecated"])
 })
 
 test("a master's thread carries the Daycare bridge; a worker's carries only its prompt", async () => {

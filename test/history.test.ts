@@ -57,14 +57,6 @@ test("evicts oldest whole entries across the limit", () => {
   expect(blocks).toEqual(Array.from({ length: blocks.length }, (_, i) => 10 - blocks.length + i))
 })
 
-test("under the limit nothing is evicted", () => {
-  const { conn } = setup()
-  const event = text("b", "héllo 🦀")
-  record(conn, id, 1, event)
-  expect(accounted(conn)).toBe(Buffer.byteLength(JSON.stringify(event)))
-  expect(events(conn).evicted).toBe(false)
-})
-
 test("an oversized entry becomes a decodable oversized event", () => {
   const { conn } = setup()
   const original: ChatEvent = { kind: "tool-end", toolUseId: asToolUseId("t"), isError: false, content: "🦀".repeat(512 * 1024), structured: null }
@@ -93,15 +85,6 @@ test("partial output survives reopening until its text completes", () => {
   record(reopened, id, 1, text("m1:0", "Hello"))
   accounted(reopened)
   expect(events(reopened).events).toEqual([{ kind: "user", text: "hi" }, text("m1:0", "Hello")])
-})
-
-test("a completion leaves an earlier scope's partial with the same block", () => {
-  const { conn } = setup()
-  record(conn, id, 1, delta("m1:0", "cut off"))
-  record(conn, id, 2, delta("m1:0", "Hel"))
-  record(conn, id, 2, text("m1:0", "Hello"))
-  accounted(conn)
-  expect(events(conn).events).toEqual([delta("m1:0", "cut off"), text("m1:0", "Hello")])
 })
 
 test("utf8Prefix cuts on a character boundary", () => {

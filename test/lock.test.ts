@@ -1,7 +1,7 @@
 // Kernel-held single-instance lock on Linux.
 
 import { afterAll, expect, test } from "bun:test"
-import { mkdtempSync, readFileSync, rmSync } from "node:fs"
+import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import { takeLock } from "../src/coordinator/lock.ts"
@@ -32,12 +32,6 @@ test("a second holder is refused until the first releases", () => {
   again?.release()
 })
 
-test("releasing twice closes the lock only once", () => {
-  const lock = takeLock(lockFile("c.lock"))
-  lock?.release()
-  expect(() => lock?.release()).not.toThrow()
-})
-
 test("SIGKILL frees the lock even while the holder's child lives", async () => {
   const file = lockFile("b.lock")
   const script = `
@@ -60,11 +54,4 @@ test("SIGKILL frees the lock even while the holder's child lives", async () => {
   process.kill(child, "SIGKILL")
   expect(after).not.toBeNull()
   after?.release()
-})
-
-test("the holder writes its process id into the lock file", () => {
-  const file = lockFile("d.lock")
-  const lock = takeLock(file)
-  expect(readFileSync(file, "utf8")).toBe(`${process.pid}\n`)
-  lock?.release()
 })

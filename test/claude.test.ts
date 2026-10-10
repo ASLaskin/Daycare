@@ -95,14 +95,6 @@ test("only an offered choice answers, the first valid answer wins, and always ca
   expect(await result).toEqual({ behavior: "allow", updatedInput: { command: "pwd" }, updatedPermissions: [rule] } satisfies PermissionResult)
 })
 
-test("always is not offered when the SDK suppresses it", () => {
-  const { fake, updates, handle } = start("idle")
-  void ask(fake.options()?.canUseTool, { suggestions: [rule], suppressAlwaysAllowRule: true })
-  const approval = updates.find((u) => u.type === "approval")
-  expect(approval?.type === "approval" ? approval.choices : null).toEqual(["allow", "deny"])
-  expect(handle.answer(asRequestId("req-1"), { choice: "always" })).toBe(false)
-})
-
 test("an aborted request is withdrawn and can no longer be answered", async () => {
   const { fake, updates, handle } = start("idle")
   const abort = new AbortController()

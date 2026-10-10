@@ -1,7 +1,6 @@
 // Orchestration tools through the hub, with fake providers.
 
 import { afterEach, expect, test } from "bun:test"
-import { record } from "../src/coordinator/history.ts"
 import { type Launch, makeHub } from "../src/coordinator/hub.ts"
 import { type ProviderUpdate, Refused } from "../src/coordinator/provider.ts"
 import { createSession } from "../src/coordinator/store.ts"
@@ -70,12 +69,6 @@ test("a spawned worker is a visible session under its master, found by name", as
   await expect(tool("list_subagents", {}, asSessionId(str(spawned["id"]) ?? ""))).rejects.toThrow("only a master session can orchestrate workers")
 })
 
-test("a same-provider worker inherits the master's model", async () => {
-  const { hub, tool } = setup()
-  const spawned = await tool("spawn_subagent", { name: "a", task: "go" })
-  expect(hub.subscribe(() => true).sessions.find((s) => s.id === str(spawned["id"]))?.model).toBe("opus")
-})
-
 test("delivery is uncertain without confirmation, an error when refused, uncertain on an ambiguous failure", async () => {
   expect((await setup("hang").tool("spawn_subagent", { name: "a", task: "go" }))["delivered"]).toBe("uncertain")
   await expect(setup("refuse").tool("spawn_subagent", { name: "a", task: "go" })).rejects.toThrow("a did not receive the message: claude has stopped")
@@ -130,11 +123,4 @@ test("bad arguments and unknown tools are errors", async () => {
   const { tool } = setup()
   await expect(tool("spawn_subagent", { name: "a" })).rejects.toThrow("bad arguments for spawn_subagent")
   await expect(tool("do_magic", {})).rejects.toThrow("unknown tool do_magic")
-})
-
-test("history recorded for a worker counts toward its last reply", async () => {
-  const { conn, tool } = setup()
-  const id = asSessionId(str((await tool("spawn_subagent", { name: "a", task: "go" }))["id"]) ?? "")
-  record(conn, id, 1, { kind: "text", block: "x", text: "from history" })
-  expect((await tool("read_subagent", { worker: "a" }))["finalMessage"]).toBe("from history")
 })

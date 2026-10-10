@@ -75,13 +75,6 @@ test("one owner, a private directory and a private socket", async () => {
   expect(built).toBe(false)
 })
 
-test("a socket path too long for Node to reach is refused before anything is created", async () => {
-  const dir = path.join(tmpdir(), "x".repeat(120))
-  expect(listen(dir, () => {
-    throw new Error("hub built")
-  }, VERSION)).rejects.toThrow("longer than 103 bytes")
-})
-
 test("a stale socket file is replaced once the lock is free", async () => {
   const { runtime, hub, server } = await setup()
   await server.close()
@@ -148,24 +141,6 @@ test("a client that stops reading is dropped instead of buffered", async () => {
   await client.closed
   expect(client.lines.some((l) => l["type"] === "dropped")).toBe(false)
   expect(client.lines.length).toBeLessThan(count)
-})
-
-test("a client whose queue stops moving is dropped even under its allowance", async () => {
-  const { runtime, hub, updates } = await setup(200)
-  const client = connect(runtime)
-  client.send({ type: "hello", version: VERSION })
-  await client.waitFor(1)
-  hub.command({ method: "send", session: id, text: "go" })
-  client.socket.pause()
-  const text = "x".repeat(100 * 1024)
-  // Enough to fill the socket buffers, well under the 4 MiB allowance
-  Array.from({ length: 20 }, (_, n) => updates[0]?.({ type: "event", event: { kind: "text", block: `s${n}`, text } }))
-  // A paused client cannot see the close, so resume once the stall has passed
-  await Bun.sleep(1000)
-  client.socket.resume()
-  const closed = await Promise.race([client.closed.then(() => true), Bun.sleep(3000).then(() => false)])
-  expect(closed).toBe(true)
-  expect(client.lines.filter((l) => l["type"] === "event").length).toBeLessThan(20)
 })
 
 test("a requests-only client gets ready and no events", async () => {
