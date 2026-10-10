@@ -159,7 +159,7 @@ const make = (version: string) =>
               randomNames: current.randomNames,
               locationLabel: current.locations.find((l) => l.path === options.cwd)?.label,
             }),
-          icon: nextIcon(new Set(all.filter((v) => v.role === "master").map((v) => v.icon))),
+          icon: nextIcon(new Set(all.filter((v) => v.role === "master").map((v) => v.icon)), current.iconPack),
           model: provider === "claude" ? options.model || null : null,
           permissionMode: options.permissionMode,
           accountId,

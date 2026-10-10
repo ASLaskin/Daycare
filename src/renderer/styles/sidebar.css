@@ -102,8 +102,8 @@
 .sidebar-handle:hover::after, .sidebar-handle.dragging::after { opacity: 0.7; transition-delay: 120ms; }
 
 .master-item .who { display: flex; align-items: center; gap: 9px; min-width: 0; }
-.avatar { width: 26px; height: 26px; flex: none; image-rendering: pixelated; margin: -3px 0 -3px -2px; }
-.master-item .meta, .master-item .progress, .master-item .worker-list { margin-left: 33px; }
+.avatar { width: 44px; height: 44px; flex: none; image-rendering: pixelated; object-fit: contain; margin: -4px 0 -4px -3px; }
+.master-item .meta, .master-item .progress, .master-item .worker-list { margin-left: 50px; }
 .master-item.no-avatar .meta, .master-item.no-avatar .progress, .master-item.no-avatar .worker-list { margin-left: 0; }
 .rename-input { font: inherit; font-weight: 600; padding: 1px 6px; margin: -2px 0; width: 100%; min-width: 0; border-radius: var(--r-sm); }
 .master-item .meta .acct-tag { margin-left: auto; color: var(--faint); font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40%; }

@@ -15,7 +15,7 @@ export const MONOS = [
   { id: "jetbrains", label: "JetBrains Mono", sub: "Taller x-height, bundled with the app" },
 ] as const
 
-export const SIDEBAR_WIDTH = 264
+export const SIDEBAR_WIDTH = 288
 
 export const applyAppearance = () => {
   const s = settings()

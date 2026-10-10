@@ -97,6 +97,13 @@
               </div>
               <input type="checkbox" id="set-random-names" class="switch" />
             </label>
+            <label class="toggle-row">
+              <div>
+                <div class="toggle-label">Done sounds</div>
+                <div class="hint">Play a short ding when a master or worker finishes its turn. Masters sound higher than workers.</div>
+              </div>
+              <input type="checkbox" id="set-done-sounds" class="switch" />
+            </label>
             <div class="field-grid">
               <label>Default location
                 <select id="set-default-location"></select>
@@ -123,6 +130,13 @@
                 </select>
               </label>
             </div>
+            <label class="toggle-row">
+              <div>
+                <div class="toggle-label">Ooga booga mode</div>
+                <div class="hint">Tell masters and workers to talk like a caveman to save output tokens. Only prose gets terse; code, commands, and commit messages stay normal. Applies when a session starts or restarts, since a running session cannot change its system prompt.</div>
+              </div>
+              <input type="checkbox" id="set-ooga-booga" class="switch" />
+            </label>
           </div>
 
           <div class="card">
@@ -177,11 +191,19 @@
             <div class="card-title">Sidebar</div>
             <label class="toggle-row">
               <div>
-                <div class="toggle-label">Show Pokemon</div>
-                <div class="hint">Show a random Pokemon next to each session in the sidebar.</div>
+                <div class="toggle-label">Show icons</div>
+                <div class="hint">Show a random icon next to each session in the sidebar.</div>
               </div>
               <input type="checkbox" id="set-show-icons" class="switch" />
             </label>
+            <div class="field-grid two plain">
+              <label>Icon pack
+                <select id="set-icon-pack">
+                  <option value="pokemon">Pokemon</option>
+                  <option value="jokers">Jimbo</option>
+                </select>
+              </label>
+            </div>
             <label class="toggle-row">
               <div>
                 <div class="toggle-label">Show context meters</div>

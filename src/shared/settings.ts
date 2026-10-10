@@ -3,6 +3,7 @@
 import { Option, Schema } from "effect"
 import { Account, DEFAULT_ACCOUNT } from "./accounts.ts"
 import { AccountId, DirPath } from "./ids.ts"
+import { IconPack } from "./icons.ts"
 import { isJsonObject, type Json } from "./json.ts"
 import { PermissionMode, Provider } from "./session.ts"
 
@@ -22,11 +23,14 @@ export type Layout = typeof Layout.Type
 export const Settings = Schema.Struct({
   askOnNew: Schema.Boolean,
   randomNames: Schema.Boolean,
+  doneSounds: Schema.Boolean,
   showIcons: Schema.Boolean,
+  iconPack: IconPack,
   showContext: Schema.Boolean,
   defaultLocation: Schema.Int,
   model: Schema.String,
   permissionMode: PermissionMode,
+  oogaBooga: Schema.Boolean,
   // Coordinator only
   provider: Provider,
   keepAwake: KeepAwake,
@@ -58,11 +62,14 @@ export type Settings = typeof Settings.Type
 export const baseSettings: Omit<Settings, "locations"> = {
   askOnNew: false,
   randomNames: true,
+  doneSounds: true,
   showIcons: true,
+  iconPack: "pokemon",
   showContext: true,
   defaultLocation: 0,
   model: "opus",
   permissionMode: "default",
+  oogaBooga: false,
   provider: "claude",
   keepAwake: "while-running",
   keepAwakeLidClosed: false,
@@ -75,7 +82,7 @@ export const baseSettings: Omit<Settings, "locations"> = {
   monoFont: "system",
   layout: "stack",
   splits: {},
-  sidebarWidth: 264,
+  sidebarWidth: 288,
   sidebarCollapsed: false,
   railWidth: 252,
   zoomDblClick: true,
