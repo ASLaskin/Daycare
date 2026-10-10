@@ -21,6 +21,7 @@ export type Layout = typeof Layout.Type
 export const Settings = Schema.Struct({
   askOnNew: Schema.Boolean,
   randomNames: Schema.Boolean,
+  doneSounds: Schema.Boolean,
   showIcons: Schema.Boolean,
   showContext: Schema.Boolean,
   defaultLocation: Schema.Int,
@@ -54,6 +55,7 @@ export type Settings = typeof Settings.Type
 export const baseSettings: Omit<Settings, "locations"> = {
   askOnNew: false,
   randomNames: true,
+  doneSounds: true,
   showIcons: true,
   showContext: true,
   defaultLocation: 0,
