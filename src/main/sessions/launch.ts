@@ -6,6 +6,7 @@ import type { SessionId } from "../../shared/ids.ts"
 import type { ControlEndpoint } from "../control/ControlServer.ts"
 import { TOKEN_HEADER } from "../control/hook.ts"
 import { canResume, type Session } from "./model.ts"
+import { withOogaBooga } from "./oogaBooga.ts"
 import { MASTER_PROMPT, WORKER_PROMPT } from "./prompts.ts"
 
 type Endpoint = ControlEndpoint["Service"]
@@ -56,9 +57,14 @@ export const writeMcpConfig = (mcpDir: string, endpoint: Endpoint, id: SessionId
   return file
 }
 
-const roleArgs = (s: Session, mcpDir: string, endpoint: Endpoint) => {
+// Launch options read from settings
+export interface LaunchOptions {
+  readonly oogaBooga: boolean
+}
+
+const roleArgs = (s: Session, mcpDir: string, endpoint: Endpoint, options: LaunchOptions) => {
   if (s.role !== "master") {
-    return ["--append-system-prompt", WORKER_PROMPT]
+    return ["--append-system-prompt", withOogaBooga(WORKER_PROMPT, options.oogaBooga)]
   }
   return [
     "--mcp-config",
@@ -70,16 +76,16 @@ const roleArgs = (s: Session, mcpDir: string, endpoint: Endpoint) => {
     "Agent",
     "Task",
     "--append-system-prompt",
-    MASTER_PROMPT,
+    withOogaBooga(MASTER_PROMPT, options.oogaBooga),
   ]
 }
 
 // Arguments to start or resume a session
-export const claudeArgs = (s: Session, resume: boolean, mcpDir: string, endpoint: Endpoint) => [
+export const claudeArgs = (s: Session, resume: boolean, mcpDir: string, endpoint: Endpoint, options: LaunchOptions) => [
   "--settings",
   JSON.stringify(hookSettings(endpoint, s.id)),
   ...(resume && canResume(s) ? ["--resume", s.claudeSessionId] : ["--session-id", s.claudeSessionId]),
   ...(s.model ? ["--model", s.model] : []),
   ...(s.permissionMode !== "default" ? ["--permission-mode", s.permissionMode] : []),
-  ...roleArgs(s, mcpDir, endpoint),
+  ...roleArgs(s, mcpDir, endpoint, options),
 ]

@@ -38,7 +38,7 @@ export const makeLifecycle = (core: Core): Lifecycle => {
   }
 
   const startSession = (s: Session, resume: boolean) => {
-    const args = claudeArgs(s, resume, core.mcpDir, endpoint)
+    const args = claudeArgs(s, resume, core.mcpDir, endpoint, { oogaBooga: run(settings.get).oogaBooga })
     const dir = fs.existsSync(s.cwd) ? s.cwd : asDirPath(os.homedir())
     run(chat.start({ id: s.id, cwd: dir, env: childEnv(), args, transcriptPath: resume && canResume(s) ? s.transcriptPath : null }))
     if (s.task && !resume) {

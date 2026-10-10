@@ -29,6 +29,7 @@ export const Settings = Schema.Struct({
   defaultLocation: Schema.Int,
   model: Schema.String,
   permissionMode: PermissionMode,
+  oogaBooga: Schema.Boolean,
   // Coordinator only
   provider: Provider,
   keepAwake: KeepAwake,
@@ -64,6 +65,7 @@ export const baseSettings: Omit<Settings, "locations"> = {
   defaultLocation: 0,
   model: "opus",
   permissionMode: "default",
+  oogaBooga: false,
   provider: "claude",
   keepAwake: "while-running",
   keepAwakeLidClosed: false,
