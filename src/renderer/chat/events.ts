@@ -1,6 +1,8 @@
 import type { ChatEvent, ChatEventOf } from "../../shared/chat.ts"
+import { collectAttachments } from "../attachments/store.ts"
 import { el, tildify } from "../dom.ts"
 import { prune } from "./caps.ts"
+import { appendLinked } from "./links.ts"
 import { renderFoot } from "./foot.ts"
 import { cap } from "./format.ts"
 import { permission, resolvePerm } from "./permissions.ts"
@@ -34,7 +36,9 @@ const userMessage = (s: ChatSession, text: string) => {
   renderTasks(s)
   prune(s)
   const m = el("div", "chat-msg chat-user")
-  m.append(el("div", "chat-bubble", text))
+  const bubble = el("div", "chat-bubble")
+  appendLinked(bubble, text, s.cwd)
+  m.append(bubble)
   s.thread.insertBefore(m, s.working)
   s.pinned = true
   stick(s)
@@ -143,6 +147,7 @@ export const apply = (s: ChatSession, ev: ChatEvent) => {
   if (ev.kind !== "text-delta") {
     s.applied += 1
   }
+  collectAttachments(s.id, ev, s.cwd)
   const handler = HANDLERS[ev.kind] as (s: ChatSession, ev: ChatEvent) => void
   handler(s, ev)
 }

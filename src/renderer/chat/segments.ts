@@ -1,6 +1,8 @@
 // Prose and code segments, rendered as plain text
 
+import type { DirPath } from "../../shared/ids.ts"
 import { el } from "../dom.ts"
+import { appendLinked } from "./links.ts"
 
 export interface Segment {
   readonly code: boolean
@@ -63,9 +65,19 @@ const codeBlock = (seg: Segment) => {
   return wrap
 }
 
-export const appendProse = (parent: HTMLElement, raw: string) => {
+const proseBlock = (text: string, linkCwd: DirPath | null) => {
+  if (!linkCwd) {
+    return el("div", "chat-prose", text)
+  }
+  const p = el("div", "chat-prose")
+  appendLinked(p, text, linkCwd)
+  return p
+}
+
+// Links urls and paths when given the session cwd
+export const appendProse = (parent: HTMLElement, raw: string, linkCwd: DirPath | null = null) => {
   const segs = parseSegments(raw)
-  const nodes = segs.map((seg) => (seg.code ? codeBlock(seg) : el("div", "chat-prose", seg.text)))
+  const nodes = segs.map((seg) => (seg.code ? codeBlock(seg) : proseBlock(seg.text, linkCwd)))
   parent.append(...nodes)
   const lastProse = nodes.filter((_, i) => !segs[i]!.code).pop()
   const tail = (lastProse?.firstChild as Text | null | undefined) ?? null

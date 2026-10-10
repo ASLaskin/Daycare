@@ -37,3 +37,6 @@
 .chat-codeblock { background: var(--bg); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
 .chat-codelang { padding: 4px 12px; color: var(--faint); font: 11px var(--mono); border-bottom: 1px solid var(--line); background: var(--panel-2); }
 .chat-code { margin: 0; padding: 10px 12px; font: 12.5px/1.55 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; color: var(--text); }
+
+.chat-link { color: var(--accent); cursor: pointer; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 2px; transition: text-decoration-color var(--t-fast) var(--ease); }
+.chat-link:hover, .chat-link:focus-visible { text-decoration-color: currentColor; }

@@ -2,6 +2,7 @@
 
 import { Schema } from "effect"
 import { type Account, type AccountStatus, LoginCode, type LoginProgress } from "./accounts.ts"
+import { ResolveRequest, type ResolvedPath } from "./attachments.ts"
 import type { ChatEvent } from "./chat.ts"
 import { AccountId, DirPath, type FilePath, RequestId, SessionId } from "./ids.ts"
 import type { PowerStatus } from "./power.ts"
@@ -61,6 +62,11 @@ export const Invoke = {
   "skills:set": SetSkillState,
   "skills:plugin": SetSkillPlugin,
   "skills:restore": RestoreSkill,
+
+  "attachment:resolve": ResolveRequest,
+  "attachment:open-url": Schema.String,
+  "attachment:open": Schema.String,
+  "attachment:reveal": Schema.String,
 
   "chat:send": Schema.Struct({ id: Id, text: Schema.String }),
   "chat:interrupt": Id,
@@ -123,6 +129,11 @@ export interface InvokeResult {
   "skills:set": SkillsListing
   "skills:plugin": SkillsListing
   "skills:restore": SkillsListing
+
+  "attachment:resolve": ReadonlyArray<ResolvedPath>
+  "attachment:open-url": void
+  "attachment:open": void
+  "attachment:reveal": void
 
   "chat:send": void
   "chat:interrupt": void

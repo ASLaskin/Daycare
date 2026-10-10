@@ -18,6 +18,8 @@ export const AppIcon = Schema.Literals(["random", "block", "sleepybot", "house"]
 export const Motion = Schema.Literals(["off", "fast", "normal", "slow"])
 export const Font = Schema.Literals(["system", "inter"])
 export const MonoFont = Schema.Literals(["system", "jetbrains"])
+export const RailTab = Schema.Literals(["skills", "attachments"])
+export type RailTab = typeof RailTab.Type
 export const Layout = Schema.Literals(["stack", "side", "columns", "grid"])
 export type Layout = typeof Layout.Type
 
@@ -39,7 +41,8 @@ export const Settings = Schema.Struct({
   keepAwake: KeepAwake,
   keepAwakeLidClosed: Schema.Boolean,
   appIcon: AppIcon,
-  skillRailOpen: Schema.Boolean,
+  railOpen: Schema.Boolean,
+  railTab: RailTab,
   contextScale: Schema.Finite,
   contextLimit: Schema.Finite,
   motion: Motion,
@@ -79,7 +82,8 @@ export const baseSettings: Omit<Settings, "locations"> = {
   keepAwake: "while-running",
   keepAwakeLidClosed: false,
   appIcon: "random",
-  skillRailOpen: false,
+  railOpen: false,
+  railTab: "skills",
   contextScale: 500000,
   contextLimit: 150000,
   motion: "normal",

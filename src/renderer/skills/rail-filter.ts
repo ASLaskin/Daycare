@@ -15,10 +15,10 @@ const inScope = (r: SkillRow, cwd: string | null) => {
   return cwd === r.scope || cwd.startsWith(r.scope.replace(/\/+$/, "") + "/")
 }
 
-export const runnable = (r: SkillRow, cwd: string | null) =>
+const runnable = (r: SkillRow, cwd: string | null) =>
   r.userInvocable && (r.state === "on" || r.state === "user-invocable-only") && inScope(r, cwd)
 
-export const focusedCwd = () => focused()?.cwd || null
+const focusedCwd = () => focused()?.cwd || null
 
 // Runnable skills matching the query, sorted by command
 export const railRows = (query: string) => {

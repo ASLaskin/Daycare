@@ -5,6 +5,8 @@ import "./styles/index.css"
 import "./skills/skills.css"
 import "./chat/chat.css"
 import { initAccountPicker } from "./account-picker.ts"
+import "./attachments/attachments.css"
+import "./side-rail/side-rail.css"
 import { applyAppearance } from "./appearance.ts"
 import { initCoordinatorView } from "./coordinator-view.ts"
 import { $ } from "./dom.ts"
@@ -16,7 +18,8 @@ import { initSessions } from "./sessions.ts"
 import { initSettingsView, renderSettings, renderTabs } from "./settings-view.ts"
 import { clampLocation, initNewSession, renderLocationPickers, setCurrentLocation } from "./new-session.ts"
 import { initSheet } from "./sheet.ts"
-import { initShortcuts, toggleRail } from "./shortcuts.ts"
+import { initShortcuts } from "./shortcuts.ts"
+import { mountSideRail } from "./side-rail/rail.ts"
 import * as skills from "./skills/index.ts"
 import { loadSettings, onSettingsChanged } from "./store.ts"
 
@@ -41,9 +44,8 @@ initSettingsView()
 initNewSession()
 initSheet()
 initShortcuts()
-$("#toggle-rail").onclick = toggleRail
 skills.mountManager($("#skills-panel"))
-skills.mountRail($("#skill-rail"))
+mountSideRail($("#side-rail"))
 renderTabs()
 initCoordinatorView()
 await initSessions()
