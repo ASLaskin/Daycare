@@ -45,6 +45,7 @@ export interface OrchestrationCore {
   readonly workerModels: () => WorkerModels
   readonly createWorker: (spec: WorkerSpec) => SessionId
   readonly send: (id: SessionId, text: string) => Promise<void>
+  readonly archive: (id: SessionId) => void
   readonly history: (id: SessionId) => SessionHistory
 }
 
@@ -75,6 +76,7 @@ export const makeOrchestration = (core: OrchestrationCore, ackMs = ACK_MS) => {
   const waiters = new Set<Waiter>()
 
   const workers = (master: SessionId) => core.sessions().filter((s) => s.parentId === master)
+  const activeWorkers = (master: SessionId) => workers(master).filter((s) => !s.archived)
 
   // Worker by id, else case-insensitive name
   const worker = (master: SessionId, ref: string) => {
@@ -115,6 +117,9 @@ export const makeOrchestration = (core: OrchestrationCore, ackMs = ACK_MS) => {
   }
 
   const sendTo = async (w: StoredSession, text: string) => {
+    if (w.archived) {
+      throw new Error(`${w.name} is archived`)
+    }
     try {
       return await delivery(core.send(w.id, text), ackMs)
     } catch (e) {
@@ -142,7 +147,7 @@ export const makeOrchestration = (core: OrchestrationCore, ackMs = ACK_MS) => {
 
   const wait = (master: StoredSession, input: ToolInput<"wait_for_subagents">, signal: AbortSignal) => {
     const refs = input.workers ?? []
-    const ids = refs.length ? refs.map((r) => worker(master.id, r).id) : workers(master.id).map((w) => w.id)
+    const ids = refs.length ? refs.map((r) => worker(master.id, r).id) : activeWorkers(master.id).map((w) => w.id)
     const seconds = Math.min(Math.max(input.timeout_seconds ?? DEFAULT_WAIT_SECONDS, 0), MAX_WAIT_SECONDS)
     return new Promise<Json>((resolve) => {
       const finish = (timedOut: boolean) => {
@@ -189,7 +194,7 @@ export const makeOrchestration = (core: OrchestrationCore, ackMs = ACK_MS) => {
       case "spawn_subagent":
         return spawn(master, input as ToolInput<"spawn_subagent">)
       case "list_subagents":
-        return workers(master.id).map(summary)
+        return activeWorkers(master.id).map(summary)
       case "read_subagent": {
         const w = worker(master.id, (input as ToolInput<"read_subagent">).worker)
         const { reply, truncated } = lastReply(w.id)
@@ -202,6 +207,11 @@ export const makeOrchestration = (core: OrchestrationCore, ackMs = ACK_MS) => {
       }
       case "wait_for_subagents":
         return wait(master, input as ToolInput<"wait_for_subagents">, signal)
+      case "archive_subagent": {
+        const found = (input as ToolInput<"archive_subagent">).workers.map((r) => worker(master.id, r))
+        found.forEach((w) => core.archive(w.id))
+        return { archived: found.map((w) => w.name) }
+      }
     }
   }
 

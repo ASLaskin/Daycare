@@ -6,12 +6,14 @@ import "./skills/skills.css"
 import "./chat/chat.css"
 import { initAccountPicker } from "./account-picker.ts"
 import "./attachments/attachments.css"
+import "./archived/archived.css"
 import "./side-rail/side-rail.css"
 import { applyAppearance } from "./appearance.ts"
 import { initCoordinatorView } from "./coordinator-view.ts"
 import { $ } from "./dom.ts"
 import { relayoutAll } from "./layout.ts"
 import { initSidebarCollapse } from "./sidebar-collapse.ts"
+import { initSidebarMode } from "./sidebar-mode.ts"
 import { initSidebarResize } from "./sidebar-resize.ts"
 import { initUsage } from "./usage-view.ts"
 import { initSessions } from "./sessions.ts"
@@ -40,6 +42,7 @@ initUsage()
 initAccountPicker()
 initSidebarResize()
 initSidebarCollapse()
+initSidebarMode()
 initSettingsView()
 initNewSession()
 initSheet()

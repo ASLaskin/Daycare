@@ -19,6 +19,9 @@ export interface Lifecycle {
   readonly createSession: (options: CreateOptions, restored?: SessionRecord | null) => Session
   readonly startSession: (s: Session, resume: boolean) => void
   readonly killSession: (s: Session) => void
+  // Stop, keeping it listed to reopen
+  readonly closeSession: (s: Session) => void
+  readonly reopenSession: (s: Session) => void
   readonly sessionExited: (s: Session) => void
   readonly removeSession: (s: Session) => void
   readonly submitText: (s: Session, text: string) => boolean
@@ -61,6 +64,27 @@ export const makeLifecycle = (core: Core): Lifecycle => {
   }
 
   const killSession = (s: Session) => run(chat.stop(s.id))
+
+  const closeSession = (s: Session) => {
+    if (s.status === "closed" || s.closing) {
+      return
+    }
+    s.closing = true
+    if (core.isRunning(s)) {
+      killSession(s)
+      return
+    }
+    sessionExited(s)
+  }
+
+  const reopenSession = (s: Session) => {
+    if (s.status !== "closed") {
+      return
+    }
+    s.status = "starting"
+    ui.send("session:created", view(s))
+    startSession(s, true)
+  }
 
   // Closed sessions stay listed, others are removed
   const sessionExited = (s: Session) => {
@@ -155,6 +179,7 @@ export const makeLifecycle = (core: Core): Lifecycle => {
       hadTurn: restored?.hadTurn ?? false,
       context: restored ? contextTokens(restored.transcriptPath) : 0,
       closing: false,
+      archived: restored?.archived ?? false,
       accountId: restored?.accountId ?? options.accountId ?? activeAccountOf(current),
       restartOn: null,
     }
@@ -180,5 +205,5 @@ export const makeLifecycle = (core: Core): Lifecycle => {
     return true
   }
 
-  return { createSession, startSession, killSession, sessionExited, removeSession, submitText }
+  return { createSession, startSession, killSession, closeSession, reopenSession, sessionExited, removeSession, submitText }
 }

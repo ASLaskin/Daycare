@@ -78,7 +78,7 @@ test("the bridge serves the tool list and relays calls to the coordinator", asyn
   const { rpc, toolText } = bridge(runtime)
   expect(obj((await rpc("initialize", { protocolVersion: "2025-06-18" }))["result"])?.["protocolVersion"]).toBe("2025-06-18")
   const tools = obj((await rpc("tools/list"))["result"])?.["tools"] as ReadonlyArray<{ name: string }>
-  expect(tools.map((t) => t.name).sort()).toEqual(["list_subagents", "read_subagent", "send_to_subagent", "spawn_subagent", "wait_for_subagents"])
+  expect(tools.map((t) => t.name).sort()).toEqual(["archive_subagent", "list_subagents", "read_subagent", "send_to_subagent", "spawn_subagent", "wait_for_subagents"])
   const spawned = await toolText("spawn_subagent", { name: "w", task: "go" })
   expect(spawned.isError).toBe(false)
   expect(obj(parseJson(spawned.text))?.["delivered"]).toBe("provider")

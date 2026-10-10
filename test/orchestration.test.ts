@@ -119,6 +119,23 @@ test("wait times out, and an abandoned wait never answers", async () => {
   expect(answered).toBe(false)
 })
 
+test("archived workers leave list and wait, refuse messages, and can still be read", async () => {
+  const { hub, tool, updates } = setup()
+  const a = asSessionId(str((await tool("spawn_subagent", { name: "research", task: "go" }))["id"]) ?? "")
+  await tool("spawn_subagent", { name: "video", task: "go" })
+  updates.get(a)?.(turnEnd("found it"))
+  expect(await tool("archive_subagent", { workers: ["Research"] })).toEqual({ archived: ["research"] })
+  const archived = hub.subscribe(() => true).sessions.find((s) => s.id === a)
+  expect([archived?.archived, archived?.closed]).toEqual([true, true])
+  const list = (await hub.tool(master, "list_subagents", {}, new AbortController().signal)) as { result: ReadonlyArray<Record<string, Json>> }
+  expect(list.result.map((w) => w["name"])).toEqual(["video"])
+  const waited = await tool("wait_for_subagents", { timeout_seconds: 0 })
+  expect((waited["workers"] as ReadonlyArray<Record<string, Json>>).map((w) => w["name"])).toEqual(["video"])
+  await expect(tool("send_to_subagent", { worker: "research", message: "more" })).rejects.toThrow("research is archived")
+  expect((await tool("read_subagent", { worker: "research" }))["finalMessage"]).toBe("found it")
+  await expect(tool("archive_subagent", { workers: ["nobody"] })).rejects.toThrow('no worker "nobody"')
+})
+
 test("bad arguments and unknown tools are errors", async () => {
   const { tool } = setup()
   await expect(tool("spawn_subagent", { name: "a" })).rejects.toThrow("bad arguments for spawn_subagent")

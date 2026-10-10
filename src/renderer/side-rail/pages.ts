@@ -1,4 +1,5 @@
 import type { RailTab } from "../../shared/settings.ts"
+import { mountArchivedPage } from "../archived/page.ts"
 import { mountAttachmentsPage } from "../attachments/page.ts"
 import { focusSkillSearch, mountSkillsPage } from "../skills/rail.ts"
 
@@ -13,4 +14,5 @@ export interface RailPage {
 export const PAGES: ReadonlyArray<RailPage> = [
   { id: "skills", label: "Skills", className: "skill-rail", mount: mountSkillsPage, shown: focusSkillSearch },
   { id: "attachments", label: "Attachments", className: "att-rail", mount: mountAttachmentsPage },
+  { id: "archived", label: "Archived", className: "arc-rail", mount: mountArchivedPage },
 ]

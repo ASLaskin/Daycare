@@ -10,6 +10,7 @@ import type { NewMaster, SessionRecord, SessionView } from "../../shared/session
 import type { Settings } from "../../shared/settings.ts"
 import type { AccountInUse } from "../accounts/actions.ts"
 import { makeSessionAccountActions } from "./accounts.ts"
+import { makeArchive } from "./archive.ts"
 import type { Core } from "./core.ts"
 import type { Lifecycle } from "./lifecycle.ts"
 import { type CreateOptions, decodeRecords, type Session, view } from "./model.ts"
@@ -22,6 +23,9 @@ export interface SessionsShape {
   readonly rename: (id: SessionId, name: string) => Effect.Effect<void>
   readonly close: (id: SessionId) => Effect.Effect<void>
   readonly reopen: (id: SessionId) => Effect.Effect<void>
+  // Workers only; archived ones keep their transcript
+  readonly archive: (id: SessionId) => Effect.Effect<void>
+  readonly unarchive: (id: SessionId) => Effect.Effect<void>
   readonly remove: (id: SessionId) => Effect.Effect<void>
   readonly chatSend: (id: SessionId, text: string) => Effect.Effect<void>
   readonly chatInterrupt: (id: SessionId) => Effect.Effect<void>
@@ -64,26 +68,15 @@ export const makeService = (core: Core, lifecycle: Lifecycle): SessionsShape => 
 
   const familyOf = (master: Session) => [master, ...core.childrenOf(master.id)]
 
-  const closeOne = (s: Session) => {
-    if (s.status === "closed" || s.closing) {
-      return
-    }
-    s.closing = true
-    if (core.isRunning(s)) {
-      lifecycle.killSession(s)
-      return
-    }
-    lifecycle.sessionExited(s)
-  }
+  const archive = makeArchive(core, lifecycle)
 
-  const reopenOne = (s: Session) => {
-    if (s.status !== "closed") {
-      return
-    }
-    s.status = "starting"
-    ui.send("session:created", view(s))
-    lifecycle.startSession(s, true)
-  }
+  const withWorker = (id: SessionId, f: (w: Session) => void) =>
+    Effect.sync(() => {
+      const w = sessions.get(id)
+      if (w?.role === "worker") {
+        f(w)
+      }
+    })
 
   const restoreRecord = (r: SessionRecord) =>
     lifecycle.createSession(
@@ -133,12 +126,17 @@ export const makeService = (core: Core, lifecycle: Lifecycle): SessionsShape => 
         core.update(s)
         core.persist()
       }),
-    close: (id) => withMaster(id, (master) => familyOf(master).forEach(closeOne)),
+    close: (id) => withMaster(id, (master) => familyOf(master).forEach(lifecycle.closeSession)),
+    // Archived workers stay closed
     reopen: (id) =>
       withMaster(id, (master) => {
-        familyOf(master).forEach(reopenOne)
+        familyOf(master)
+          .filter((s) => !s.archived)
+          .forEach(lifecycle.reopenSession)
         core.persist()
       }),
+    archive: (id) => withWorker(id, archive.archive),
+    unarchive: (id) => withWorker(id, archive.unarchive),
     remove: (id) =>
       Effect.gen(function* () {
         const s = sessions.get(id)

@@ -12,6 +12,8 @@ export const MASTER_PROMPT = [
   "worker's final report, and send_to_subagent to give a worker follow-up",
   "instructions. Keep your own context small: do not ask workers for full",
   "transcripts, only concise summaries.",
+  "When a phase is done and new work starts, archive the earlier workers you no",
+  "longer need with archive_subagent so the user's view stays tidy.",
 ].join(" ")
 
 export const WORKER_PROMPT = [

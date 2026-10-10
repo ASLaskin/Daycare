@@ -50,6 +50,8 @@ export const Invoke = {
   "session:rename": Schema.Struct({ id: Id, name: Schema.String }),
   "session:close": Id,
   "session:reopen": Id,
+  "session:archive": Id,
+  "session:unarchive": Id,
   "session:delete": Id,
   "session:menu": Id,
   "coordinator:restart": None,
@@ -117,6 +119,8 @@ export interface InvokeResult {
   "session:rename": void
   "session:close": void
   "session:reopen": void
+  "session:archive": void
+  "session:unarchive": void
   "session:delete": void
   "session:menu": void
   "coordinator:restart": void

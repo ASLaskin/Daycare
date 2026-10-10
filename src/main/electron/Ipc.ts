@@ -85,6 +85,8 @@ export const Ipc = Layer.effectDiscard(
       "session:rename": ({ id, name }) => sessions.rename(id, name),
       "session:close": (id) => sessions.close(id),
       "session:reopen": (id) => sessions.reopen(id),
+      "session:archive": (id) => sessions.archive(id),
+      "session:unarchive": (id) => sessions.unarchive(id),
       "session:delete": (id) => sessions.remove(id),
       "session:menu": sessionMenu,
       "coordinator:restart": () => sessions.restartCoordinator,

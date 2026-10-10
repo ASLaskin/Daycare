@@ -5,6 +5,7 @@ import type { SessionId } from "../../shared/ids.ts"
 import type { Json } from "../../shared/json.ts"
 import { ToolError } from "../control/mcp.ts"
 import type { ToolCall, ToolInput } from "../control/tools.ts"
+import { makeArchive } from "./archive.ts"
 import type { Core } from "./core.ts"
 import type { Lifecycle } from "./lifecycle.ts"
 import type { Session } from "./model.ts"
@@ -17,6 +18,9 @@ const MAX_WAIT_SECONDS = 1700
 const workerSummary = (w: Session) => ({ id: w.id, name: w.name, status: w.status, activity: w.activity, task: w.task })
 
 export const makeToolHandler = (core: Core, lifecycle: Lifecycle) => {
+  const archiver = makeArchive(core, lifecycle)
+  const activeWorkers = (master: Session) => core.childrenOf(master.id).filter((k) => !k.archived)
+
   const findWorker = (master: Session, ref: string): Effect.Effect<Session, ToolError> => {
     const kids = core.childrenOf(master.id)
     const w = kids.find((k) => k.id === ref) ?? kids.find((k) => k.name.toLowerCase() === ref.toLowerCase())
@@ -60,6 +64,9 @@ export const makeToolHandler = (core: Core, lifecycle: Lifecycle) => {
   const send = (master: Session, input: ToolInput<"send_to_subagent">) =>
     Effect.gen(function* () {
       const w = yield* findWorker(master, input.worker)
+      if (w.archived) {
+        return yield* new ToolError({ message: `${w.name} is archived` })
+      }
       if (!lifecycle.submitText(w, input.message)) {
         return yield* new ToolError({ message: `${w.name} has exited` })
       }
@@ -72,7 +79,7 @@ export const makeToolHandler = (core: Core, lifecycle: Lifecycle) => {
       const refs = input.workers ?? []
       const ids = refs.length
         ? yield* Effect.forEach(refs, (ref) => findWorker(master, ref).pipe(Effect.map((w) => w.id)))
-        : core.childrenOf(master.id).map((k) => k.id)
+        : activeWorkers(master).map((k) => k.id)
       const seconds = Math.min(input.timeout_seconds || DEFAULT_WAIT_SECONDS, MAX_WAIT_SECONDS)
       const { timedOut } = yield* waitFor(ids, Duration.seconds(seconds))
       return {
@@ -84,6 +91,13 @@ export const makeToolHandler = (core: Core, lifecycle: Lifecycle) => {
       }
     })
 
+  const archive = (master: Session, input: ToolInput<"archive_subagent">) =>
+    Effect.gen(function* () {
+      const found = yield* Effect.forEach(input.workers, (ref) => findWorker(master, ref))
+      found.forEach(archiver.archive)
+      return { archived: found.map((w) => w.name) }
+    })
+
   const handle = (masterId: SessionId, call: ToolCall): Effect.Effect<Json, ToolError> => {
     const master = core.masterById(masterId)
     if (!master) {
@@ -93,13 +107,15 @@ export const makeToolHandler = (core: Core, lifecycle: Lifecycle) => {
       case "spawn_subagent":
         return Effect.sync(() => spawn(master, call.input))
       case "list_subagents":
-        return Effect.sync(() => core.childrenOf(master.id).map(workerSummary))
+        return Effect.sync(() => activeWorkers(master).map(workerSummary))
       case "read_subagent":
         return read(master, call.input)
       case "send_to_subagent":
         return send(master, call.input)
       case "wait_for_subagents":
         return wait(master, call.input)
+      case "archive_subagent":
+        return archive(master, call.input)
     }
   }
 

@@ -235,6 +235,7 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
       nativeId: s.provider === "claude" ? asNativeId(store.newId()) : null,
       state: "creating",
       closed: false,
+      archived: false,
       error: null,
       createdAt: Date.now(),
       run: 0,
@@ -265,6 +266,7 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
           configDir: w.master.configDir,
         }),
       send,
+      archive: (id) => archive(id),
       history: (id) => loadHistory(db, id),
     },
     ackMs,
@@ -296,6 +298,16 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
     }
     store.interrupt(db, id)
     cancelApprovals(id)
+  }
+
+  // Stops a worker and sets it aside, keeping its history
+  const archive = (id: SessionId) => {
+    if (session(id).role !== "worker") {
+      throw new Error("only workers are archived")
+    }
+    stopOne(id, "the worker was archived")
+    store.patch(db, id, { closed: true, archived: true })
+    refresh(id)
   }
 
   // Repoints a stopped session, starting fresh when its transcript stays behind
@@ -420,11 +432,26 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
         })
         return {}
       case "reopen":
-        family(command.session).forEach((id) => {
-          store.patch(db, id, { closed: false })
-          refresh(id)
-        })
+        family(command.session)
+          .filter((id) => !session(id).archived)
+          .forEach((id) => {
+            store.patch(db, id, { closed: false })
+            refresh(id)
+          })
         return {}
+      case "archive":
+        archive(command.session)
+        return {}
+      case "unarchive": {
+        const { role, parentId } = session(command.session)
+        if (role !== "worker") {
+          throw new Error("only workers are archived")
+        }
+        // Closed with its master until that reopens
+        store.patch(db, command.session, { archived: false, closed: parentId ? session(parentId).closed : false })
+        refresh(command.session)
+        return {}
+      }
       case "rename": {
         const name = command.name.trim()
         session(command.session)

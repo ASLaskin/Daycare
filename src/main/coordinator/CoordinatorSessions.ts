@@ -192,6 +192,8 @@ const make = (version: string) =>
       rename: (id, name) => request({ method: "rename", session: id, name }).pipe(Effect.asVoid),
       close: (id) => request({ method: "close", session: id }).pipe(Effect.asVoid),
       reopen: (id) => request({ method: "reopen", session: id }).pipe(Effect.asVoid),
+      archive: (id) => request({ method: "archive", session: id }).pipe(Effect.asVoid),
+      unarchive: (id) => request({ method: "unarchive", session: id }).pipe(Effect.asVoid),
       // Asks first, except for an unused master
       remove: (id) =>
         Effect.gen(function* () {
