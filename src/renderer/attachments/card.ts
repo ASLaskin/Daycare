@@ -34,13 +34,25 @@ const thumb = (a: FileAttachment) => {
   return img
 }
 
+// Still first frame, opened like an image
+const videoThumb = (a: FileAttachment) => {
+  const video = el("video", "att-thumb")
+  video.src = `${mediaUrl(a.path)}#t=0.1`
+  video.muted = true
+  video.playsInline = true
+  video.preload = "metadata"
+  video.onerror = () => video.remove()
+  video.onclick = () => void openPath(a.path)
+  return video
+}
+
 const player = (a: FileAttachment) => {
-  const media = el(a.kind === "video" ? "video" : "audio", "att-player")
-  media.src = mediaUrl(a.path)
-  media.controls = true
-  media.preload = "metadata"
-  media.onerror = () => media.remove()
-  return media
+  const audio = el("audio", "att-player")
+  audio.src = mediaUrl(a.path)
+  audio.controls = true
+  audio.preload = "metadata"
+  audio.onerror = () => audio.remove()
+  return audio
 }
 
 const preview = (a: FileAttachment): ReadonlyArray<HTMLElement> => {
@@ -48,6 +60,7 @@ const preview = (a: FileAttachment): ReadonlyArray<HTMLElement> => {
     case "image":
       return [thumb(a)]
     case "video":
+      return [videoThumb(a)]
     case "audio":
       return [player(a)]
     default:

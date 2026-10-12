@@ -32,11 +32,12 @@ export interface UrlAttachment {
 
 export type Attachment = FileAttachment | UrlAttachment
 
-export type AttachmentGroup = "images" | "files" | "folders" | "urls"
+export type AttachmentGroup = "images" | "videos" | "files" | "folders" | "urls"
 export type AttachmentFilter = "all" | AttachmentGroup
 
 export const GROUPS: ReadonlyArray<{ readonly id: AttachmentGroup; readonly label: string }> = [
   { id: "images", label: "Images" },
+  { id: "videos", label: "Videos" },
   { id: "files", label: "Files" },
   { id: "folders", label: "Folders" },
   { id: "urls", label: "URLs" },
@@ -52,6 +53,8 @@ export const groupOf = (a: Attachment): AttachmentGroup => {
       return "folders"
     case "image":
       return "images"
+    case "video":
+      return "videos"
     default:
       return "files"
   }

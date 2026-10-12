@@ -9,10 +9,10 @@ import { existingPath, expandHome, resolveMentions } from "../src/main/attachmen
 import { parseRange } from "../src/main/attachments/range.ts"
 import { validateUrl } from "../src/main/attachments/urls.ts"
 import { aggregate } from "../src/renderer/attachments/aggregate.ts"
-import { groupOf, matchesFilter, mentionsOf, pathAttachment, urlAttachment } from "../src/shared/attachments.ts"
+import { GROUPS, groupOf, matchesFilter, mentionsOf, pathAttachment, urlAttachment } from "../src/shared/attachments.ts"
 import type { ChatEvent } from "../src/shared/chat.ts"
 import { asDirPath, asFilePath, asHttpUrl, asToolUseId } from "../src/shared/ids.ts"
-import { isRunnablePath, kindOfPath, mediaUrl, pathOfMediaUrl } from "../src/shared/media.ts"
+import { isRunnablePath, kindOfPath, mediaUrl, mimeOf, pathOfMediaUrl } from "../src/shared/media.ts"
 import { looksLikePath, parseHttpUrl, pathsIn, tokenize, urlsIn } from "../src/shared/mentions.ts"
 
 const REMIX =
@@ -127,7 +127,9 @@ describe("attachments", () => {
     const vid = pathAttachment({ raw: "", path: asFilePath("/a/v.mp4"), isDir: false })
     const dir = pathAttachment({ raw: "", path: asFilePath("/a/d"), isDir: true })
     const url = urlAttachment(asHttpUrl("https://example.com"))
-    expect([img, vid, dir, url].map(groupOf)).toEqual(["images", "files", "folders", "urls"])
+    const doc = pathAttachment({ raw: "", path: asFilePath("/a/notes.md"), isDir: false })
+    expect([img, vid, doc, dir, url].map(groupOf)).toEqual(["images", "videos", "files", "folders", "urls"])
+    expect([img, vid, doc, dir, url].map((a) => matchesFilter(a, "videos"))).toEqual([false, true, false, false, false])
     expect([img, vid, dir, url].map((a) => matchesFilter(a, "folders"))).toEqual([false, false, true, false])
     expect([img, vid, dir, url].every((a) => matchesFilter(a, "all"))).toBe(true)
   })
@@ -149,9 +151,14 @@ describe("attachments", () => {
     expect(aggregate([])).toEqual([])
   })
 
+  test("orders videos right after images", () => {
+    expect(GROUPS.map((g) => g.label)).toEqual(["Images", "Videos", "Files", "Folders", "URLs"])
+  })
+
   test("classifies by extension", () => {
     expect(kindOfPath("/a/b.JPEG")).toBe("image")
-    expect(kindOfPath("/a/b.mov")).toBe("video")
+    expect(["/a/b.mp4", "/a/b.MOV", "/a/b.webm", "/a/b.m4v"].map(kindOfPath)).toEqual(["video", "video", "video", "video"])
+    expect(["/a/b.mp4", "/a/b.mov", "/a/b.webm", "/a/b.m4v"].map(mimeOf)).toEqual(["video/mp4", "video/quicktime", "video/webm", "video/mp4"])
     expect(kindOfPath("/a/b.mp3")).toBe("audio")
     expect(kindOfPath("/a/b.ts")).toBe("file")
     expect(isRunnablePath("/a/Thing.app")).toBe(true)
@@ -161,6 +168,7 @@ describe("attachments", () => {
   test("round trips media urls with spaces", () => {
     const p = asFilePath("/w/oct 9/shrink-split.mp4")
     expect(pathOfMediaUrl(mediaUrl(p))).toBe(p)
+    expect(pathOfMediaUrl(`${mediaUrl(p)}#t=0.1`)).toBe(p)
     expect(pathOfMediaUrl("https://local/w/a.mp4")).toBeNull()
   })
 })
