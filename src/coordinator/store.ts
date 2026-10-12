@@ -40,6 +40,7 @@ const MIGRATIONS = [
   `ALTER TABLE sessions ADD COLUMN account_id TEXT NOT NULL DEFAULT 'default';
   ALTER TABLE sessions ADD COLUMN config_dir TEXT;`,
   `CREATE TABLE config (key TEXT PRIMARY KEY, value TEXT NOT NULL);`,
+  `ALTER TABLE sessions ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;`,
 ]
 
 // Active sessions become interrupted, attempted creations incomplete
@@ -49,7 +50,7 @@ const INTERRUPT = `UPDATE sessions
     OR (state = 'creating' AND EXISTS (SELECT 1 FROM history WHERE session_id = sessions.id)))`
 
 const COLUMNS = `id, provider, native_id, role, parent_id, name, icon, cwd, model, permission_mode,
-  state, closed, error, created_at, run, account_id, config_dir`
+  state, closed, archived, error, created_at, run, account_id, config_dir`
 
 interface Row {
   readonly id: string
@@ -64,6 +65,7 @@ interface Row {
   readonly permission_mode: string
   readonly state: string
   readonly closed: number
+  readonly archived: number
   readonly error: string | null
   readonly created_at: number
   readonly run: number
@@ -89,6 +91,7 @@ const decode = (r: Row): Loaded => {
     permissionMode: r.permission_mode,
     state: r.state,
     closed: r.closed === 1,
+    archived: r.archived === 1,
     error: r.error,
     createdAt: r.created_at,
     run: r.run,
@@ -119,8 +122,8 @@ export const openStore = (file: FilePath): Database => {
 export const createSession = (db: Database, s: StoredSession) => {
   db.query(
     `INSERT INTO sessions (${COLUMNS}) VALUES ($id, $provider, $nativeId, $role, $parentId, $name, $icon, $cwd,
-      $model, $permissionMode, $state, $closed, $error, $createdAt, $run, $accountId, $configDir)`,
-  ).run({ ...s, closed: s.closed ? 1 : 0 })
+      $model, $permissionMode, $state, $closed, $archived, $error, $createdAt, $run, $accountId, $configDir)`,
+  ).run({ ...s, closed: s.closed ? 1 : 0, archived: s.archived ? 1 : 0 })
 }
 
 const PATCH_COLUMNS = {
@@ -128,6 +131,7 @@ const PATCH_COLUMNS = {
   state: "state",
   error: "error",
   closed: "closed",
+  archived: "archived",
   name: "name",
   model: "model",
   accountId: "account_id",
@@ -142,7 +146,7 @@ export const patch = (db: Database, id: SessionId, fields: Patch) => {
     return
   }
   const sets = keys.map((k) => `${PATCH_COLUMNS[k]} = $${k}`).join(", ")
-  const values = Object.fromEntries(keys.map((k) => [k, k === "closed" ? Number(fields.closed) : fields[k]!]))
+  const values = Object.fromEntries(keys.map((k) => [k, typeof fields[k] === "boolean" ? Number(fields[k]) : fields[k]!]))
   db.query(`UPDATE sessions SET ${sets} WHERE id = $id`).run({ ...values, id })
 }
 

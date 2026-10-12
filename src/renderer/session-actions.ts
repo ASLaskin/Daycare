@@ -1,10 +1,10 @@
-// Close, delete, and relocate actions for sessions.
+// Close, restore, delete, and relocate actions for sessions.
 
 import type { DirPath, SessionId } from "../shared/ids.ts"
 import type { SessionView } from "../shared/session.ts"
 import { api } from "./api.ts"
 import { el } from "./dom.ts"
-import { panes, workersOf } from "./state.ts"
+import { closedInfo, panes, pendingFocus, workersOf } from "./state.ts"
 
 // No message sent and no workers spawned.
 export const isPristine = (info: SessionView) => !info.hadTurn && workersOf(info.id).length === 0
@@ -44,6 +44,11 @@ export const masterActions = (id: SessionId) => [
   actionButton("Delete", "ghost danger", "End this master and its workers and remove them", () => api.deleteSession(id)),
 ]
 
-export const workerActions = (id: SessionId) => [
-  actionButton("Delete", "ghost danger", "End this worker and remove it", () => api.deleteSession(id)),
-]
+// Restores an archived worker, reopening its closed master, then focuses it.
+export const restoreWorker = async (w: SessionView) => {
+  pendingFocus.id = w.id
+  await api.unarchiveSession(w.id)
+  if (w.parentId && closedInfo.get(w.parentId)?.role === "master") {
+    await api.reopenSession(w.parentId)
+  }
+}

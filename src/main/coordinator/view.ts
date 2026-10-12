@@ -41,6 +41,7 @@ export const view = (s: LiveSession): SessionView => ({
   permissionMode: s.permissionMode,
   // Launches on first message
   hadTurn: s.run > 0,
+  archived: s.archived,
   cwd: s.cwd,
   task: null,
   createdAt: s.createdAt,

@@ -9,10 +9,12 @@ import type { Sessions } from "../sessions/Sessions.ts"
 
 const later = (effect: Effect.Effect<void>) => () => void Effect.runFork(effect)
 
-// Close or reopen, masters only.
+// Close or reopen a master, archive a worker.
 const closeItems = (sessions: Sessions["Service"], s: SessionView): Array<MenuItemConstructorOptions> => {
   if (s.role !== "master") {
-    return []
+    return s.archived
+      ? [{ label: "Restore", click: later(sessions.unarchive(s.id)) }]
+      : [{ label: "Archive", click: later(sessions.archive(s.id)) }]
   }
   if (s.status === "closed") {
     return [{ label: "Reopen", click: later(sessions.reopen(s.id)) }]

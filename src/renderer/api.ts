@@ -58,6 +58,8 @@ export const api = {
   rename: (id: SessionId, name: string) => bridge.invoke("session:rename", { id, name }),
   closeSession: call("session:close"),
   reopenSession: call("session:reopen"),
+  archiveSession: call("session:archive"),
+  unarchiveSession: call("session:unarchive"),
   deleteSession: call("session:delete"),
   sessionMenu: call("session:menu"),
   onCreated: on("session:created"),

@@ -162,7 +162,7 @@ test("masters get the Daycare bridge and prompt; every role loses Claude's own s
     true,
     1_800_000,
   ])
-  expect(opts?.allowedTools).toEqual(["spawn_subagent", "list_subagents", "wait_for_subagents", "read_subagent", "send_to_subagent"].map((n) => `mcp__daycare__${n}`))
+  expect(opts?.allowedTools).toEqual(["spawn_subagent", "list_subagents", "wait_for_subagents", "read_subagent", "send_to_subagent", "archive_subagent"].map((n) => `mcp__daycare__${n}`))
   expect(opts?.disallowedTools).toEqual(["Task", "Agent"])
   expect(appended(opts)).toStartWith("You are a master session")
 

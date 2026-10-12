@@ -34,6 +34,8 @@ export interface SessionView {
   readonly finishedTurns: number
   // User has sent at least one message
   readonly hadTurn: boolean
+  // Worker set aside by its master or the user
+  readonly archived: boolean
   readonly context: number
   readonly accountId: AccountId
 }
@@ -53,6 +55,7 @@ export const SessionRecord = Schema.Struct({
   hadTurn: Schema.Boolean,
   createdAt: Schema.Number,
   closed: Schema.Boolean,
+  archived: Schema.Boolean,
   accountId: AccountId,
 })
 export type SessionRecord = typeof SessionRecord.Type

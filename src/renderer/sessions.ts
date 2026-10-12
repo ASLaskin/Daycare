@@ -11,7 +11,7 @@ import { playDing } from "./ding.ts"
 import { removeSessionUI } from "./removal.ts"
 import { beginRename } from "./rename.ts"
 import { renderSidebar } from "./sidebar.ts"
-import { closedInfo, panes } from "./state.ts"
+import { closedInfo, panes, pendingFocus } from "./state.ts"
 import { shouldDing } from "../shared/ding.ts"
 import { fireFocusChanged, settings } from "./store.ts"
 
@@ -43,7 +43,9 @@ const onRemoved = (info: { readonly id: SessionId; readonly parentId: SessionId 
 }
 
 const onCreated = (info: SessionView) => {
-  if (addSession(info) && info.role === "master") {
+  const wanted = pendingFocus.id === info.id
+  if (addSession(info) && (info.role === "master" || wanted)) {
+    pendingFocus.id = wanted ? null : pendingFocus.id
     focusSession(info.id)
   }
   renderSidebar()

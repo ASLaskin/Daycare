@@ -297,6 +297,30 @@ test("close stops a master and its workers; reopen brings them back without star
   expect(fake.launches.length).toBe(launches)
 })
 
+test("archiving a worker stops it and keeps it closed through its master's reopen; unarchiving brings it back", async () => {
+  const { hub, fake, worker } = await withWorker()
+  const workerLaunch = fake.launches[1]
+  expect(hub.command({ method: "archive", session: worker })).toEqual({ result: {} })
+  expect(workerLaunch?.closed).toBe(true)
+  const states = () => hub.subscribe(() => true).sessions.map((s) => [s.id, s.closed, s.archived])
+  expect(states()).toEqual([
+    [id, false, false],
+    [worker, true, true],
+  ])
+  hub.command({ method: "close", session: id })
+  hub.command({ method: "reopen", session: id })
+  expect(states()).toEqual([
+    [id, false, false],
+    [worker, true, true],
+  ])
+  expect(hub.command({ method: "archive", session: id })).toEqual({ error: "only workers are archived" })
+  hub.command({ method: "unarchive", session: worker })
+  expect(states()).toEqual([
+    [id, false, false],
+    [worker, false, false],
+  ])
+})
+
 test("removing a master deletes it, its workers and their history; removing a worker keeps the master", async () => {
   const { conn, hub, worker } = await withWorker()
   const second = await hub.tool(id, "spawn_subagent", { name: "w2", task: "go" }, new AbortController().signal)

@@ -37,6 +37,10 @@ export const SendToSubagent = Schema.Struct({
   message: Schema.String,
 })
 
+export const ArchiveSubagent = Schema.Struct({
+  workers: Schema.Array(Schema.String).annotate(desc("Worker names or ids")),
+})
+
 export const Tools = {
   spawn_subagent: {
     input: SpawnSubagent,
@@ -45,12 +49,12 @@ export const Tools = {
   },
   list_subagents: {
     input: ListSubagents,
-    description: "List this master's workers with their current state.",
+    description: "List this master's workers with their current state, leaving out archived ones.",
   },
   wait_for_subagents: {
     input: WaitForSubagents,
     description:
-      "Block until the given workers (or all workers) stop working: finished their turn, need the user, or stopped. Returns each worker's state and the first line of its final message.",
+      "Block until the given workers (or all unarchived workers) stop working: finished their turn, need the user, or stopped. Returns each worker's state and the first line of its final message.",
   },
   read_subagent: {
     input: ReadSubagent,
@@ -59,6 +63,11 @@ export const Tools = {
   send_to_subagent: {
     input: SendToSubagent,
     description: "Send a follow-up message to a worker, as if the user typed it.",
+  },
+  archive_subagent: {
+    input: ArchiveSubagent,
+    description:
+      "Archive workers whose output you no longer need, e.g. finished research workers once new work starts. Stops them and hides them from the user's view, list_subagents and wait_for_subagents. read_subagent still works on them, and the user can restore them.",
   },
 } as const
 

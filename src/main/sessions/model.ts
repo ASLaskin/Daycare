@@ -28,6 +28,7 @@ export interface Session {
   context: number
   // Closing from the app, so it stays listed
   closing: boolean
+  archived: boolean
   // Account whose config dir the claude child uses
   accountId: AccountId
   // Account to resume on once the current child exits
@@ -61,6 +62,7 @@ export const view = (s: Session): SessionView => ({
   createdAt: s.createdAt,
   finishedTurns: s.finishedTurns,
   hadTurn: s.hadTurn,
+  archived: s.archived,
   context: s.context,
   accountId: s.accountId,
 })
@@ -79,6 +81,7 @@ export const record = (s: Session): SessionRecord => ({
   hadTurn: s.hadTurn,
   createdAt: s.createdAt,
   closed: s.status === "closed" || s.closing,
+  archived: s.archived,
   accountId: s.accountId,
 })
 
@@ -90,6 +93,7 @@ const RECORD_DEFAULTS = {
   transcriptPath: null,
   hadTurn: false,
   closed: false,
+  archived: false,
   accountId: DEFAULT_ACCOUNT,
 }
 

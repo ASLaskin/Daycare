@@ -28,6 +28,7 @@ body.sidebar-collapsed .master-strip {
   min-height: 0;
 }
 body.sidebar-collapsed .master-list,
+body.sidebar-collapsed .sidebar-mode,
 body.sidebar-collapsed .brand-name,
 body.sidebar-collapsed .usage,
 body.sidebar-collapsed .power-badge,

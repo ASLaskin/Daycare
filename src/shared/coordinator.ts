@@ -26,6 +26,8 @@ export const StoredSession = Schema.Struct({
   permissionMode: PermissionMode,
   state: SessionState,
   closed: Schema.Boolean,
+  // Worker set aside; stays closed until unarchived
+  archived: Schema.Boolean,
   error: Schema.NullOr(Schema.String),
   createdAt: Schema.Number,
   // Provider launch count; scopes streamed partials
@@ -85,6 +87,9 @@ export const Command = Schema.Union([
   // Close and reopen include a master's workers
   Schema.Struct({ method: Schema.Literal("close"), session: SessionId }),
   Schema.Struct({ method: Schema.Literal("reopen"), session: SessionId }),
+  // Workers only; archived ones skip a master's reopen
+  Schema.Struct({ method: Schema.Literal("archive"), session: SessionId }),
+  Schema.Struct({ method: Schema.Literal("unarchive"), session: SessionId }),
   Schema.Struct({ method: Schema.Literal("rename"), session: SessionId, name: Schema.String }),
   // Permanently deletes the session, a master's workers, and their history
   Schema.Struct({ method: Schema.Literal("remove"), session: SessionId }),

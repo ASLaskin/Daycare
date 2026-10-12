@@ -29,6 +29,7 @@ export const sample = (id: string, provider: Provider, state: SessionState): Sto
   permissionMode: "default",
   state,
   closed: false,
+  archived: false,
   error: null,
   createdAt: 1,
   run: 0,

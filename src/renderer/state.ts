@@ -16,5 +16,8 @@ export const panes = new Map<SessionId, Pane>()
 // Closed sessions, listed in the sidebar without panes.
 export const closedInfo = new Map<SessionId, SessionView>()
 
+// Restored session to focus once its pane opens.
+export const pendingFocus = { id: null as SessionId | null }
+
 export const workersOf = (masterId: SessionId) =>
   [...panes.values()].filter((p) => p.info.parentId === masterId).map((p) => p.info)

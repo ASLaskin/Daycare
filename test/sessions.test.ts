@@ -313,6 +313,48 @@ describe("a master steering workers over MCP", () => {
   })
 })
 
+describe("archiving workers", () => {
+  test("a master archives workers by name; they leave list and wait, refuse messages, and stay readable", async () => {
+    const m = await newMaster()
+    const research = await spawnWorker(m.id, "research", "look")
+    await spawnWorker(m.id, "video", "make")
+    await emit(research.id, turnEnd("found it"))
+    expect(await ok(tool(m.id, { name: "archive_subagent", input: { workers: ["Research"] } }))).toEqual({ archived: ["research"] })
+    await tick()
+    expect(chatOf(research.id).stopped).toBe(true)
+    expect(await get(research.id)).toMatchObject({ status: "closed", archived: true })
+    const list = await ok(tool(m.id, { name: "list_subagents", input: {} }))
+    expect(arr(list).map((x) => at(x, "name"))).toEqual(["video"])
+    const waited = await ok(tool(m.id, { name: "wait_for_subagents", input: { timeout_seconds: 1 } }))
+    expect(arr(at(waited, "workers")).map((x) => at(x, "name"))).toEqual(["video"])
+    expect(await failure(tool(m.id, { name: "send_to_subagent", input: { worker: "research", message: "more" } }))).toBe("research is archived")
+    expect(await failure(tool(m.id, { name: "archive_subagent", input: { workers: ["nobody"] } }))).toBe('No worker "nobody". Known workers: research, video')
+  })
+
+  test("archived workers stay closed through a master's reopen; restoring resumes them", async () => {
+    const m = await newMaster()
+    const w = await spawnWorker(m.id, "kid", "t")
+    await sessions((s) => s.archive(w.id))
+    await tick()
+    await sessions((s) => s.close(m.id))
+    await tick()
+    await sessions((s) => s.reopen(m.id))
+    expect(await get(w.id)).toMatchObject({ status: "closed", archived: true })
+    const before = chats.length
+    await sessions((s) => s.unarchive(w.id))
+    expect(chats.length).toBe(before + 1)
+    expect(await get(w.id)).toMatchObject({ archived: false })
+    expect((await get(w.id)).status).not.toBe("closed")
+  })
+
+  test("masters are not archived", async () => {
+    const m = await newMaster()
+    await sessions((s) => s.archive(m.id))
+    expect(await get(m.id)).toMatchObject({ archived: false })
+    expect((await get(m.id)).status).not.toBe("closed")
+  })
+})
+
 describe("lifecycle", () => {
   test("closing keeps a master and its workers listed, reopening resumes them", async () => {
     const m = await newMaster()
@@ -406,6 +448,20 @@ describe("persistence", () => {
     expect([back.name, back.status]).toEqual(["Keeper", "idle"])
     // Fresh start under the same id
     expect(chatOf(m.id).opts.args).toContain("--session-id")
+  })
+
+  test("archived workers come back archived and stopped after a restart", async () => {
+    const m = await newMaster()
+    const w = await spawnWorker(m.id, "kid", "t")
+    await sessions((s) => s.archive(w.id))
+    await tick()
+    await runtime.dispose()
+    expect(savedRecord(w.id)).toMatchObject({ closed: true, archived: true })
+
+    runtime = makeRuntime()
+    await sessions((s) => s.restore)
+    expect(await get(w.id)).toMatchObject({ status: "closed", archived: true })
+    expect(liveChat(w.id)).toBeUndefined()
   })
 
   test("records from older builds, including terminal ones, load as chats", async () => {
