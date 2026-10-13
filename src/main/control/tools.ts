@@ -3,6 +3,7 @@
 import { Schema } from "effect"
 import { Provider } from "../../shared/session.ts"
 import { DirPath } from "../../shared/ids.ts"
+import { EFFORT_GUIDE, EFFORT_LEVELS } from "../../shared/efforts.ts"
 import { MODEL_GUIDE } from "../../shared/models.ts"
 
 const desc = (description: string) => ({ description })
@@ -15,6 +16,13 @@ export const SpawnSubagent = Schema.Struct({
     Schema.String.annotate(
       desc(
         `Model that fits the task: ${MODEL_GUIDE}. Honored only when the user lets you pick models.`,
+      ),
+    ),
+  ),
+  effort: Schema.optionalKey(
+    Schema.Literals(EFFORT_LEVELS).annotate(
+      desc(
+        `Claude effort level that fits the task: ${EFFORT_GUIDE}. Honored only when the user lets you pick effort levels.`,
       ),
     ),
   ),

@@ -9,6 +9,7 @@ import { prune } from "./caps.ts"
 import { autosize, wireComposer } from "./composer.ts"
 import { apply } from "./events.ts"
 import { renderFoot } from "./foot.ts"
+import { wireEffortPicker } from "./effort-picker.ts"
 import { wireModelPicker } from "./model-picker.ts"
 import { toBottom, updateJump } from "./scroll.ts"
 import type { ChatSession } from "./types.ts"
@@ -81,6 +82,7 @@ export const mount = (info: SessionView, host: HTMLElement) => {
     send: v.send,
     stop: v.stop,
     model: v.model,
+    effort: v.effort,
     foot: v.foot,
     taskbar: v.taskbar,
     taskList: v.taskList,
@@ -88,6 +90,7 @@ export const mount = (info: SessionView, host: HTMLElement) => {
   }
   wireComposer(s)
   wireModelPicker(s, info)
+  wireEffortPicker(s, info)
   ro.observe(v.scroll)
   sessions.set(info.id, s)
   renderFoot(s)

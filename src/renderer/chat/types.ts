@@ -100,6 +100,7 @@ export interface ChatSession {
   readonly send: HTMLButtonElement
   readonly stop: HTMLButtonElement
   readonly model: HTMLSelectElement
+  readonly effort: HTMLSelectElement
   readonly foot: HTMLElement
   readonly taskbar: HTMLElement
   readonly taskList: HTMLElement

@@ -25,12 +25,14 @@ import { DEFAULT_ACCOUNT } from "../src/shared/accounts.ts"
 import { type AccountId, asClaudeSessionId, asDirPath, asFilePath, asRequestId, asSessionId, asToolUseId, type SessionId } from "../src/shared/ids.ts"
 import type { EventChannel, Events } from "../src/shared/ipc.ts"
 import { arr, at, type Json, type JsonObject, obj, parseJson, str } from "../src/shared/json.ts"
+import type { EffortLevel } from "../src/shared/efforts.ts"
 import type { SessionView } from "../src/shared/session.ts"
 
 interface FakeChat {
   readonly opts: ChatStart
   readonly sent: Array<string>
   readonly models: Array<string>
+  readonly efforts: Array<string>
   stopped: boolean
 }
 const chats: Array<FakeChat> = []
@@ -62,10 +64,11 @@ const FakeChatLayer = Layer.effect(
         Effect.tap(() => Effect.sync(() => ready.resolve())),
         Effect.map(Stream.fromSubscription),
       ),
-      start: (opts) => Effect.sync(() => void chats.push({ opts, sent: [], models: [], stopped: false })),
+      start: (opts) => Effect.sync(() => void chats.push({ opts, sent: [], models: [], efforts: [], stopped: false })),
       send: (id, text) => Effect.sync(() => void liveChat(id)?.sent.push(text)),
       interrupt: () => Effect.void,
       setModel: (id, model) => Effect.sync(() => void liveChat(id)?.models.push(model)),
+      setEffort: (id, effort) => Effect.sync(() => void liveChat(id)?.efforts.push(effort)),
       respond: () => Effect.succeed(false),
       stop: (id) => Effect.sync(() => exitChat(id)),
       has: (id) => Effect.sync(() => liveChat(id) !== undefined),
@@ -143,8 +146,8 @@ const failure = async (call: ReturnType<typeof tool>): Promise<string> => {
   return result.failure.message
 }
 
-const spawnWorker = async (masterId: SessionId, name: string, task: string, model?: string) => {
-  const input = { name, task, ...(model ? { model } : {}) }
+const spawnWorker = async (masterId: SessionId, name: string, task: string, model?: string, effort?: EffortLevel) => {
+  const input = { name, task, ...(model ? { model } : {}), ...(effort ? { effort } : {}) }
   const w = obj(await ok(tool(masterId, { name: "spawn_subagent", input }))) ?? {}
   return { name: str(w["name"]), id: asSessionId(String(w["id"])) }
 }
@@ -185,7 +188,7 @@ beforeEach(() => {
   chooseCalls = 0
 })
 
-const newMaster = (task = "") => sessions((s) => s.createMaster({ task, cwd: work, model: "sonnet", permissionMode: "default" }))
+const newMaster = (task = "") => sessions((s) => s.createMaster({ task, cwd: work, model: "sonnet", effort: "high", permissionMode: "default" }))
 
 describe("launching a master", () => {
   test("starts headless claude with HTTP hooks, an MCP config file, and the master prompt", async () => {
@@ -432,6 +435,39 @@ describe("models", () => {
     expect(chatOf(m.id).models).toEqual(["haiku"])
     expect((await get(m.id)).model).toBe("haiku")
     expect(savedRecord(m.id)).toMatchObject({ model: "haiku" })
+  })
+})
+
+describe("efforts", () => {
+  const effortArg = (id: SessionId) => {
+    const args = chatOf(id).opts.args ?? []
+    return args.includes("--effort") ? args[args.indexOf("--effort") + 1] : undefined
+  }
+
+  test("workers follow the subagent default and ignore the master's pick", async () => {
+    const m = await newMaster()
+    await setSettings({ workerEffort: "master", autoWorkerEffort: false })
+    expect(effortArg((await spawnWorker(m.id, "same", "t", undefined, "low")).id)).toBe("high")
+    await setSettings({ workerEffort: "low" })
+    expect(effortArg((await spawnWorker(m.id, "light", "t", undefined, "max")).id)).toBe("low")
+    await setSettings({ workerEffort: "" })
+    expect(effortArg((await spawnWorker(m.id, "plain", "t")).id)).toBeUndefined()
+  })
+
+  test("auto mode takes the master's pick, else the master's effort", async () => {
+    const m = await newMaster()
+    await setSettings({ workerEffort: "low", autoWorkerEffort: true })
+    expect(effortArg((await spawnWorker(m.id, "picked", "t", undefined, "max")).id)).toBe("max")
+    expect(effortArg((await spawnWorker(m.id, "unpicked", "t")).id)).toBe("high")
+    await setSettings({ workerEffort: "master", autoWorkerEffort: false })
+  })
+
+  test("switching a chat's effort reaches claude and the next launch", async () => {
+    const m = await newMaster()
+    await sessions((s) => s.setEffort(m.id, "xhigh"))
+    expect(chatOf(m.id).efforts).toEqual(["xhigh"])
+    expect((await get(m.id)).effort).toBe("xhigh")
+    expect(savedRecord(m.id)).toMatchObject({ effort: "xhigh" })
   })
 })
 

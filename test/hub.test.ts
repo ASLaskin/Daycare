@@ -26,9 +26,9 @@ afterEach(() => {
 
 // Fake providers: each launch records its inputs and answers and exposes its update callback
 const fakeLaunch = () => {
-  const launches: Array<{ inputs: Array<string>; answers: Array<Answer>; models: Array<string>; closed: boolean; update: (u: ProviderUpdate) => void }> = []
+  const launches: Array<{ inputs: Array<string>; answers: Array<Answer>; models: Array<string>; efforts: Array<string>; closed: boolean; update: (u: ProviderUpdate) => void }> = []
   const launch: Launch = (_session, update) => {
-    const p = { inputs: new Array<string>(), answers: new Array<Answer>(), models: new Array<string>(), closed: false, update }
+    const p = { inputs: new Array<string>(), answers: new Array<Answer>(), models: new Array<string>(), efforts: new Array<string>(), closed: false, update }
     launches.push(p)
     return {
       input: async (text) => {
@@ -37,6 +37,9 @@ const fakeLaunch = () => {
       interrupt: () => {},
       setModel: async (model) => {
         p.models.push(model)
+      },
+      setEffort: async (effort) => {
+        p.efforts.push(effort)
       },
       answer: (_request, answer) => {
         if (!["accept", "decline"].includes(answer.choice)) {
@@ -173,7 +176,7 @@ test("restart restores records as interrupted without launching providers", () =
 
 test("a codex session starts without a native id and stores the reported one before update returns", () => {
   const { conn, hub, fake } = setup()
-  const created = hub.command({ method: "create", provider: "codex", cwd: sample("x", "codex", "idle").cwd, prompt: "go", model: null, permissionMode: "default", accountId: DEFAULT_ACCOUNT, configDir: null })
+  const created = hub.command({ method: "create", provider: "codex", cwd: sample("x", "codex", "idle").cwd, prompt: "go", model: null, effort: null, permissionMode: "default", accountId: DEFAULT_ACCOUNT, configDir: null })
   const session = "result" in created ? obj(created.result)?.["session"] : null
   const row = () => conn.query<{ native_id: string | null }, [string]>("SELECT native_id FROM sessions WHERE id = ?").get(String(session))
   expect(row()?.native_id).toBeNull()
@@ -497,6 +500,26 @@ test("a model switch reaches a running claude and sticks for later launches", as
   await idle.hub.setModel(id, "sonnet")
   expect(idle.fake.launches).toEqual([])
   expect(stored(idle.hub)?.model).toBe("sonnet")
+})
+
+test("an effort switch reaches a running claude and sticks for later launches", async () => {
+  const { hub, provider } = running()
+  expect(await hub.setEffort(id, "max")).toEqual({ result: {} })
+  expect(provider.efforts).toEqual(["max"])
+  expect(stored(hub)?.effort).toBe("max")
+  const idle = setup()
+  await idle.hub.setEffort(id, "low")
+  expect(idle.fake.launches).toEqual([])
+  expect(stored(idle.hub)?.effort).toBe("low")
+  expect(await idle.hub.setEffort(id, "extreme")).toEqual({ error: "unknown effort level extreme" })
+})
+
+test("codex sessions do not switch effort levels", async () => {
+  const db = tempDb()
+  dbs.push(db)
+  const conn = db.open()
+  createSession(conn, sample("c", "codex", "idle"))
+  expect(await makeHub(conn, fakeLaunch().launch).setEffort(asSessionId("c"), "low")).toEqual({ error: "only claude sessions switch effort levels" })
 })
 
 test("codex sessions do not switch models", async () => {

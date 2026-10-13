@@ -86,6 +86,7 @@ export const api = {
   chatSend: (id: SessionId, text: string) => bridge.invoke("chat:send", { id, text }),
   chatInterrupt: call("chat:interrupt"),
   chatModel: (id: SessionId, model: string) => bridge.invoke("chat:model", { id, model }),
+  chatEffort: (id: SessionId, effort: string) => bridge.invoke("chat:effort", { id, effort }),
   chatPermission: (id: SessionId, requestId: RequestId, decision: PermissionDecision) =>
     bridge.invoke("chat:permission", { id, requestId, decision }),
   chatHistory: call("chat:history"),

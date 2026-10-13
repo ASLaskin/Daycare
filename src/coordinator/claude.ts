@@ -7,6 +7,7 @@ import { StreamNormalizer } from "../main/chat/normalize.ts"
 import { toolTitle } from "../main/chat/content.ts"
 import type { ChatEvent } from "../shared/chat.ts"
 import type { StoredSession } from "../shared/coordinator.ts"
+import { isEffortLevel } from "../shared/efforts.ts"
 import { asRequestId, asToolUseId, type FilePath, type RequestId } from "../shared/ids.ts"
 import { obj, parseJson, str } from "../shared/json.ts"
 import { MASTER_PROMPT, WORKER_PROMPT } from "../main/sessions/prompts.ts"
@@ -14,7 +15,7 @@ import { bridge, DAYCARE_TOOLS, TOOL_TIMEOUT_SECONDS } from "./orchestration.ts"
 import { spawnGroup, stopGroup } from "./process.ts"
 import { type Answer, type ProviderHandle, type ProviderUpdate, Refused } from "./provider.ts"
 
-export type QueryFn = (params: { prompt: AsyncIterable<SDKUserMessage>; options: Options }) => AsyncIterable<object> & Pick<Query, "interrupt" | "close" | "setModel">
+export type QueryFn = (params: { prompt: AsyncIterable<SDKUserMessage>; options: Options }) => AsyncIterable<object> & Pick<Query, "interrupt" | "close" | "setModel" | "applyFlagSettings">
 
 // SDK values as plain JSON
 const toJson = (value: object) => parseJson(JSON.stringify(value))
@@ -140,6 +141,7 @@ export const startClaude = (
       permissionMode: session.permissionMode,
       env: { ...withConfigDir(process.env, session.configDir), CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS: "1" },
       ...(session.model ? { model: session.model } : {}),
+      ...(session.effort && isEffortLevel(session.effort) ? { effort: session.effort } : {}),
       ...(session.state === "creating" ? { sessionId: nativeId } : { resume: nativeId }),
     },
   })
@@ -193,6 +195,7 @@ export const startClaude = (
       q.interrupt().catch((e: Error) => update({ type: "error", message: `interrupt failed: ${e.message}` }))
     },
     setModel: (model) => q.setModel(model),
+    setEffort: (effort) => q.applyFlagSettings({ effortLevel: effort }),
     answer: (request, answer) => answers.get(request)?.(answer) ?? false,
     close: async () => {
       end("the session was closed before claude took the input")

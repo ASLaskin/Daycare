@@ -2,7 +2,7 @@
 
 import { Database } from "bun:sqlite"
 import { Result, Schema } from "effect"
-import { type SessionState, StoredSession, WorkerModels } from "../shared/coordinator.ts"
+import { type SessionState, StoredSession, WorkerEfforts, WorkerModels } from "../shared/coordinator.ts"
 import type { FilePath, SessionId } from "../shared/ids.ts"
 import { parseJson } from "../shared/json.ts"
 import { baseSettings } from "../shared/settings.ts"
@@ -41,6 +41,7 @@ const MIGRATIONS = [
   ALTER TABLE sessions ADD COLUMN config_dir TEXT;`,
   `CREATE TABLE config (key TEXT PRIMARY KEY, value TEXT NOT NULL);`,
   `ALTER TABLE sessions ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;`,
+  `ALTER TABLE sessions ADD COLUMN effort TEXT;`,
 ]
 
 // Active sessions become interrupted, attempted creations incomplete
@@ -50,7 +51,7 @@ const INTERRUPT = `UPDATE sessions
     OR (state = 'creating' AND EXISTS (SELECT 1 FROM history WHERE session_id = sessions.id)))`
 
 const COLUMNS = `id, provider, native_id, role, parent_id, name, icon, cwd, model, permission_mode,
-  state, closed, archived, error, created_at, run, account_id, config_dir`
+  state, closed, archived, error, created_at, run, account_id, config_dir, effort`
 
 interface Row {
   readonly id: string
@@ -71,6 +72,7 @@ interface Row {
   readonly run: number
   readonly account_id: string
   readonly config_dir: string | null
+  readonly effort: string | null
 }
 
 export type Loaded = { readonly session: StoredSession } | { readonly error: string }
@@ -88,6 +90,7 @@ const decode = (r: Row): Loaded => {
     icon: r.icon,
     cwd: r.cwd,
     model: r.model,
+    effort: r.effort,
     permissionMode: r.permission_mode,
     state: r.state,
     closed: r.closed === 1,
@@ -122,7 +125,7 @@ export const openStore = (file: FilePath): Database => {
 export const createSession = (db: Database, s: StoredSession) => {
   db.query(
     `INSERT INTO sessions (${COLUMNS}) VALUES ($id, $provider, $nativeId, $role, $parentId, $name, $icon, $cwd,
-      $model, $permissionMode, $state, $closed, $archived, $error, $createdAt, $run, $accountId, $configDir)`,
+      $model, $permissionMode, $state, $closed, $archived, $error, $createdAt, $run, $accountId, $configDir, $effort)`,
   ).run({ ...s, closed: s.closed ? 1 : 0, archived: s.archived ? 1 : 0 })
 }
 
@@ -134,6 +137,7 @@ const PATCH_COLUMNS = {
   archived: "archived",
   name: "name",
   model: "model",
+  effort: "effort",
   accountId: "account_id",
   configDir: "config_dir",
 } as const
@@ -207,6 +211,24 @@ export const saveWorkerModels = (db: Database, models: WorkerModels) => {
   db.query("INSERT INTO config (key, value) VALUES ($key, $value) ON CONFLICT (key) DO UPDATE SET value = $value").run({
     key: WORKER_MODELS,
     value: JSON.stringify(models),
+  })
+}
+
+const WORKER_EFFORTS = "worker_efforts"
+
+const decodeWorkerEfforts = Schema.decodeUnknownResult(WorkerEfforts)
+
+// Last pushed by the app, else the app's defaults
+export const loadWorkerEfforts = (db: Database): WorkerEfforts => {
+  const row = db.query<{ value: string }, { key: string }>("SELECT value FROM config WHERE key = $key").get({ key: WORKER_EFFORTS })
+  const decoded = decodeWorkerEfforts(row ? parseJson(row.value) : null)
+  return Result.isSuccess(decoded) ? decoded.success : { workerEffort: baseSettings.workerEffort, autoWorkerEffort: baseSettings.autoWorkerEffort }
+}
+
+export const saveWorkerEfforts = (db: Database, efforts: WorkerEfforts) => {
+  db.query("INSERT INTO config (key, value) VALUES ($key, $value) ON CONFLICT (key) DO UPDATE SET value = $value").run({
+    key: WORKER_EFFORTS,
+    value: JSON.stringify(efforts),
   })
 }
 

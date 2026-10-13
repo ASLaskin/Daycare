@@ -143,6 +143,10 @@ const connection = (socket: net.Socket, hub: Hub, version: string, stallMs: numb
       void hub.setModel(command.session, command.model).then((r) => write({ type: "response", id, ...r }))
       return
     }
+    if (command.method === "effort") {
+      void hub.setEffort(command.session, command.effort).then((r) => write({ type: "response", id, ...r }))
+      return
+    }
     // Command events are written before its response
     write({ type: "response", id, ...hub.command(command) })
   })

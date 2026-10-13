@@ -30,6 +30,7 @@ export interface SessionsShape {
   readonly chatSend: (id: SessionId, text: string) => Effect.Effect<void>
   readonly chatInterrupt: (id: SessionId) => Effect.Effect<void>
   readonly setModel: (id: SessionId, model: string) => Effect.Effect<void>
+  readonly setEffort: (id: SessionId, effort: string) => Effect.Effect<void>
   readonly chatRespond: (id: SessionId, requestId: RequestId, decision: PermissionDecision) => Effect.Effect<boolean>
   readonly chatHistory: (id: SessionId) => Effect.Effect<ReadonlyArray<ChatEvent>>
   readonly restore: Effect.Effect<void>
@@ -84,6 +85,7 @@ export const makeService = (core: Core, lifecycle: Lifecycle): SessionsShape => 
         role: r.role,
         cwd: r.cwd,
         model: r.model,
+        effort: r.effort,
         permissionMode: r.permissionMode,
         name: r.name,
         accountId: r.accountId,
@@ -110,6 +112,7 @@ export const makeService = (core: Core, lifecycle: Lifecycle): SessionsShape => 
             role: "master",
             cwd: options.cwd,
             model: options.model,
+            effort: options.effort,
             permissionMode: options.permissionMode,
             task: options.task,
             name: options.name,
@@ -177,6 +180,18 @@ export const makeService = (core: Core, lifecycle: Lifecycle): SessionsShape => 
         }
         s.model = model
         run(chat.setModel(id, model))
+        core.update(s)
+        core.persist()
+      }),
+    // Live switch, also used on the next launch
+    setEffort: (id, effort) =>
+      Effect.sync(() => {
+        const s = sessions.get(id)
+        if (!s || !effort || s.effort === effort) {
+          return
+        }
+        s.effort = effort
+        run(chat.setEffort(id, effort))
         core.update(s)
         core.persist()
       }),

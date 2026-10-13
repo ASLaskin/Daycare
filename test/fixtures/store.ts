@@ -26,6 +26,7 @@ export const sample = (id: string, provider: Provider, state: SessionState): Sto
   icon: null,
   cwd: asDirPath("/tmp"),
   model: null,
+  effort: null,
   permissionMode: "default",
   state,
   closed: false,

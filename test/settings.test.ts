@@ -57,5 +57,6 @@ describe("SettingsStore", () => {
     fs.writeFileSync(path.join(userData, "settings.json"), JSON.stringify({ model: "haiku" }))
     const s = await withStore(userData, SettingsStore.use((st) => st.get))
     expect([s.masterModel, s.workerModel, s.autoWorkerModel]).toEqual(["haiku", "master", false])
+    expect([s.masterEffort, s.workerEffort, s.autoWorkerEffort]).toEqual(["", "master", false])
   })
 })

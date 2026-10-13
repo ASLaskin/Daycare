@@ -22,7 +22,7 @@ test("reopening keeps records and schema", () => {
   const s = { ...sample("a", "claude", "creating"), nativeId: asNativeId("n") }
   createSession(db.open(), s)
   const conn = db.open()
-  expect(conn.query<{ user_version: number }, []>("PRAGMA user_version").get()?.user_version).toBe(4)
+  expect(conn.query<{ user_version: number }, []>("PRAGMA user_version").get()?.user_version).toBe(5)
   expect(getSession(conn, s.id)).toEqual({ session: s })
 })
 
@@ -32,7 +32,7 @@ test("sessions from before accounts open on Default", () => {
   const conn = db.open()
   createSession(conn, s)
   conn.run(
-    "ALTER TABLE sessions DROP COLUMN account_id; ALTER TABLE sessions DROP COLUMN config_dir; DROP TABLE config; ALTER TABLE sessions DROP COLUMN archived; PRAGMA user_version = 1",
+    "ALTER TABLE sessions DROP COLUMN account_id; ALTER TABLE sessions DROP COLUMN config_dir; DROP TABLE config; ALTER TABLE sessions DROP COLUMN archived; ALTER TABLE sessions DROP COLUMN effort; PRAGMA user_version = 1",
   )
   conn.close()
   expect(getSession(db.open(), s.id)).toEqual({ session: s })
@@ -43,7 +43,7 @@ test("sessions from before archiving open unarchived, and archiving is saved", (
   const s = sample("a", "claude", "idle")
   const conn = db.open()
   createSession(conn, s)
-  conn.run("ALTER TABLE sessions DROP COLUMN archived; PRAGMA user_version = 3")
+  conn.run("ALTER TABLE sessions DROP COLUMN archived; ALTER TABLE sessions DROP COLUMN effort; PRAGMA user_version = 3")
   conn.close()
   const reopened = db.open()
   expect(getSession(reopened, s.id)).toEqual({ session: s })

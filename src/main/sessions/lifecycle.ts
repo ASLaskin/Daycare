@@ -165,6 +165,7 @@ export const makeLifecycle = (core: Core): Lifecycle => {
       parentId: options.parentId ?? null,
       cwd: options.cwd,
       model: options.model,
+      effort: options.effort,
       permissionMode: options.permissionMode,
       createdAt: restored?.createdAt ?? Date.now(),
       icon: iconFor(options, restored),

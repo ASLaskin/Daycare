@@ -17,6 +17,7 @@ const Autostart = Schema.Struct({
   task: Schema.optionalKey(Schema.String),
   cwd: Schema.optionalKey(DirPath),
   model: Schema.optionalKey(Schema.String),
+  effort: Schema.optionalKey(Schema.String),
   permissionMode: Schema.optionalKey(PermissionMode),
   name: Schema.optionalKey(Schema.String),
 })
@@ -44,6 +45,7 @@ export const devHooks = Effect.gen(function* () {
     const options = {
       task: "",
       model: "sonnet",
+      effort: "",
       permissionMode: "default" as const,
       cwd: asDirPath(os.homedir()),
       name: "Master",
@@ -58,9 +60,9 @@ export const devHooks = Effect.gen(function* () {
     const d = fromEnv(Demo, demo)
     const cwd = d.cwd || asDirPath(os.homedir())
     const startDemo = Effect.gen(function* () {
-      const m = yield* sessions.createMaster({ task: "", cwd, model: "sonnet", permissionMode: "default", ...(d.name ? { name: d.name } : {}) })
+      const m = yield* sessions.createMaster({ task: "", cwd, model: "sonnet", effort: "", permissionMode: "default", ...(d.name ? { name: d.name } : {}) })
       yield* Effect.forEach(Array.from({ length: d.workers || 0 }, (_, i) => i + 1), (n) =>
-        sessions.create({ role: "worker", name: `Worker ${n}`, cwd, model: "sonnet", permissionMode: "default", parentId: m.id }),
+        sessions.create({ role: "worker", name: `Worker ${n}`, cwd, model: "sonnet", effort: "", permissionMode: "default", parentId: m.id }),
       )
     })
     setTimeout(() => run(startDemo), DEMO_DELAY_MS)

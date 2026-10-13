@@ -5,6 +5,7 @@ import { $ } from "./dom.ts"
 import { previewDings } from "./ding.ts"
 import { input, onSelect, onToggle, select } from "./fields.ts"
 import { renderLocationRows, wireLocations } from "./locations-view.ts"
+import { MASTER_EFFORT_CHOICES, renderEffortGuide, WORKER_EFFORT_CHOICES } from "./effort-options.ts"
 import { fillModels, MASTER_CHOICES, renderModelGuide, WORKER_CHOICES } from "./model-options.ts"
 import { locationOptions, setCurrentLocation } from "./new-session.ts"
 import { saveSettings, settings } from "./store.ts"
@@ -24,6 +25,11 @@ export const renderGeneral = () => {
   select("set-worker-model").disabled = s.autoWorkerModel
   input("set-auto-worker-model").checked = s.autoWorkerModel
   $("#worker-model-field").classList.toggle("disabled", s.autoWorkerModel)
+  select("set-master-effort").value = s.masterEffort
+  select("set-worker-effort").value = s.workerEffort
+  select("set-worker-effort").disabled = s.autoWorkerEffort
+  input("set-auto-worker-effort").checked = s.autoWorkerEffort
+  $("#worker-effort-field").classList.toggle("disabled", s.autoWorkerEffort)
   select("set-permission").value = s.permissionMode
   input("set-ooga-booga").checked = s.oogaBooga
   renderLocationRows()
@@ -52,6 +58,12 @@ export const wireGeneral = () => {
   onSelect("set-master-model", (masterModel) => saveSettings({ masterModel }))
   onSelect("set-worker-model", (workerModel) => saveSettings({ workerModel }))
   onToggle("set-auto-worker-model", (autoWorkerModel) => saveSettings({ autoWorkerModel }))
+  fillModels(select("set-master-effort"), MASTER_EFFORT_CHOICES)
+  fillModels(select("set-worker-effort"), WORKER_EFFORT_CHOICES)
+  renderEffortGuide($("#effort-guide"))
+  onSelect("set-master-effort", (masterEffort) => saveSettings({ masterEffort }))
+  onSelect("set-worker-effort", (workerEffort) => saveSettings({ workerEffort }))
+  onToggle("set-auto-worker-effort", (autoWorkerEffort) => saveSettings({ autoWorkerEffort }))
   onSelect("set-permission", (v) => saveSettings({ permissionMode: v as Settings["permissionMode"] }))
   onSelect("set-keep-awake", (v) => saveSettings({ keepAwake: v as Settings["keepAwake"] }))
 }

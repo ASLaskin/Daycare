@@ -37,6 +37,7 @@ export const view = (s: LiveSession): SessionView => ({
   activity: s.error ?? "",
   // Empty means the provider default
   model: s.model ?? "",
+  effort: s.effort ?? "",
   provider: s.provider,
   permissionMode: s.permissionMode,
   // Launches on first message

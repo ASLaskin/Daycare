@@ -10,6 +10,7 @@ import type { Core } from "./core.ts"
 import type { Lifecycle } from "./lifecycle.ts"
 import type { Session } from "./model.ts"
 import { firstLine, lastAssistantText } from "./transcripts.ts"
+import { workerEffort } from "./workerEffort.ts"
 import { workerModel } from "./workerModel.ts"
 
 const DEFAULT_WAIT_SECONDS = 900
@@ -43,17 +44,20 @@ export const makeToolHandler = (core: Core, lifecycle: Lifecycle) => {
     })
 
   const spawn = (master: Session, input: ToolInput<"spawn_subagent">) => {
-    const model = workerModel(core.run(core.deps.settings.get), master.model, input.model)
+    const settings = core.run(core.deps.settings.get)
+    const model = workerModel(settings, master.model, input.model)
+    const effort = workerEffort(settings, master.effort, input.effort)
     const w = lifecycle.createSession({
       role: "worker",
       name: input.name,
       task: input.task,
       cwd: input.cwd || master.cwd,
       model,
+      effort,
       permissionMode: master.permissionMode,
       parentId: master.id,
     })
-    return { id: w.id, name: w.name, model: model || "Claude default", note: "Worker started in its own pane." }
+    return { id: w.id, name: w.name, model: model || "Claude default", effort: effort || "default", note: "Worker started in its own pane." }
   }
 
   const read = (master: Session, input: ToolInput<"read_subagent">) =>

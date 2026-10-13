@@ -2,6 +2,7 @@
 
 import type { ChatEvent } from "../shared/chat.ts"
 import type { NativeId } from "../shared/coordinator.ts"
+import type { EffortLevel } from "../shared/efforts.ts"
 import type { RequestId } from "../shared/ids.ts"
 import type { Json } from "../shared/json.ts"
 
@@ -28,6 +29,8 @@ export interface ProviderHandle {
   readonly interrupt: () => void
   // Switches the model mid-session; Claude only
   readonly setModel?: (model: string) => Promise<void>
+  // Switches the effort level mid-session; Claude only
+  readonly setEffort?: (effort: EffortLevel) => Promise<void>
   // False unless pending and the choice was offered
   readonly answer: (request: RequestId, answer: Answer) => boolean
   // Resolves once the provider and its process group are gone

@@ -153,7 +153,7 @@ const make = (version: string) =>
       const all = [...sessions.values()]
       return Effect.gen(function* () {
         const current = yield* settingsStore.get
-        // Accounts and the model setting apply to Claude only
+        // Accounts and the model and effort settings apply to Claude only
         const accountId = provider === "claude" ? activeAccountOf(current) : DEFAULT_ACCOUNT
         const result = yield* request({
           method: "create",
@@ -170,6 +170,7 @@ const make = (version: string) =>
             }),
           icon: nextIcon(new Set(all.filter((v) => v.role === "master").map((v) => v.icon)), current.iconPack),
           model: provider === "claude" ? options.model || null : null,
+          effort: provider === "claude" ? options.effort || null : null,
           permissionMode: options.permissionMode,
           accountId,
           configDir: yield* accounts.configDir(accountId),
@@ -213,6 +214,7 @@ const make = (version: string) =>
         request({ method: "send", session: id, text }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Accepted)), Effect.orDie, Effect.asVoid),
       chatInterrupt: (id) => request({ method: "interrupt", session: id }).pipe(Effect.asVoid),
       setModel: (id, model) => request({ method: "model", session: id, model }).pipe(Effect.asVoid),
+      setEffort: (id, effort) => request({ method: "effort", session: id, effort }).pipe(Effect.asVoid),
       chatRespond: (id, requestId, decision) => {
         const choice = pick(choices.get(approvalKey(id, requestId)) ?? [], decision)
         if (choice === null) {

@@ -4,6 +4,7 @@ import { Option, Schema } from "effect"
 import { Account, DEFAULT_ACCOUNT } from "./accounts.ts"
 import { AccountId, DirPath } from "./ids.ts"
 import { IconPack } from "./icons.ts"
+import { CLAUDE_DEFAULT_EFFORT } from "./efforts.ts"
 import { isJsonObject, type Json } from "./json.ts"
 import { SAME_AS_MASTER } from "./models.ts"
 import { PermissionMode, Provider } from "./session.ts"
@@ -34,6 +35,9 @@ export const Settings = Schema.Struct({
   masterModel: Schema.String,
   workerModel: Schema.String,
   autoWorkerModel: Schema.Boolean,
+  masterEffort: Schema.String,
+  workerEffort: Schema.String,
+  autoWorkerEffort: Schema.Boolean,
   permissionMode: PermissionMode,
   oogaBooga: Schema.Boolean,
   // Coordinator only
@@ -76,6 +80,9 @@ export const baseSettings: Omit<Settings, "locations"> = {
   masterModel: "opus",
   workerModel: SAME_AS_MASTER.id,
   autoWorkerModel: false,
+  masterEffort: CLAUDE_DEFAULT_EFFORT.id,
+  workerEffort: SAME_AS_MASTER.id,
+  autoWorkerEffort: false,
   permissionMode: "default",
   oogaBooga: false,
   provider: "claude",
