@@ -86,6 +86,7 @@ export const claudeArgs = (s: Session, resume: boolean, mcpDir: string, endpoint
   JSON.stringify(hookSettings(endpoint, s.id)),
   ...(resume && canResume(s) ? ["--resume", s.claudeSessionId] : ["--session-id", s.claudeSessionId]),
   ...(s.model ? ["--model", s.model] : []),
+  ...(s.effort ? ["--effort", s.effort] : []),
   ...(s.permissionMode !== "default" ? ["--permission-mode", s.permissionMode] : []),
   ...roleArgs(s, mcpDir, endpoint, options),
 ]

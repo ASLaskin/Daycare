@@ -89,7 +89,7 @@
             <label class="toggle-row">
               <div>
                 <div class="toggle-label">Ask every time</div>
-                <div class="hint">Show a popup to set the task, folder, and model before it opens. Off opens a session right away with the defaults below.</div>
+                <div class="hint">Show a popup to set the task, folder, model, and effort before it opens. Off opens a session right away with the defaults below.</div>
               </div>
               <input type="checkbox" id="set-ask" class="switch" />
             </label>
@@ -152,6 +152,26 @@
               </label>
             </div>
             <div id="model-guide" class="model-guide"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Effort</div>
+            <label class="toggle-row">
+              <div>
+                <div class="toggle-label">Let Claude pick subagent effort</div>
+                <div class="hint">The master picks an effort level for each subagent based on its task and anything you tell it. Higher effort thinks longer and costs more. Off always uses the subagent default.</div>
+              </div>
+              <input type="checkbox" id="set-auto-worker-effort" class="switch" />
+            </label>
+            <div class="field-grid two">
+              <label>Master default
+                <select id="set-master-effort"></select>
+              </label>
+              <label id="worker-effort-field">Subagent default
+                <select id="set-worker-effort"></select>
+              </label>
+            </div>
+            <div id="effort-guide" class="model-guide"></div>
           </div>
 
           <div class="card">
@@ -349,6 +369,9 @@
         </label>
         <label>Model
           <select name="model"></select>
+        </label>
+        <label>Effort
+          <select name="effort"></select>
         </label>
         <label>Permissions
           <select name="permissionMode">

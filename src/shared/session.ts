@@ -26,6 +26,8 @@ export interface SessionView {
   readonly status: SessionStatus
   readonly activity: string
   readonly model: string
+  // Empty is the model's default
+  readonly effort: string
   readonly provider: Provider
   readonly permissionMode: PermissionMode
   readonly cwd: DirPath
@@ -48,6 +50,7 @@ export const SessionRecord = Schema.Struct({
   icon: Schema.NullOr(Schema.String),
   cwd: DirPath,
   model: Schema.String,
+  effort: Schema.String,
   permissionMode: PermissionMode,
   parentId: Schema.NullOr(SessionId),
   claudeSessionId: ClaudeSessionId,
@@ -60,11 +63,12 @@ export const SessionRecord = Schema.Struct({
 })
 export type SessionRecord = typeof SessionRecord.Type
 
-// New master request; empty model means Claude's default
+// New master request; empty model or effort means Claude's default
 export const NewMaster = Schema.Struct({
   task: Schema.String,
   cwd: DirPath,
   model: Schema.String,
+  effort: Schema.String,
   permissionMode: PermissionMode,
   name: Schema.optionalKey(Schema.String),
   // Coordinator only

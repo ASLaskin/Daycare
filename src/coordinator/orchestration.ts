@@ -2,11 +2,12 @@
 
 import { Result, Schema } from "effect"
 import path from "node:path"
-import type { SessionHistory, StoredSession, WorkerModels } from "../shared/coordinator.ts"
+import type { SessionHistory, StoredSession, WorkerEfforts, WorkerModels } from "../shared/coordinator.ts"
 import type { Provider } from "../shared/session.ts"
 import type { SessionId } from "../shared/ids.ts"
 import type { Json } from "../shared/json.ts"
 import { isToolName, type ToolInput, Tools } from "../main/control/tools.ts"
+import { workerEffort } from "../main/sessions/workerEffort.ts"
 import { workerModel } from "../main/sessions/workerModel.ts"
 import { Refused } from "./provider.ts"
 import { runtimeDir } from "../shared/runtime.ts"
@@ -34,6 +35,7 @@ export interface WorkerSpec {
   readonly name: string
   readonly provider: Provider
   readonly model: string | null
+  readonly effort: string | null
   readonly cwd: StoredSession["cwd"]
 }
 
@@ -43,6 +45,7 @@ export interface OrchestrationCore {
   readonly sessions: () => ReadonlyArray<StoredSession>
   readonly needsUser: (id: SessionId) => boolean
   readonly workerModels: () => WorkerModels
+  readonly workerEfforts: () => WorkerEfforts
   readonly createWorker: (spec: WorkerSpec) => SessionId
   readonly send: (id: SessionId, text: string) => Promise<void>
   readonly archive: (id: SessionId) => void
@@ -136,13 +139,23 @@ export const makeOrchestration = (core: OrchestrationCore, ackMs = ACK_MS) => {
     return workerModel(core.workerModels(), masterModel, requested) || null
   }
 
+  // Effort settings cover Claude workers only; empty is the model's default
+  const effortFor = (master: StoredSession, provider: Provider, requested: string | undefined) => {
+    if (provider !== "claude") {
+      return null
+    }
+    const masterEffort = master.provider === "claude" ? (master.effort ?? "") : ""
+    return workerEffort(core.workerEfforts(), masterEffort, requested) || null
+  }
+
   const spawn = async (master: StoredSession, input: ToolInput<"spawn_subagent">) => {
     const provider = input.provider ?? master.provider
     const model = modelFor(master, provider, input.model)
-    const id = core.createWorker({ master, name: input.name, provider, model, cwd: input.cwd ?? master.cwd })
+    const effort = effortFor(master, provider, input.effort)
+    const id = core.createWorker({ master, name: input.name, provider, model, effort, cwd: input.cwd ?? master.cwd })
     const w = core.session(id)
     const delivered = await sendTo(w, input.task)
-    return { id, name: w.name, provider, model: model ?? "default", delivered, note: "Worker started; the user can see and talk to it." }
+    return { id, name: w.name, provider, model: model ?? "default", effort: effort ?? "default", delivered, note: "Worker started; the user can see and talk to it." }
   }
 
   const wait = (master: StoredSession, input: ToolInput<"wait_for_subagents">, signal: AbortSignal) => {

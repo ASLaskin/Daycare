@@ -5,6 +5,7 @@ import type { ChatEvent } from "../shared/chat.ts"
 import type { Approval, Command, HubEvent, LiveSession, ServerMessage, SessionHistory, Snapshot, StoredSession } from "../shared/coordinator.ts"
 import { asNativeId } from "../shared/coordinator.ts"
 import { type AccountId, asSessionId, type DirPath, type SessionId } from "../shared/ids.ts"
+import { isEffortLevel } from "../shared/efforts.ts"
 import type { Json } from "../shared/json.ts"
 import { loadHistory, record } from "./history.ts"
 import { ACK_MS, makeOrchestration, type WorkerSpec } from "./orchestration.ts"
@@ -44,6 +45,7 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
   // Re-checks orchestration waits
   let settleWaits = () => {}
   let workerModels = store.loadWorkerModels(db)
+  let workerEfforts = store.loadWorkerEfforts(db)
 
   const session = (id: SessionId) => {
     const s = sessions.get(id)
@@ -226,7 +228,7 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
 
   // Records a session before any provider process starts
   const createSession = (
-    s: Pick<StoredSession, "provider" | "role" | "parentId" | "name" | "icon" | "cwd" | "model" | "permissionMode" | "accountId" | "configDir">,
+    s: Pick<StoredSession, "provider" | "role" | "parentId" | "name" | "icon" | "cwd" | "model" | "effort" | "permissionMode" | "accountId" | "configDir">,
   ) => {
     const id = asSessionId(store.newId())
     store.createSession(db, {
@@ -252,6 +254,7 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
       sessions: () => [...sessions.values()],
       needsUser,
       workerModels: () => workerModels,
+      workerEfforts: () => workerEfforts,
       createWorker: (w: WorkerSpec) =>
         createSession({
           provider: w.provider,
@@ -261,6 +264,7 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
           icon: null,
           cwd: w.cwd,
           model: w.model,
+          effort: w.effort,
           permissionMode: w.master.permissionMode,
           accountId: w.master.accountId,
           configDir: w.master.configDir,
@@ -362,6 +366,23 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
     refresh(id)
   }
 
+  // Live on a running provider, and for every later launch
+  const setEffort = async (id: SessionId, effort: string) => {
+    const s = session(id)
+    if (s.provider !== "claude") {
+      throw new Error("only claude sessions switch effort levels")
+    }
+    if (!isEffortLevel(effort)) {
+      throw new Error(`unknown effort level ${effort}`)
+    }
+    if (s.effort === effort) {
+      return
+    }
+    await providers.get(id)?.handle.setEffort?.(effort)
+    store.patch(db, id, { effort })
+    refresh(id)
+  }
+
   // Async work as a command result
   const attempt = async (work: () => Promise<Json>): Promise<CommandResult> => {
     if (stopping) {
@@ -385,6 +406,7 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
           icon: command.icon ?? null,
           cwd: command.cwd,
           model: command.model,
+          effort: command.effort,
           permissionMode: command.permissionMode,
           accountId: command.accountId,
           configDir: command.configDir,
@@ -479,9 +501,13 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
         throw new Error("moves go through hub.move")
       case "model":
         throw new Error("model switches go through hub.setModel")
+      case "effort":
+        throw new Error("effort switches go through hub.setEffort")
       case "configure":
         store.saveWorkerModels(db, command.workerModels)
+        store.saveWorkerEfforts(db, command.workerEfforts)
         workerModels = command.workerModels
+        workerEfforts = command.workerEfforts
         return {}
     }
   }
@@ -504,6 +530,8 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
     move: (id: SessionId, accountId: AccountId, configDir: DirPath | null) => attempt(() => move(id, accountId, configDir).then(() => ({}))),
 
     setModel: (id: SessionId, model: string) => attempt(() => setModel(id, model).then(() => ({}))),
+
+    setEffort: (id: SessionId, effort: string) => attempt(() => setEffort(id, effort).then(() => ({}))),
 
     // Snapshot and subscribe atomically
     subscribe: (send: Subscriber, budget = SNAPSHOT_BUDGET): Snapshot => {

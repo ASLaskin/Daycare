@@ -57,10 +57,14 @@ const composer = () => {
   box.append(input, actions)
   const model = el("select", "chat-model")
   model.setAttribute("aria-label", "Model")
+  const effort = el("select", "chat-model")
+  effort.setAttribute("aria-label", "Effort")
+  const pickers = el("div", "chat-pickers")
+  pickers.append(model, effort)
   const under = el("div", "chat-under")
-  under.append(el("div", "chat-hint", "Enter to send, Shift+Enter for a new line"), model)
+  under.append(el("div", "chat-hint", "Enter to send, Shift+Enter for a new line"), pickers)
   wrap.append(box, under)
-  return { composer: wrap, input, stop, send, model }
+  return { composer: wrap, input, stop, send, model, effort }
 }
 
 // Placeholder shown until the first real content
@@ -84,5 +88,5 @@ export const buildView = (info: SessionView, host: HTMLElement) => {
   host.replaceChildren(root)
   const empty = emptyState(info)
   log.thread.prepend(empty)
-  return { ...tasks, ...log, input: comp.input, stop: comp.stop, send: comp.send, model: comp.model, foot, root, empty }
+  return { ...tasks, ...log, input: comp.input, stop: comp.stop, send: comp.send, model: comp.model, effort: comp.effort, foot, root, empty }
 }

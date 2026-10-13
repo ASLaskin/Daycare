@@ -1,23 +1,35 @@
-// Keeps the coordinator's subagent model settings in step with the app's.
+// Keeps the coordinator's subagent model and effort settings in step with the app's.
 
 import { Effect, Stream } from "effect"
-import type { Command, WorkerModels } from "../../shared/coordinator.ts"
+import type { Command, WorkerEfforts, WorkerModels } from "../../shared/coordinator.ts"
 import type { Json } from "../../shared/json.ts"
 import type { Settings } from "../../shared/settings.ts"
 import type { SettingsStore } from "../settings/SettingsStore.ts"
 
-const workerModelsOf = (s: Settings): WorkerModels => ({ workerModel: s.workerModel, autoWorkerModel: s.autoWorkerModel })
+interface WorkerConfig {
+  readonly workerModels: WorkerModels
+  readonly workerEfforts: WorkerEfforts
+}
 
-const same = (a: WorkerModels, b: WorkerModels) => a.workerModel === b.workerModel && a.autoWorkerModel === b.autoWorkerModel
+const workerConfigOf = (s: Settings): WorkerConfig => ({
+  workerModels: { workerModel: s.workerModel, autoWorkerModel: s.autoWorkerModel },
+  workerEfforts: { workerEffort: s.workerEffort, autoWorkerEffort: s.autoWorkerEffort },
+})
+
+const same = (a: WorkerConfig, b: WorkerConfig) =>
+  a.workerModels.workerModel === b.workerModels.workerModel &&
+  a.workerModels.autoWorkerModel === b.workerModels.autoWorkerModel &&
+  a.workerEfforts.workerEffort === b.workerEfforts.workerEffort &&
+  a.workerEfforts.autoWorkerEffort === b.workerEfforts.autoWorkerEffort
 
 export const makeWorkerModelsSync = (settings: SettingsStore["Service"], send: (command: Command) => Promise<Json>) => {
   // Dropped while disconnected; connecting pushes again
-  const push = (workerModels: WorkerModels) => Effect.tryPromise(() => send({ method: "configure", workerModels })).pipe(Effect.ignore)
+  const push = (config: WorkerConfig) => Effect.tryPromise(() => send({ method: "configure", ...config })).pipe(Effect.ignore)
 
   return {
-    pushCurrent: settings.get.pipe(Effect.flatMap((s) => push(workerModelsOf(s)))),
+    pushCurrent: settings.get.pipe(Effect.flatMap((s) => push(workerConfigOf(s)))),
     follow: settings.changes.pipe(
-      Effect.flatMap((changes) => changes.pipe(Stream.map(workerModelsOf), Stream.changesWith(same), Stream.runForEach(push))),
+      Effect.flatMap((changes) => changes.pipe(Stream.map(workerConfigOf), Stream.changesWith(same), Stream.runForEach(push))),
       Effect.forkScoped,
     ),
   }

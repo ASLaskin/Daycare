@@ -56,6 +56,7 @@
 .chat .chat-stop:disabled { opacity: 0.5; cursor: default; }
 .chat-under { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 2px 0 6px; }
 .chat-hint { color: var(--faint); font-size: 11px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-pickers { flex: none; display: flex; align-items: center; gap: 2px; }
 .chat .chat-model {
   flex: none;
   height: 22px;

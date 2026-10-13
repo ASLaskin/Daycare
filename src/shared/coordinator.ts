@@ -23,6 +23,7 @@ export const StoredSession = Schema.Struct({
   icon: Schema.NullOr(Schema.String),
   cwd: DirPath,
   model: Schema.NullOr(Schema.String),
+  effort: Schema.NullOr(Schema.String),
   permissionMode: PermissionMode,
   state: SessionState,
   closed: Schema.Boolean,
@@ -45,6 +46,10 @@ export type LiveSession = typeof LiveSession.Type
 // Subagent model settings applied when a master spawns a worker
 export const WorkerModels = Schema.Struct({ workerModel: Schema.String, autoWorkerModel: Schema.Boolean })
 export type WorkerModels = typeof WorkerModels.Type
+
+// Subagent effort settings applied when a master spawns a worker
+export const WorkerEfforts = Schema.Struct({ workerEffort: Schema.String, autoWorkerEffort: Schema.Boolean })
+export type WorkerEfforts = typeof WorkerEfforts.Type
 
 export const Approval = Schema.Struct({
   session: SessionId,
@@ -70,6 +75,7 @@ export const Command = Schema.Union([
     // Sprite chosen by the client
     icon: Schema.optionalKey(Schema.String),
     model: Schema.NullOr(Schema.String),
+    effort: Schema.NullOr(Schema.String),
     permissionMode: PermissionMode,
     accountId: AccountId,
     configDir: Schema.NullOr(DirPath),
@@ -97,7 +103,9 @@ export const Command = Schema.Union([
   Schema.Struct({ method: Schema.Literal("move"), session: SessionId, accountId: AccountId, configDir: Schema.NullOr(DirPath) }),
   // Switches a Claude session's model, live when running
   Schema.Struct({ method: Schema.Literal("model"), session: SessionId, model: Schema.String }),
-  Schema.Struct({ method: Schema.Literal("configure"), workerModels: WorkerModels }),
+  // Switches a Claude session's effort, live when running
+  Schema.Struct({ method: Schema.Literal("effort"), session: SessionId, effort: Schema.String }),
+  Schema.Struct({ method: Schema.Literal("configure"), workerModels: WorkerModels, workerEfforts: WorkerEfforts }),
   // Orchestration tool call for a master; may block
   Schema.Struct({ method: Schema.Literal("tool"), master: SessionId, name: Schema.String, input: Schema.Json }),
 ])

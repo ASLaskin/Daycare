@@ -13,6 +13,7 @@ export interface Session {
   readonly parentId: SessionId | null
   readonly cwd: DirPath
   model: string
+  effort: string
   readonly permissionMode: PermissionMode
   readonly createdAt: number
   readonly icon: string | null
@@ -39,6 +40,7 @@ export interface CreateOptions {
   readonly role: SessionRole
   readonly cwd: DirPath
   readonly model: string
+  readonly effort: string
   readonly permissionMode: PermissionMode
   readonly task?: string
   readonly name?: string | undefined
@@ -55,6 +57,7 @@ export const view = (s: Session): SessionView => ({
   status: s.status,
   activity: s.activity,
   model: s.model,
+  effort: s.effort,
   provider: "claude",
   permissionMode: s.permissionMode,
   cwd: s.cwd,
@@ -74,6 +77,7 @@ export const record = (s: Session): SessionRecord => ({
   icon: s.icon,
   cwd: s.cwd,
   model: s.model,
+  effort: s.effort,
   permissionMode: s.permissionMode,
   parentId: s.parentId,
   claudeSessionId: s.claudeSessionId,
@@ -87,6 +91,7 @@ export const record = (s: Session): SessionRecord => ({
 
 const RECORD_DEFAULTS = {
   model: "",
+  effort: "",
   permissionMode: "default",
   icon: null,
   parentId: null,

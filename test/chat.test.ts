@@ -453,6 +453,14 @@ test("switching models sends a set_model control request", async () => {
   expect([at(line, "type"), at(line, "request")]).toEqual(["control_request", { subtype: "set_model", model: "haiku" }])
 })
 
+test("switching effort sends an apply_flag_settings control request", async () => {
+  const m = launch([{ waitStdin: 1 }, { exit: 0 }])
+  run((chat) => chat.setEffort(m.id, "max"))
+  await until(() => m.stdin().length === 1)
+  const line = item(m.stdin())
+  expect([at(line, "type"), at(line, "request")]).toEqual(["control_request", { subtype: "apply_flag_settings", settings: { effortLevel: "max" } }])
+})
+
 test("closing the scope kills a stuck child at once", async () => {
   const q = launch([{ stubborn: true, write: J({ type: "system", subtype: "session_state_changed", state: "running" }) }])
   await until(() => kinds(q.ev(), "state").length === 1)

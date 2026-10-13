@@ -3,7 +3,7 @@
 import { afterEach, expect, test } from "bun:test"
 import { type Launch, makeHub } from "../src/coordinator/hub.ts"
 import { type ProviderUpdate, Refused } from "../src/coordinator/provider.ts"
-import { createSession, loadWorkerModels } from "../src/coordinator/store.ts"
+import { createSession, loadWorkerEfforts, loadWorkerModels } from "../src/coordinator/store.ts"
 import { asNativeId } from "../src/shared/coordinator.ts"
 import { asRequestId, asSessionId, type SessionId } from "../src/shared/ids.ts"
 import { type Json, obj, str } from "../src/shared/json.ts"
@@ -19,7 +19,7 @@ const setup = (accept: Accept = "resolve") => {
   const db = tempDb()
   dbs.push(db)
   const conn = db.open()
-  createSession(conn, { ...sample("m", "claude", "idle"), nativeId: asNativeId("n"), model: "opus" })
+  createSession(conn, { ...sample("m", "claude", "idle"), nativeId: asNativeId("n"), model: "opus", effort: "high" })
   const updates = new Map<SessionId, (u: ProviderUpdate) => void>()
   const launch: Launch = (session, update) => {
     updates.set(session.id, update)
@@ -52,6 +52,9 @@ const setup = (accept: Accept = "resolve") => {
   return { conn, hub, tool, updates }
 }
 
+const defaultModels = { workerModel: "master", autoWorkerModel: false }
+const defaultEfforts = { workerEffort: "master", autoWorkerEffort: false }
+
 const turnEnd = (text: string): ProviderUpdate => ({
   type: "event",
   event: { kind: "turn-end", isError: false, stopReason: null, costUsd: 0, contextTokens: 0, numTurns: null, durationMs: null, text },
@@ -62,7 +65,7 @@ test("a spawned worker is a visible session under its master, found by name", as
   const spawned = await tool("spawn_subagent", { name: "Researcher", task: "look", provider: "codex" })
   expect([spawned["provider"], spawned["delivered"]]).toEqual(["codex", "provider"])
   const worker = hub.subscribe(() => true).sessions.find((s) => s.id === str(spawned["id"]))
-  expect([worker?.role, worker?.parentId, worker?.provider, worker?.model]).toEqual(["worker", master, "codex", null])
+  expect([worker?.role, worker?.parentId, worker?.provider, worker?.model, worker?.effort]).toEqual(["worker", master, "codex", null, null])
   const read = await tool("read_subagent", { worker: "researcher" })
   expect(read["finalMessage"]).toBe("(no reply yet)")
   await expect(tool("read_subagent", { worker: "nobody" })).rejects.toThrow('no worker "nobody"; known workers: Researcher')
@@ -146,15 +149,28 @@ test("claude workers follow the subagent model settings the app pushed", async (
   const { hub, tool } = setup()
   const modelOf = async (model?: string) => (await tool("spawn_subagent", { name: "w", task: "go", ...(model ? { model } : {}) }))["model"]
   expect(await modelOf("haiku")).toBe("opus")
-  hub.command({ method: "configure", workerModels: { workerModel: "sonnet", autoWorkerModel: false } })
+  hub.command({ method: "configure", workerModels: { workerModel: "sonnet", autoWorkerModel: false }, workerEfforts: defaultEfforts })
   expect(await modelOf("haiku")).toBe("sonnet")
-  hub.command({ method: "configure", workerModels: { workerModel: "sonnet", autoWorkerModel: true } })
+  hub.command({ method: "configure", workerModels: { workerModel: "sonnet", autoWorkerModel: true }, workerEfforts: defaultEfforts })
   expect(await modelOf("haiku")).toBe("haiku")
   expect(await modelOf()).toBe("opus")
 })
 
 test("pushed subagent model settings survive a coordinator restart", () => {
   const { conn, hub } = setup()
-  hub.command({ method: "configure", workerModels: { workerModel: "haiku", autoWorkerModel: true } })
+  hub.command({ method: "configure", workerModels: { workerModel: "haiku", autoWorkerModel: true }, workerEfforts: { workerEffort: "low", autoWorkerEffort: true } })
   expect(loadWorkerModels(conn)).toEqual({ workerModel: "haiku", autoWorkerModel: true })
+  expect(loadWorkerEfforts(conn)).toEqual({ workerEffort: "low", autoWorkerEffort: true })
+})
+
+test("claude workers follow the subagent effort settings the app pushed", async () => {
+  const { hub, tool } = setup()
+  const effortOf = async (effort?: string) => (await tool("spawn_subagent", { name: "w", task: "go", ...(effort ? { effort } : {}) }))["effort"]
+  expect(await effortOf("low")).toBe("high")
+  hub.command({ method: "configure", workerModels: defaultModels, workerEfforts: { workerEffort: "medium", autoWorkerEffort: false } })
+  expect(await effortOf("low")).toBe("medium")
+  hub.command({ method: "configure", workerModels: defaultModels, workerEfforts: { workerEffort: "medium", autoWorkerEffort: true } })
+  expect(await effortOf("max")).toBe("max")
+  expect(await effortOf()).toBe("high")
+  await expect(effortOf("extreme")).rejects.toThrow("bad arguments for spawn_subagent")
 })

@@ -120,6 +120,7 @@ export const Ipc = Layer.effectDiscard(
       "chat:send": ({ id, text }) => sessions.chatSend(id, text),
       "chat:interrupt": (id) => sessions.chatInterrupt(id),
       "chat:model": ({ id, model }) => sessions.setModel(id, model),
+      "chat:effort": ({ id, effort }) => sessions.setEffort(id, effort),
       "chat:permission": ({ id, requestId, decision }) => sessions.chatRespond(id, requestId, decision),
       "chat:history": (id) => sessions.chatHistory(id),
     }
