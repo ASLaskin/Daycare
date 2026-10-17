@@ -1,27 +1,28 @@
-/* Status dots and the hover peek card. */
+/* Status marks and the hover peek card. */
 
-.status-dot {
+.status-mark {
   display: inline-block;
   flex: none;
   width: 8px;
   height: 8px;
-  border-radius: 50%;
+  border-radius: 2px;
   background: var(--faint);
   transition: background var(--t) var(--ease), opacity var(--t) var(--ease);
 }
-.status-dot.idle { background: var(--muted); }
-.status-dot.working { background: var(--working); animation: pulse 1.4s ease-in-out infinite; }
-.status-dot.starting { animation: pulse 1.4s ease-in-out infinite; }
-.status-dot.needs_you { background: var(--needs); }
-.status-dot.done { background: var(--done); }
-.status-dot.exited { background: var(--exited); }
-.status-dot.interrupted { background: var(--needs); }
-.status-dot.incomplete { background: var(--exited); }
-.status-dot.closed { background: var(--faint); opacity: 0.5; }
-html[data-motion="off"] .status-dot { animation: none; }
+.status-mark.idle { background: var(--muted); }
+.status-mark.working { background: var(--working); animation: pulse 1.4s ease-in-out infinite; }
+.status-mark.starting { animation: pulse 1.4s ease-in-out infinite; }
+.status-mark.needs_you { background: var(--needs); }
+.status-mark.done { background: var(--done); }
+.status-mark.exited { background: var(--exited); }
+.status-mark.interrupted { background: var(--needs); }
+.status-mark.incomplete { background: var(--exited); }
+.status-mark.closed { background: var(--faint); opacity: 0.5; }
+html[data-motion="off"] .status-mark { animation: none; }
 @media (prefers-reduced-motion: reduce) {
-  html:not([data-motion]) .status-dot { animation: none; }
+  html:not([data-motion]) .status-mark { animation: none; }
 }
+@keyframes pulse { 50% { opacity: 0.3; transform: scale(0.8); } }
 
 .peek {
   position: fixed;
@@ -34,7 +35,7 @@ html[data-motion="off"] .status-dot { animation: none; }
   background: var(--panel-3);
   border: 1px solid var(--line-strong);
   border-radius: var(--r);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--shadow) 45%, transparent);
   font-size: 12px;
   color: var(--muted);
   opacity: 0;

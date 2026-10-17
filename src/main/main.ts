@@ -42,8 +42,8 @@ const PowerLive = Layer.unwrap(
 const Control = ControlEndpoint.layer.pipe(Layer.provideMerge(ControlHttpServer))
 
 const Services = Layer.mergeAll(Accounts.layer, Usage.layer.pipe(Layer.provide(UsageSource.layer)), ChatLive, PowerLive, Updater.layer).pipe(
-  Layer.provideMerge(SettingsStore.layer),
   Layer.provideMerge(Window),
+  Layer.provideMerge(SettingsStore.layer),
   Layer.provideMerge(Control),
 )
 

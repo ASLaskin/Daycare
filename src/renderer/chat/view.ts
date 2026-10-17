@@ -11,7 +11,7 @@ const taskStrip = () => {
   taskbar.hidden = true
   const taskHead = button("chat-tasks-head")
   const taskSummary = el("span", "chat-tasks-summary")
-  taskHead.append(el("span", "chat-chev", "›"), el("span", "chat-tasks-dot"), taskSummary)
+  taskHead.append(el("span", "chat-chev", "›"), taskSummary)
   const taskList = el("div", "chat-tasks-list")
   wireToggle(taskHead, taskList)
   taskbar.append(taskHead, taskList)

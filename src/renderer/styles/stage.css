@@ -103,11 +103,11 @@
 .group.zoomed .pane.zoomed { animation: zoom-in var(--t-slow) var(--ease-out) both; }
 @keyframes zoom-in { from { opacity: 0.6; transform: scale(0.992); } }
 
-/* tray: collapsed panes as dots */
+/* tray: collapsed panes as marks */
 .group-tray { display: none; flex: none; align-items: center; gap: 2px; height: 24px; min-width: 0; }
 .group.has-workers .group-tray { display: flex; }
-.tray-dots { flex: 1; display: flex; align-items: center; gap: 2px; min-width: 0; overflow: hidden; }
-.tray-dot { display: inline-grid; place-items: center; width: 20px; height: 20px; padding: 0; background: transparent; border-radius: var(--r); }
-.tray-dot:hover { background: var(--panel-3); }
+.tray-marks { flex: 1; display: flex; align-items: center; gap: 2px; min-width: 0; overflow: hidden; }
+.tray-mark { display: inline-grid; place-items: center; width: 20px; height: 20px; padding: 0; background: transparent; border-radius: var(--r); }
+.tray-mark:hover { background: var(--panel-3); }
 .tray-action { flex: none; padding: 2px 8px; font-size: 11.5px; color: var(--faint); }
 .tray-action[hidden] { display: none; }

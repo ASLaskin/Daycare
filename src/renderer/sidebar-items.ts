@@ -9,7 +9,7 @@ import { focusSession } from "./focus.ts"
 import { keyedRows, type Row, syncChildren } from "./keyed.ts"
 import { masterActions } from "./session-actions.ts"
 import { accountTag, paintContext, paintName, paintStatus, renamable, showsContext } from "./sidebar-tags.ts"
-import { workerDot, workerRow } from "./sidebar-worker.ts"
+import { workerMark, workerRow } from "./sidebar-worker.ts"
 import { closedInfo, workersOf } from "./state.ts"
 import { settings } from "./store.ts"
 import { doneCount, workerSummary } from "./worker-summary.ts"
@@ -52,7 +52,7 @@ const masterShell = (current: () => SessionView) => {
   return { item, top, update }
 }
 
-// Masters whose worker list shows as dots.
+// Masters whose worker list shows as marks.
 const folded = new Set<SessionId>()
 
 const openRow = (first: OpenView): Row<OpenView> => {
@@ -68,8 +68,8 @@ const openRow = (first: OpenView): Row<OpenView> => {
   progress.append(fill)
   const list = el("div", "worker-list")
   const workerRows = keyedRows((w: SessionView) => w.id, workerRow)
-  const dots = el("div", "worker-dots")
-  const workerDots = keyedRows((w: SessionView) => w.id, workerDot)
+  const marks = el("div", "worker-marks")
+  const workerMarks = keyedRows((w: SessionView) => w.id, workerMark)
   // Close and Delete shown on the selected master.
   const actions = el("div", "item-actions")
   actions.append(...masterActions(m.id))
@@ -92,11 +92,11 @@ const openRow = (first: OpenView): Row<OpenView> => {
     syncChildren(meta, [summary, ...(showsContext(m.context) ? [ctx] : []), ...(account ? [acct] : [])])
     meta.classList.toggle("foldable", workers.length > 0)
     meta.classList.toggle("folded", isFolded)
-    meta.title = workers.length ? (isFolded ? "Show workers" : "Fold workers into dots") : ""
+    meta.title = workers.length ? (isFolded ? "Show workers" : "Fold workers into status marks") : ""
     fill.style.width = `${workers.length ? (doneCount(workers) / workers.length) * 100 : 0}%`
     syncChildren(list, isFolded ? [] : workerRows(workers))
-    syncChildren(dots, isFolded ? workerDots(workers) : [])
-    const body = workers.length ? [progress, isFolded ? dots : list] : []
+    syncChildren(marks, isFolded ? workerMarks(workers) : [])
+    const body = workers.length ? [progress, isFolded ? marks : list] : []
     syncChildren(shell.item, [shell.top, meta, ...body, ...(view.active ? [actions] : [])])
   }
   meta.onclick = (e) => {

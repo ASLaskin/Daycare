@@ -31,5 +31,5 @@ const footBits = (s: ChatSession): Array<HTMLElement> => {
 export const renderFoot = (s: ChatSession) => {
   const bits = footBits(s)
   s.foot.hidden = bits.length === 0
-  s.foot.replaceChildren(...bits.flatMap((b, i) => (i ? [el("span", "chat-foot-sep", "·"), b] : [b])))
+  s.foot.replaceChildren(...bits)
 }

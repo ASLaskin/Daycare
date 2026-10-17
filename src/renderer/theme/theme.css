@@ -1,0 +1,66 @@
+/* Theme tiles and the colour editor. */
+
+.theme-preview {
+  display: grid;
+  grid-template-columns: 26% 1fr;
+  gap: 4px;
+  height: 56px;
+  padding: 4px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+}
+.tp-side { background: var(--panel); border-radius: 3px; }
+.tp-pane { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 6px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 3px; }
+.tp-text, .tp-muted { height: 3px; border-radius: 1px; }
+.tp-text { width: 72%; background: var(--text); }
+.tp-muted { width: 48%; background: var(--muted); }
+.tp-swatches { display: flex; gap: 3px; margin-top: auto; }
+.tp-swatch { width: 12px; height: 6px; border-radius: 1px; }
+
+.theme-editor { display: flex; flex-direction: column; gap: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.theme-editor > .hint { margin-top: -6px; }
+.theme-head { display: flex; align-items: center; gap: 10px; min-height: 32px; }
+.theme-title { flex: 1; font-weight: 600; }
+.theme-name { flex: 1; min-width: 0; max-width: 260px; padding: 5px 9px; font-weight: 600; }
+.theme-head .inline-actions { margin-left: auto; }
+.theme-head .ghost { font-size: 12.5px; }
+
+.theme-group { display: flex; flex-direction: column; gap: 8px; }
+.theme-group-title { color: var(--muted); font-size: 12px; font-weight: 500; }
+.theme-rows { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.theme-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 6px;
+  align-items: center;
+  padding: 5px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+}
+
+.theme-swatch {
+  grid-row: 1 / span 2;
+  appearance: none;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  background: none;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.theme-swatch::-webkit-color-swatch-wrapper { padding: 0; }
+.theme-swatch::-webkit-color-swatch { border: 0; border-radius: 5px; }
+.theme-row-label { padding-left: 7px; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.theme-hex {
+  width: 100%;
+  padding: 1px 6px;
+  font: 11.5px var(--mono);
+  color: var(--muted);
+  background: transparent;
+  border-color: transparent;
+  border-radius: var(--r-sm);
+}
+.theme-hex:focus { color: var(--text); }
