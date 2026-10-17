@@ -122,7 +122,7 @@ const summaryOf = (sent: Answers | null) => (allowed: boolean) => {
     return "Skipped the questions"
   }
   const parts = Object.entries(sent ?? {}).map(([q, a]) => `${oneLine(q, 40)} ${Array.isArray(a) ? a.join(", ") : a}`)
-  return parts.length ? `Answered: ${oneLine(parts.join(" · "), 90)}` : "Answered"
+  return parts.length ? `Answered: ${oneLine(parts.join("; "), 90)}` : "Answered"
 }
 
 // One card for all questions of one request

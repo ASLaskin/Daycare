@@ -1,4 +1,4 @@
-/* Collapsed sidebar strip and folded worker dots. */
+/* Collapsed sidebar strip and folded worker marks. */
 
 body.sidebar-ready { transition: grid-template-columns var(--t-slow) var(--ease); }
 body.resizing { transition: none; }
@@ -56,7 +56,7 @@ body.sidebar-collapsed .toolbar { padding-left: 40px; }
 }
 .strip-item:hover { background: var(--panel-2); }
 .strip-item.active { background: var(--panel-3); box-shadow: inset 2px 0 0 var(--accent); }
-.strip-item.active .status-dot { width: 10px; height: 10px; }
+.strip-item.active .status-mark { width: 10px; height: 10px; }
 .strip-divider { flex: none; width: 18px; height: 1px; margin: 8px 0; background: var(--line); }
 
 .master-item .meta.foldable { cursor: pointer; }
@@ -75,11 +75,11 @@ body.sidebar-collapsed .toolbar { padding-left: 40px; }
 }
 .master-item .meta.foldable.folded::after { transform: rotate(-45deg); }
 
-.worker-dots { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 2px; }
-.master-item .worker-dots { margin-left: 33px; }
-.master-item.no-avatar .worker-dots { margin-left: 0; }
-.worker-dot { display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; cursor: pointer; }
-.worker-dot:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
+.worker-marks { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 2px; }
+.master-item .worker-marks { margin-left: 33px; }
+.master-item.no-avatar .worker-marks { margin-left: 0; }
+.worker-mark { display: grid; place-items: center; width: 16px; height: 16px; border-radius: var(--r-sm); cursor: pointer; }
+.worker-mark:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
 
 /* Collapsed usage: ring above Settings, full breakdown on hover. */
 .usage-ring { display: none; }
@@ -98,7 +98,7 @@ body.sidebar-collapsed .usage-ring { display: flex; justify-content: center; pos
   background: var(--panel-3);
   border: 1px solid var(--line-strong);
   border-radius: var(--r);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--shadow) 45%, transparent);
   cursor: default;
   opacity: 0;
   transform: translateX(-3px);

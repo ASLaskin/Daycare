@@ -92,7 +92,7 @@ export const expandAll = (masterId: SessionId) => {
   syncGroup(masterId)
 }
 
-// Repaints the tray dot of a collapsed session.
+// Repaints the tray mark of a collapsed session.
 export const repaintCollapsed = (info: SessionView) => {
   const masterId = masterOf(info)
   if (collapsed.has(info.id) && masterId) {

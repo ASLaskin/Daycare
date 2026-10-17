@@ -10,7 +10,7 @@
   justify-content: center;
   gap: 8px;
   padding: 24px;
-  background: var(--overlay);
+  background: var(--scrim);
   backdrop-filter: blur(6px);
   text-align: center;
 }

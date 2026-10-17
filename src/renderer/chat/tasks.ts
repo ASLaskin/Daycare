@@ -41,7 +41,7 @@ const usageText = (u: Json | undefined) => {
   const tok = r["total_tokens"] ?? r["totalTokens"] ?? r["tokens"]
   const tools = r["tool_uses"] ?? r["toolUses"]
   const parts = [typeof tok === "number" && tok ? `${fmtTokens(tok)} tokens` : "", tools ? `${String(tools)} tools` : ""]
-  return parts.filter(Boolean).join(" · ")
+  return parts.filter(Boolean).join(", ")
 }
 
 // Record a subagent task, ignoring background shell tasks
@@ -77,7 +77,6 @@ export const task = (s: ChatSession, ev: ChatEventOf<"task">) => {
 const taskRow = (t: TaskEntry) => {
   const st = stateOf(t)
   const row = el("div", `chat-task ${st}`)
-  row.append(el("span", "chat-task-dot"))
   const main = el("div", "chat-task-main")
   const line = el("div", "chat-task-line")
   line.append(el("span", "chat-task-desc", t.description || "Subagent"))
@@ -91,7 +90,7 @@ const taskRow = (t: TaskEntry) => {
     usageText(t.usage),
   ].filter(Boolean)
   if (sub.length) {
-    main.append(el("div", "chat-task-sub", sub.join(" · ")))
+    main.append(el("div", "chat-task-sub", sub.join(", ")))
   }
   row.append(main, el("span", "chat-task-state", TASK_LABEL[st]))
   return row

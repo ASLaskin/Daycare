@@ -7,7 +7,7 @@
   border: 1px solid var(--line-strong);
   border-radius: var(--r);
   font-size: 12.5px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--shadow) 40%, transparent);
   animation: toast-in var(--t-slow) var(--ease-out) both;
 }
 .toast.out { animation: toast-out var(--t) var(--ease) both; }

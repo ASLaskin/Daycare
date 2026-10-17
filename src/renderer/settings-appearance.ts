@@ -8,6 +8,8 @@ import { showContext } from "./context-meter.ts"
 import { refreshContexts } from "./pane.ts"
 import { renderSidebar } from "./sidebar.ts"
 import { saveSettings, settings } from "./store.ts"
+import { mountThemeEditor, renderThemeEditor } from "./theme/editor.ts"
+import { renderThemePicker } from "./theme/picker.ts"
 
 const renderPickers = () => {
   const root = document.documentElement.dataset
@@ -24,6 +26,8 @@ const renderPickers = () => {
 
 export const renderAppearance = () => {
   const s = settings()
+  renderThemePicker($("#theme-picker"), s, (theme) => saveSettings({ theme }))
+  renderThemeEditor(s)
   renderPickers()
   input("set-show-icons").checked = s.showIcons
   select("set-icon-pack").value = s.iconPack
@@ -35,6 +39,7 @@ export const renderAppearance = () => {
 }
 
 export const wireAppearance = () => {
+  mountThemeEditor($("#theme-editor"))
   onToggle("set-show-icons", (showIcons) => saveSettings({ showIcons }).then(renderSidebar))
   onSelect("set-icon-pack", (v) => saveSettings({ iconPack: v as Settings["iconPack"] }).then(renderSidebar))
   onToggle("set-show-context", (showContext) => saveSettings({ showContext }).then(refreshContexts))

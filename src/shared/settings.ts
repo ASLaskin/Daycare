@@ -2,12 +2,14 @@
 
 import { Option, Schema } from "effect"
 import { Account, DEFAULT_ACCOUNT } from "./accounts.ts"
-import { AccountId, DirPath } from "./ids.ts"
+import { AccountId, DirPath, ThemeId } from "./ids.ts"
 import { IconPack } from "./icons.ts"
 import { CLAUDE_DEFAULT_EFFORT } from "./efforts.ts"
 import { isJsonObject, type Json } from "./json.ts"
 import { SAME_AS_MASTER } from "./models.ts"
 import { PermissionMode, Provider } from "./session.ts"
+import { GRAPHITE } from "./theme/builtins.ts"
+import { CustomThemes, ThemeDraft } from "./theme/themes.ts"
 
 export const Location = Schema.Struct({ label: Schema.String, path: DirPath })
 export type Location = typeof Location.Type
@@ -52,6 +54,10 @@ export const Settings = Schema.Struct({
   motion: Motion,
   font: Font,
   monoFont: MonoFont,
+  // Built in or custom theme id, or the draft
+  theme: ThemeId,
+  customThemes: CustomThemes,
+  themeDraft: Schema.NullOr(ThemeDraft),
   layout: Layout,
   // Master share per layout preset, in percent
   splits: Schema.Record(Schema.String, Schema.Finite),
@@ -96,6 +102,9 @@ export const baseSettings: Omit<Settings, "locations"> = {
   motion: "normal",
   font: "system",
   monoFont: "system",
+  theme: GRAPHITE.id,
+  customThemes: [],
+  themeDraft: null,
   layout: "stack",
   splits: {},
   sidebarWidth: 288,
