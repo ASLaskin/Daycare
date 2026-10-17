@@ -9,10 +9,10 @@ export const isEffortLevel = (s: string): s is EffortLevel => EFFORT_LEVELS.some
 
 export const EFFORT_CHOICES: ReadonlyArray<ModelChoice> = [
   { id: "low", label: "Low", bestFor: "quick lookups and simple, mechanical edits" },
-  { id: "medium", label: "Medium", bestFor: "routine coding with some thought" },
-  { id: "high", label: "High", bestFor: "everyday coding and most tasks" },
-  { id: "xhigh", label: "Extra high", bestFor: "harder bugs and multi step changes" },
-  { id: "max", label: "Max", bestFor: "the hardest reasoning and design problems" },
+  { id: "medium", label: "Medium", bestFor: "routine coding, scripted pipelines, and most media work" },
+  { id: "high", label: "High", bestFor: "multi step changes that need real thought" },
+  { id: "xhigh", label: "Extra high", bestFor: "hard bugs that resisted a lower level" },
+  { id: "max", label: "Max", bestFor: "rare, deep reasoning and design problems" },
 ]
 
 // Empty effort means the model's default
