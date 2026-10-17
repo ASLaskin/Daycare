@@ -1,4 +1,5 @@
 import type { ChatEventOf } from "../../shared/chat.ts"
+import type { DirPath } from "../../shared/ids.ts"
 import { el } from "../dom.ts"
 import { capBlocks } from "./caps.ts"
 import { stick } from "./scroll.ts"
@@ -6,9 +7,9 @@ import { appendProse } from "./segments.ts"
 import { ensureTurn } from "./turn.ts"
 import type { ChatSession, TextBlock } from "./types.ts"
 
-const renderBlock = (b: TextBlock) => {
+const renderBlock = (b: TextBlock, linkCwd: DirPath | null = null) => {
   b.el.replaceChildren()
-  const { segs, tail } = appendProse(b.el, b.raw)
+  const { segs, tail } = appendProse(b.el, b.raw, linkCwd)
   b.fenced = segs.some((x) => x.code)
   b.tail = tail
   if (!segs.length) {
@@ -90,7 +91,7 @@ export const textFinal = (s: ChatSession, block: string, text: string) => {
   }
   b.pending = ""
   b.raw = text
-  renderBlock(b)
+  renderBlock(b, s.cwd)
   b.final = true
   b.el.classList.remove("streaming")
   stick(s)

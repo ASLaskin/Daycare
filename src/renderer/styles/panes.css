@@ -13,7 +13,7 @@
   overflow: hidden;
   transition: border-color var(--t) var(--ease), box-shadow var(--t) var(--ease);
 }
-.pane.focused { border-color: var(--line-strong); box-shadow: 0 0 0 1px var(--line-strong), 0 8px 30px -12px rgba(0, 0, 0, 0.6); }
+.pane.focused { border-color: var(--line-strong); box-shadow: 0 0 0 1px var(--line-strong), 0 8px 30px -12px color-mix(in srgb, var(--shadow) 60%, transparent); }
 .pane.needs_you { border-color: color-mix(in srgb, var(--needs) 55%, var(--line)); }
 .pane.needs_you.focused { box-shadow: 0 0 0 1px color-mix(in srgb, var(--needs) 40%, transparent); }
 .pane.collapsed { display: none; }

@@ -5,6 +5,11 @@ import { dialog, ipcMain, shell } from "electron"
 import { execFile } from "node:child_process"
 import { asDirPath, type DirPath } from "../../shared/ids.ts"
 import { Invoke, type InvokeChannel, type InvokePayload, type InvokeResult } from "../../shared/ipc.ts"
+import { Accounts } from "../accounts/Accounts.ts"
+import { isRunnablePath } from "../../shared/media.ts"
+import { handleMedia, MediaAllowlist } from "../attachments/MediaProtocol.ts"
+import { existingPath, resolveMentions } from "../attachments/paths.ts"
+import { validateUrl } from "../attachments/urls.ts"
 import { AppPaths } from "../AppPaths.ts"
 import { Ui } from "../Ui.ts"
 import { prepareImages } from "../chat/images.ts"
@@ -26,6 +31,7 @@ export const Ipc = Layer.effectDiscard(
     const sessions = yield* Sessions
     const settings = yield* SettingsStore
     const usage = yield* Usage
+    const accounts = yield* Accounts
     const power = yield* Power
     const skills = yield* Skills
     const updater = yield* Updater
@@ -37,6 +43,9 @@ export const Ipc = Layer.effectDiscard(
     const withProjectDirs = <A, E>(f: (dirs: ReadonlyArray<DirPath>) => Effect.Effect<A, E>) => Effect.flatMap(sessions.projectDirs, f)
 
     const sessionMenu = showSessionMenu(sessions, ui, win)
+
+    const media = new MediaAllowlist()
+    handleMedia(media)
 
     const handlers: Handlers = {
       "app:defaults": () => Effect.succeed({ cwd: home, claude: claude.path }),
@@ -59,18 +68,30 @@ export const Ipc = Layer.effectDiscard(
             }
           })
         }),
+      "open:url": (url) => (url.startsWith("https://") ? Effect.promise(() => shell.openExternal(url)) : Effect.void),
       "update:info": () => updater.info,
       "update:run": (source) => updater.run(source),
       "usage:get": () => usage.get,
       "usage:refresh": () => usage.refresh({ manual: true }),
+
+      "accounts:list": () => accounts.list,
+      "accounts:add": (label) => accounts.add(label),
+      "accounts:remove": (id) => sessions.removeAccount(id),
+      "accounts:switch": (id) => sessions.switchAccount(id),
+      "accounts:login": (id) => accounts.login(id),
+      "accounts:login-code": ({ id, code }) => accounts.loginCode(id, code),
+      "accounts:login-cancel": (id) => accounts.cancelLogin(id),
 
       "session:list": () => sessions.list,
       "master:create": (options) => sessions.createMaster(options),
       "session:rename": ({ id, name }) => sessions.rename(id, name),
       "session:close": (id) => sessions.close(id),
       "session:reopen": (id) => sessions.reopen(id),
+      "session:archive": (id) => sessions.archive(id),
+      "session:unarchive": (id) => sessions.unarchive(id),
       "session:delete": (id) => sessions.remove(id),
       "session:menu": sessionMenu,
+      "coordinator:restart": () => sessions.restartCoordinator,
 
       "power:status": () => power.status,
       "power:restore": () => power.restore,
@@ -81,9 +102,28 @@ export const Ipc = Layer.effectDiscard(
       "skills:plugin": (input) => withProjectDirs((dirs) => skills.setPlugin(input, dirs)),
       "skills:restore": (input) => withProjectDirs((dirs) => skills.restore(input, dirs)),
 
+      "attachment:resolve": (req) =>
+        resolveMentions(req, home).pipe(Effect.tap((found) => Effect.sync(() => found.forEach((r) => media.allow(r.path))))),
+      "attachment:open-url": (raw) =>
+        validateUrl(raw).pipe(Effect.flatMap((url) => Effect.promise(() => shell.openExternal(url)))),
+      // Folders open in Finder; runnable files are only revealed
+      "attachment:open": (raw) =>
+        existingPath(raw, home).pipe(
+          Effect.flatMap((found) =>
+            !found.isDir && isRunnablePath(found.path)
+              ? Effect.sync(() => shell.showItemInFolder(found.path))
+              : Effect.promise(() => shell.openPath(found.path)).pipe(
+                  Effect.flatMap((err) => (err ? Effect.fail({ message: err }) : Effect.void)),
+                ),
+          ),
+        ),
+      "attachment:reveal": (raw) => existingPath(raw, home).pipe(Effect.map((found) => shell.showItemInFolder(found.path))),
+
       "chat:send": ({ id, text, images }) =>
         prepareImages(images, downscale).pipe(Effect.flatMap((ready) => sessions.chatSend(id, text, ready))),
       "chat:interrupt": (id) => sessions.chatInterrupt(id),
+      "chat:model": ({ id, model }) => sessions.setModel(id, model),
+      "chat:effort": ({ id, effort }) => sessions.setEffort(id, effort),
       "chat:permission": ({ id, requestId, decision }) => sessions.chatRespond(id, requestId, decision),
       "chat:history": (id) => sessions.chatHistory(id),
     }

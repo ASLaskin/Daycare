@@ -2,7 +2,8 @@
 
 import { Option, Schema } from "effect"
 import fs from "node:fs"
-import type { ClaudeSessionId, DirPath, FilePath, SessionId } from "../../shared/ids.ts"
+import { DEFAULT_ACCOUNT } from "../../shared/accounts.ts"
+import type { AccountId, ClaudeSessionId, DirPath, FilePath, SessionId } from "../../shared/ids.ts"
 import { isJsonObject, type Json } from "../../shared/json.ts"
 import { type PermissionMode, SessionRecord, type SessionRole, type SessionStatus, type SessionView } from "../../shared/session.ts"
 
@@ -11,7 +12,8 @@ export interface Session {
   readonly role: SessionRole
   readonly parentId: SessionId | null
   readonly cwd: DirPath
-  readonly model: string
+  model: string
+  effort: string
   readonly permissionMode: PermissionMode
   readonly createdAt: number
   readonly icon: string | null
@@ -27,16 +29,23 @@ export interface Session {
   context: number
   // Closing from the app, so it stays listed
   closing: boolean
+  archived: boolean
+  // Account whose config dir the claude child uses
+  accountId: AccountId
+  // Account to resume on once the current child exits
+  restartOn: AccountId | null
 }
 
 export interface CreateOptions {
   readonly role: SessionRole
   readonly cwd: DirPath
   readonly model: string
+  readonly effort: string
   readonly permissionMode: PermissionMode
   readonly task?: string
   readonly name?: string | undefined
   readonly parentId?: SessionId
+  readonly accountId?: AccountId
 }
 
 export const view = (s: Session): SessionView => ({
@@ -48,13 +57,17 @@ export const view = (s: Session): SessionView => ({
   status: s.status,
   activity: s.activity,
   model: s.model,
+  effort: s.effort,
+  provider: "claude",
   permissionMode: s.permissionMode,
   cwd: s.cwd,
   task: s.task,
   createdAt: s.createdAt,
   finishedTurns: s.finishedTurns,
   hadTurn: s.hadTurn,
+  archived: s.archived,
   context: s.context,
+  accountId: s.accountId,
 })
 
 export const record = (s: Session): SessionRecord => ({
@@ -64,6 +77,7 @@ export const record = (s: Session): SessionRecord => ({
   icon: s.icon,
   cwd: s.cwd,
   model: s.model,
+  effort: s.effort,
   permissionMode: s.permissionMode,
   parentId: s.parentId,
   claudeSessionId: s.claudeSessionId,
@@ -71,16 +85,21 @@ export const record = (s: Session): SessionRecord => ({
   hadTurn: s.hadTurn,
   createdAt: s.createdAt,
   closed: s.status === "closed" || s.closing,
+  archived: s.archived,
+  accountId: s.accountId,
 })
 
 const RECORD_DEFAULTS = {
   model: "",
+  effort: "",
   permissionMode: "default",
   icon: null,
   parentId: null,
   transcriptPath: null,
   hadTurn: false,
   closed: false,
+  archived: false,
+  accountId: DEFAULT_ACCOUNT,
 }
 
 // Decode saved records, filling fields older versions lacked

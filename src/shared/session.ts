@@ -1,12 +1,16 @@
 // Session model shared by main and renderer.
 
 import { Schema } from "effect"
-import { ClaudeSessionId, DirPath, FilePath, SessionId } from "./ids.ts"
+import { AccountId, ClaudeSessionId, DirPath, FilePath, SessionId } from "./ids.ts"
+
+export const Provider = Schema.Literals(["claude", "codex"])
+export type Provider = typeof Provider.Type
 
 export const SessionRole = Schema.Literals(["master", "worker"])
 export type SessionRole = typeof SessionRole.Type
 
-export const SessionStatus = Schema.Literals(["starting", "idle", "working", "needs_you", "done", "exited", "closed"])
+// interrupted and incomplete come from the coordinator only
+export const SessionStatus = Schema.Literals(["starting", "idle", "working", "needs_you", "done", "exited", "interrupted", "incomplete", "closed"])
 export type SessionStatus = typeof SessionStatus.Type
 
 export const PermissionMode = Schema.Literals(["default", "acceptEdits", "bypassPermissions", "plan"])
@@ -22,6 +26,9 @@ export interface SessionView {
   readonly status: SessionStatus
   readonly activity: string
   readonly model: string
+  // Empty is the model's default
+  readonly effort: string
+  readonly provider: Provider
   readonly permissionMode: PermissionMode
   readonly cwd: DirPath
   readonly task: string | null
@@ -29,7 +36,10 @@ export interface SessionView {
   readonly finishedTurns: number
   // User has sent at least one message
   readonly hadTurn: boolean
+  // Worker set aside by its master or the user
+  readonly archived: boolean
   readonly context: number
+  readonly accountId: AccountId
 }
 
 // One persisted entry of sessions.json
@@ -40,6 +50,7 @@ export const SessionRecord = Schema.Struct({
   icon: Schema.NullOr(Schema.String),
   cwd: DirPath,
   model: Schema.String,
+  effort: Schema.String,
   permissionMode: PermissionMode,
   parentId: Schema.NullOr(SessionId),
   claudeSessionId: ClaudeSessionId,
@@ -47,15 +58,20 @@ export const SessionRecord = Schema.Struct({
   hadTurn: Schema.Boolean,
   createdAt: Schema.Number,
   closed: Schema.Boolean,
+  archived: Schema.Boolean,
+  accountId: AccountId,
 })
 export type SessionRecord = typeof SessionRecord.Type
 
-// New master request; empty model means Claude's default
+// New master request; empty model or effort means Claude's default
 export const NewMaster = Schema.Struct({
   task: Schema.String,
   cwd: DirPath,
   model: Schema.String,
+  effort: Schema.String,
   permissionMode: PermissionMode,
   name: Schema.optionalKey(Schema.String),
+  // Coordinator only
+  provider: Schema.optionalKey(Provider),
 })
 export type NewMaster = typeof NewMaster.Type

@@ -4,10 +4,14 @@ import { Effect } from "effect"
 import fs from "node:fs"
 import type { ChatEvent } from "../../shared/chat.ts"
 import type { ChatImage } from "../../shared/images.ts"
-import type { DirPath, RequestId, SessionId } from "../../shared/ids.ts"
+import type { AccountId, DirPath, RequestId, SessionId } from "../../shared/ids.ts"
 import type { PermissionDecision } from "../../shared/ipc.ts"
 import { parseJson } from "../../shared/json.ts"
 import type { NewMaster, SessionRecord, SessionView } from "../../shared/session.ts"
+import type { Settings } from "../../shared/settings.ts"
+import type { AccountInUse } from "../accounts/actions.ts"
+import { makeSessionAccountActions } from "./accounts.ts"
+import { makeArchive } from "./archive.ts"
 import type { Core } from "./core.ts"
 import type { Lifecycle } from "./lifecycle.ts"
 import { type CreateOptions, decodeRecords, type Session, view } from "./model.ts"
@@ -20,17 +24,26 @@ export interface SessionsShape {
   readonly rename: (id: SessionId, name: string) => Effect.Effect<void>
   readonly close: (id: SessionId) => Effect.Effect<void>
   readonly reopen: (id: SessionId) => Effect.Effect<void>
+  // Workers only; archived ones keep their transcript
+  readonly archive: (id: SessionId) => Effect.Effect<void>
+  readonly unarchive: (id: SessionId) => Effect.Effect<void>
   readonly remove: (id: SessionId) => Effect.Effect<void>
   readonly chatSend: (id: SessionId, text: string, images: ReadonlyArray<ChatImage>) => Effect.Effect<void>
   readonly chatInterrupt: (id: SessionId) => Effect.Effect<void>
+  readonly setModel: (id: SessionId, model: string) => Effect.Effect<void>
+  readonly setEffort: (id: SessionId, effort: string) => Effect.Effect<void>
   readonly chatRespond: (id: SessionId, requestId: RequestId, decision: PermissionDecision) => Effect.Effect<boolean>
   readonly chatHistory: (id: SessionId) => Effect.Effect<ReadonlyArray<ChatEvent>>
   readonly restore: Effect.Effect<void>
+  readonly switchAccount: (to: AccountId) => Effect.Effect<Settings>
+  readonly removeAccount: (id: AccountId) => Effect.Effect<Settings, AccountInUse>
   // Folders whose project skills apply
   readonly projectDirs: Effect.Effect<ReadonlyArray<DirPath>>
+  // Coordinator mode only; interrupts running work
+  readonly restartCoordinator: Effect.Effect<void>
 }
 
-const deleteDetail = (workers: number) =>
+export const deleteDetail = (workers: number) =>
   workers
     ? `This ends it and its ${workers} worker${workers === 1 ? "" : "s"} and removes them from Daycare.`
     : "This ends it and removes it from Daycare."
@@ -57,26 +70,15 @@ export const makeService = (core: Core, lifecycle: Lifecycle): SessionsShape => 
 
   const familyOf = (master: Session) => [master, ...core.childrenOf(master.id)]
 
-  const closeOne = (s: Session) => {
-    if (s.status === "closed" || s.closing) {
-      return
-    }
-    s.closing = true
-    if (core.isRunning(s)) {
-      lifecycle.killSession(s)
-      return
-    }
-    lifecycle.sessionExited(s)
-  }
+  const archive = makeArchive(core, lifecycle)
 
-  const reopenOne = (s: Session) => {
-    if (s.status !== "closed") {
-      return
-    }
-    s.status = "starting"
-    ui.send("session:created", view(s))
-    lifecycle.startSession(s, true)
-  }
+  const withWorker = (id: SessionId, f: (w: Session) => void) =>
+    Effect.sync(() => {
+      const w = sessions.get(id)
+      if (w?.role === "worker") {
+        f(w)
+      }
+    })
 
   const restoreRecord = (r: SessionRecord) =>
     lifecycle.createSession(
@@ -84,14 +86,19 @@ export const makeService = (core: Core, lifecycle: Lifecycle): SessionsShape => 
         role: r.role,
         cwd: r.cwd,
         model: r.model,
+        effort: r.effort,
         permissionMode: r.permissionMode,
         name: r.name,
+        accountId: r.accountId,
         ...(r.parentId ? { parentId: r.parentId } : {}),
       },
       r,
     )
 
+  const accountActions = makeSessionAccountActions(core, lifecycle)
+
   return {
+    ...accountActions,
     list: Effect.sync(() => [...sessions.values()].map(view)),
     get: (id) =>
       Effect.sync(() => {
@@ -106,6 +113,7 @@ export const makeService = (core: Core, lifecycle: Lifecycle): SessionsShape => 
             role: "master",
             cwd: options.cwd,
             model: options.model,
+            effort: options.effort,
             permissionMode: options.permissionMode,
             task: options.task,
             name: options.name,
@@ -122,12 +130,17 @@ export const makeService = (core: Core, lifecycle: Lifecycle): SessionsShape => 
         core.update(s)
         core.persist()
       }),
-    close: (id) => withMaster(id, (master) => familyOf(master).forEach(closeOne)),
+    close: (id) => withMaster(id, (master) => familyOf(master).forEach(lifecycle.closeSession)),
+    // Archived workers stay closed
     reopen: (id) =>
       withMaster(id, (master) => {
-        familyOf(master).forEach(reopenOne)
+        familyOf(master)
+          .filter((s) => !s.archived)
+          .forEach(lifecycle.reopenSession)
         core.persist()
       }),
+    archive: (id) => withWorker(id, archive.archive),
+    unarchive: (id) => withWorker(id, archive.unarchive),
     remove: (id) =>
       Effect.gen(function* () {
         const s = sessions.get(id)
@@ -159,6 +172,30 @@ export const makeService = (core: Core, lifecycle: Lifecycle): SessionsShape => 
         core.persist()
       }),
     chatInterrupt: (id) => chat.interrupt(id),
+    // Live switch, also used on the next launch
+    setModel: (id, model) =>
+      Effect.sync(() => {
+        const s = sessions.get(id)
+        if (!s || !model || s.model === model) {
+          return
+        }
+        s.model = model
+        run(chat.setModel(id, model))
+        core.update(s)
+        core.persist()
+      }),
+    // Live switch, also used on the next launch
+    setEffort: (id, effort) =>
+      Effect.sync(() => {
+        const s = sessions.get(id)
+        if (!s || !effort || s.effort === effort) {
+          return
+        }
+        s.effort = effort
+        run(chat.setEffort(id, effort))
+        core.update(s)
+        core.persist()
+      }),
     chatRespond: (id, requestId, decision) => chat.respond(id, requestId, decision),
     chatHistory: (id) => chat.history(id),
     // Masters first, then workers whose master survived
@@ -169,6 +206,7 @@ export const makeService = (core: Core, lifecycle: Lifecycle): SessionsShape => 
       const workers = records.filter((r) => r.role === "worker" && r.parentId !== null && masterIds.has(r.parentId))
       ;[...masters, ...workers].forEach(restoreRecord)
     }),
+    restartCoordinator: Effect.void,
     projectDirs: Effect.gen(function* () {
       const current = yield* settings.get
       const dirs = [...[...sessions.values()].map((s) => s.cwd), ...current.locations.map((l) => l.path)]

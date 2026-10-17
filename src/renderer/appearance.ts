@@ -1,4 +1,5 @@
 import { settings } from "./store.ts"
+import { applyTheme } from "./theme/apply.ts"
 
 export const MOTIONS = [
   { id: "off", label: "Off" },
@@ -15,7 +16,7 @@ export const MONOS = [
   { id: "jetbrains", label: "JetBrains Mono", sub: "Taller x-height, bundled with the app" },
 ] as const
 
-export const SIDEBAR_WIDTH = 264
+export const SIDEBAR_WIDTH = 288
 
 export const applyAppearance = () => {
   const s = settings()
@@ -23,6 +24,7 @@ export const applyAppearance = () => {
   root.dataset["motion"] = s.motion
   root.dataset["font"] = s.font
   root.dataset["mono"] = s.monoFont
+  applyTheme(s)
   const w = s.sidebarWidth
   root.style.setProperty("--sidebar-w", `${w >= 200 ? Math.min(460, w) : SIDEBAR_WIDTH}px`)
 }

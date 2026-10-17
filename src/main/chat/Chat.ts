@@ -34,6 +34,8 @@ export interface ChatShape {
   readonly start: (opts: ChatStart) => Effect.Effect<void>
   readonly send: (id: SessionId, text: string, images?: ReadonlyArray<ChatImage>) => Effect.Effect<void>
   readonly interrupt: (id: SessionId) => Effect.Effect<void>
+  readonly setModel: (id: SessionId, model: string) => Effect.Effect<void>
+  readonly setEffort: (id: SessionId, effort: string) => Effect.Effect<void>
   readonly respond: (id: SessionId, requestId: RequestId, decision: PermissionDecision) => Effect.Effect<boolean>
   readonly stop: (id: SessionId) => Effect.Effect<void>
   readonly has: (id: SessionId) => Effect.Effect<boolean>
@@ -85,6 +87,14 @@ const make = (claudePath: FilePath) =>
     const interrupt = (id: SessionId) =>
       Effect.sync(() => live(id)?.write({ type: "control_request", request_id: randomUUID(), request: { subtype: "interrupt" } }))
 
+    const setModel = (id: SessionId, model: string) =>
+      Effect.sync(() => live(id)?.write({ type: "control_request", request_id: randomUUID(), request: { subtype: "set_model", model } }))
+
+    const setEffort = (id: SessionId, effort: string) =>
+      Effect.sync(() =>
+        live(id)?.write({ type: "control_request", request_id: randomUUID(), request: { subtype: "apply_flag_settings", settings: { effortLevel: effort } } }),
+      )
+
     const respond = (id: SessionId, requestId: RequestId, decision: PermissionDecision) =>
       Effect.sync(() => {
         const c = chats.get(id)
@@ -117,6 +127,8 @@ const make = (claudePath: FilePath) =>
       start,
       send,
       interrupt,
+      setModel,
+      setEffort,
       respond,
       stop: (id) => Effect.sync(() => chats.get(id)?.stop()),
       has: (id) => Effect.sync(() => chats.has(id)),

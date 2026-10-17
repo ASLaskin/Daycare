@@ -1,0 +1,30 @@
+/* Archived page: workers set aside, with restore and delete */
+
+.arc-rail .arc-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin: 0 -4px; padding: 0 4px; }
+
+.arc-rail .arc-row {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  min-width: 0;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+}
+.arc-rail .arc-name { flex: 1; min-width: 0; font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.arc-rail .arc-actions { flex: none; display: flex; gap: 6px; }
+.arc-rail .arc-btn {
+  height: 24px;
+  padding: 0 8px;
+  background: var(--panel-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  color: var(--muted);
+  font-size: 11px;
+}
+.arc-rail .arc-btn:hover { color: var(--text); border-color: var(--line-strong); }
+.arc-rail .arc-btn:active { transform: none; }
+.arc-rail .arc-btn.danger:hover { color: var(--exited); border-color: color-mix(in srgb, var(--exited) 50%, var(--line)); }

@@ -1,9 +1,11 @@
 // New session popup form.
 
 import { asDirPath } from "../shared/ids.ts"
-import type { NewMaster, PermissionMode } from "../shared/session.ts"
+import type { NewMaster, PermissionMode, Provider } from "../shared/session.ts"
 import { api } from "./api.ts"
 import { $, baseName, el, tildify } from "./dom.ts"
+import { MASTER_EFFORT_CHOICES } from "./effort-options.ts"
+import { fillModels, MASTER_CHOICES } from "./model-options.ts"
 import { settings } from "./store.ts"
 
 const sheet = () => $("#sheet")
@@ -17,7 +19,9 @@ const form = () => {
     name: field<HTMLInputElement>("name"),
     cwd: field<HTMLSelectElement>("cwd"),
     model: field<HTMLSelectElement>("model"),
+    effort: field<HTMLSelectElement>("effort"),
     permissionMode: field<HTMLSelectElement>("permissionMode"),
+    provider: field<HTMLSelectElement>("provider"),
   }
 }
 
@@ -36,8 +40,10 @@ export const openSheet = (locIndex: number) => {
   const f = form()
   f.cwd.replaceChildren(...s.locations.map((l, i) => folderOption(`${i + 1}   ${l.label}`, l.path)))
   f.cwd.value = s.locations[locIndex]?.path ?? ""
-  f.model.value = s.model
+  f.model.value = s.masterModel
+  f.effort.value = s.masterEffort
   f.permissionMode.value = s.permissionMode
+  f.provider.value = s.provider
   sheet().classList.remove("hidden")
   f.task.focus()
 }
@@ -48,7 +54,9 @@ const readForm = (): NewMaster => {
   return {
     task: f.task.value.trim(),
     model: f.model.value,
+    effort: f.effort.value,
     permissionMode: f.permissionMode.value as PermissionMode,
+    provider: f.provider.value as Provider,
     cwd: asDirPath(f.cwd.value),
     ...(name ? { name } : {}),
   }
@@ -56,6 +64,8 @@ const readForm = (): NewMaster => {
 
 export const initSheet = () => {
   const f = form()
+  fillModels(f.model, MASTER_CHOICES)
+  fillModels(f.effort, MASTER_EFFORT_CHOICES)
   $("#cancel").onclick = closeSheet
   $("#pick-cwd").onclick = async () => {
     const dir = await api.pickFolder()

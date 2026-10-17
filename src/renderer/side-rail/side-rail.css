@@ -1,0 +1,68 @@
+/* Right edge: resizable panel beside a vertical tab strip */
+
+.side-rail {
+  position: relative;
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex: none;
+  font: var(--fs)/1.4 var(--sans);
+}
+
+.side-rail .sr-tabs {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 3px;
+  background: var(--panel);
+  border-left: 1px solid var(--line);
+}
+.side-rail .sr-tabs > button {
+  writing-mode: vertical-rl;
+  padding: 10px 4px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.side-rail .sr-tabs > button:hover { background: var(--panel-2); color: var(--text); }
+.side-rail .sr-tabs > button:active { transform: none; }
+.side-rail .sr-tabs > button[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--accent) 22%, var(--panel-3));
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.side-rail .sr-panel {
+  display: none;
+  position: relative;
+  flex: none;
+  width: var(--sr-panel, 252px);
+  min-height: 0;
+  flex-direction: column;
+  padding: 12px 10px 10px;
+  background: var(--panel);
+  border-left: 1px solid var(--line);
+  animation: rail-in var(--t) var(--ease-out) both;
+}
+.side-rail.open .sr-panel { display: flex; }
+@keyframes rail-in { from { opacity: 0; transform: translateX(6px); } }
+
+.side-rail .sr-body { display: none; flex: 1; min-height: 0; flex-direction: column; gap: 8px; }
+.side-rail .sr-body.on { display: flex; }
+
+.side-rail .sr-handle { position: absolute; left: -4px; top: 0; width: 8px; height: 100%; cursor: col-resize; z-index: 3; }
+.side-rail .sr-handle::after { content: ""; position: absolute; inset: 0 3px; background: var(--accent); opacity: 0; transition: opacity var(--t) var(--ease); }
+.side-rail .sr-handle:hover::after, .side-rail .sr-handle.dragging::after { opacity: 0.7; transition-delay: 120ms; }
+
+.side-rail .sr-head { padding: 0 2px; min-width: 0; }
+.side-rail .sr-session { display: flex; flex-direction: column; min-width: 0; }
+.side-rail .sr-session-label { color: var(--faint); font-size: 11px; }
+.side-rail .sr-session-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.side-rail .sr-session.quiet .sr-session-name { color: var(--faint); font-weight: 400; }
+
+.side-rail .sr-empty { color: var(--faint); font-size: 12px; padding: 12px 6px; }

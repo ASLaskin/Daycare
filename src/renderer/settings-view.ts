@@ -2,6 +2,7 @@
 
 import { $, el } from "./dom.ts"
 import { initPowerView } from "./power-view.ts"
+import { refreshAccounts, renderAccounts, wireAccounts } from "./settings-accounts.ts"
 import { renderAppearance, wireAppearance } from "./settings-appearance.ts"
 import { renderGeneral, wireGeneral } from "./settings-general.ts"
 import { renderLayoutPanel, wireLayoutPanel } from "./settings-layout.ts"
@@ -12,6 +13,7 @@ const PANELS = [
   { id: "general", label: "General" },
   { id: "appearance", label: "Appearance" },
   { id: "layout", label: "Layout" },
+  { id: "accounts", label: "Accounts" },
   { id: "skills", label: "Skills" },
 ] as const
 type Panel = (typeof PANELS)[number]["id"]
@@ -27,6 +29,7 @@ export const renderSettings = () => {
   renderGeneral()
   renderAppearance()
   renderLayoutPanel()
+  renderAccounts()
 }
 
 export const renderTabs = () => {
@@ -46,6 +49,9 @@ const showPanel = (id: Panel) => {
   if (id === "skills") {
     skills.refresh()
   }
+  if (id === "accounts") {
+    void refreshAccounts()
+  }
 }
 
 const openSettings = () => {
@@ -60,6 +66,7 @@ export const initSettingsView = () => {
   wireGeneral()
   wireAppearance()
   wireLayoutPanel()
+  wireAccounts()
   $("#open-settings").onclick = toggleSettings
   $("#close-settings").onclick = closeSettings
   initUpdateView()

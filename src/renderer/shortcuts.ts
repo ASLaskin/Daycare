@@ -9,7 +9,7 @@ import { closeSheet, isSheetOpen, submitSheet } from "./sheet.ts"
 import { saveSettings, settings } from "./store.ts"
 import { unzoom } from "./zoom.ts"
 
-export const toggleRail = () => saveSettings({ skillRailOpen: !settings().skillRailOpen })
+const toggleRail = () => saveSettings({ railOpen: !settings().railOpen })
 
 const handled = (e: KeyboardEvent) => {
   e.preventDefault()

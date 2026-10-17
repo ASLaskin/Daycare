@@ -1,6 +1,6 @@
 import type { SkillRow, SkillsListing } from "../../shared/skills.ts"
 import { api } from "../api.ts"
-import { ipcMessage } from "../ipc-error.ts"
+import { messageOf } from "../errors.ts"
 
 export const store: { data: SkillsListing | null; loadError: string } = { data: null, loadError: "" }
 
@@ -23,8 +23,7 @@ const renderAll = () => renderers.forEach((fn) => fn())
 export const fmt = (n: number) => (Number(n) || 0).toLocaleString("en-US")
 export const plural = (n: number, one: string, many: string) => `${fmt(n)} ${n === 1 ? one : many}`
 
-// Error message without Electron's IPC prefix
-export const messageOf = (err: unknown) => ipcMessage(err, "Something went wrong.")
+export { messageOf }
 
 export const applyResult = (result: SkillsListing) => {
   if (!Array.isArray(result?.skills)) {

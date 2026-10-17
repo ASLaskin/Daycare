@@ -1,4 +1,4 @@
-// Sidebar row or dot for one worker under its master.
+// Sidebar row or status mark for one worker under its master.
 
 import type { SessionView } from "../shared/session.ts"
 import { api } from "./api.ts"
@@ -6,7 +6,7 @@ import { el } from "./dom.ts"
 import { focusSession } from "./focus.ts"
 import { type Row, syncChildren } from "./keyed.ts"
 import { paintContext, paintName, paintStatus, renamable, showsContext } from "./sidebar-tags.ts"
-import { paintDot, statusDot, wirePeek } from "./status-dot.ts"
+import { paintMark, statusMark, wirePeek } from "./status-mark.ts"
 
 export const workerRow = (first: SessionView): Row<SessionView> => {
   let w = first
@@ -36,11 +36,11 @@ export const workerRow = (first: SessionView): Row<SessionView> => {
   return { node: row, update }
 }
 
-export const workerDot = (first: SessionView): Row<SessionView> => {
+export const workerMark = (first: SessionView): Row<SessionView> => {
   let w = first
-  const dot = statusDot(w)
-  const hit = el("span", "worker-dot")
-  hit.append(dot)
+  const mark = statusMark(w)
+  const hit = el("span", "worker-mark")
+  hit.append(mark)
   hit.onclick = (e) => {
     e.stopPropagation()
     focusSession(w.id)
@@ -48,7 +48,7 @@ export const workerDot = (first: SessionView): Row<SessionView> => {
   wirePeek(hit, () => w)
   const update = (next: SessionView) => {
     w = next
-    paintDot(dot, w)
+    paintMark(mark, w)
   }
   return { node: hit, update }
 }

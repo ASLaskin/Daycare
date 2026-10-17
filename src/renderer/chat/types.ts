@@ -1,6 +1,7 @@
 import type { ChatImage } from "../../shared/images.ts"
 import type { DirPath, RequestId, SessionId, TaskId, ToolUseId } from "../../shared/ids.ts"
 import type { Json, JsonObject } from "../../shared/json.ts"
+import type { SessionView } from "../../shared/session.ts"
 
 export interface TextBlock {
   readonly kind: "text"
@@ -57,7 +58,6 @@ export interface TaskEntry {
 }
 
 export interface Stats {
-  model: string
   cost: number
   ctx: number
   turns: number
@@ -66,6 +66,8 @@ export interface Stats {
 
 export interface ChatSession {
   readonly id: SessionId
+  // Session as mounted, for rebuilding the pane
+  readonly info: SessionView
   readonly name: string
   cwd: DirPath
   readonly host: HTMLElement
@@ -103,6 +105,8 @@ export interface ChatSession {
   readonly input: HTMLTextAreaElement
   readonly send: HTMLButtonElement
   readonly stop: HTMLButtonElement
+  readonly model: HTMLSelectElement
+  readonly effort: HTMLSelectElement
   readonly foot: HTMLElement
   readonly taskbar: HTMLElement
   readonly taskList: HTMLElement

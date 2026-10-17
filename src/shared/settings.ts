@@ -1,9 +1,15 @@
 // App settings schema, defaults and merging.
 
 import { Option, Schema } from "effect"
-import { DirPath } from "./ids.ts"
+import { Account, DEFAULT_ACCOUNT } from "./accounts.ts"
+import { AccountId, DirPath, ThemeId } from "./ids.ts"
+import { IconPack } from "./icons.ts"
+import { CLAUDE_DEFAULT_EFFORT } from "./efforts.ts"
 import { isJsonObject, type Json } from "./json.ts"
-import { PermissionMode } from "./session.ts"
+import { SAME_AS_MASTER } from "./models.ts"
+import { PermissionMode, Provider } from "./session.ts"
+import { GRAPHITE } from "./theme/builtins.ts"
+import { CustomThemes, ThemeDraft } from "./theme/themes.ts"
 
 export const Location = Schema.Struct({ label: Schema.String, path: DirPath })
 export type Location = typeof Location.Type
@@ -15,26 +21,43 @@ export const AppIcon = Schema.Literals(["random", "block", "sleepybot", "house"]
 export const Motion = Schema.Literals(["off", "fast", "normal", "slow"])
 export const Font = Schema.Literals(["system", "inter"])
 export const MonoFont = Schema.Literals(["system", "jetbrains"])
+export const RailTab = Schema.Literals(["skills", "attachments", "archived"])
+export type RailTab = typeof RailTab.Type
 export const Layout = Schema.Literals(["stack", "side", "columns", "grid"])
 export type Layout = typeof Layout.Type
 
 export const Settings = Schema.Struct({
   askOnNew: Schema.Boolean,
   randomNames: Schema.Boolean,
+  doneSounds: Schema.Boolean,
   showIcons: Schema.Boolean,
+  iconPack: IconPack,
   showContext: Schema.Boolean,
   defaultLocation: Schema.Int,
-  model: Schema.String,
+  masterModel: Schema.String,
+  workerModel: Schema.String,
+  autoWorkerModel: Schema.Boolean,
+  masterEffort: Schema.String,
+  workerEffort: Schema.String,
+  autoWorkerEffort: Schema.Boolean,
   permissionMode: PermissionMode,
+  oogaBooga: Schema.Boolean,
+  // Coordinator only
+  provider: Provider,
   keepAwake: KeepAwake,
   keepAwakeLidClosed: Schema.Boolean,
   appIcon: AppIcon,
-  skillRailOpen: Schema.Boolean,
+  railOpen: Schema.Boolean,
+  railTab: RailTab,
   contextScale: Schema.Finite,
   contextLimit: Schema.Finite,
   motion: Motion,
   font: Font,
   monoFont: MonoFont,
+  // Built in or custom theme id, or the draft
+  theme: ThemeId,
+  customThemes: CustomThemes,
+  themeDraft: Schema.NullOr(ThemeDraft),
   layout: Layout,
   // Master share per layout preset, in percent
   splits: Schema.Record(Schema.String, Schema.Finite),
@@ -45,6 +68,9 @@ export const Settings = Schema.Struct({
   maxCols: Schema.Int,
   stageGap: Schema.Finite,
   locations: Schema.Array(Location),
+  // Added accounts; Default is implicit
+  accounts: Schema.Array(Account),
+  activeAccount: AccountId,
 })
 export type Settings = typeof Settings.Type
 
@@ -52,28 +78,43 @@ export type Settings = typeof Settings.Type
 export const baseSettings: Omit<Settings, "locations"> = {
   askOnNew: false,
   randomNames: true,
+  doneSounds: true,
   showIcons: true,
+  iconPack: "pokemon",
   showContext: true,
   defaultLocation: 0,
-  model: "opus",
+  masterModel: "opus",
+  workerModel: SAME_AS_MASTER.id,
+  autoWorkerModel: false,
+  masterEffort: CLAUDE_DEFAULT_EFFORT.id,
+  workerEffort: SAME_AS_MASTER.id,
+  autoWorkerEffort: false,
   permissionMode: "default",
+  oogaBooga: false,
+  provider: "claude",
   keepAwake: "while-running",
   keepAwakeLidClosed: false,
   appIcon: "random",
-  skillRailOpen: false,
+  railOpen: false,
+  railTab: "skills",
   contextScale: 500000,
   contextLimit: 150000,
   motion: "normal",
   font: "system",
   monoFont: "system",
+  theme: GRAPHITE.id,
+  customThemes: [],
+  themeDraft: null,
   layout: "stack",
   splits: {},
-  sidebarWidth: 264,
+  sidebarWidth: 288,
   sidebarCollapsed: false,
   railWidth: 252,
   zoomDblClick: true,
   maxCols: 4,
   stageGap: 10,
+  accounts: [],
+  activeAccount: DEFAULT_ACCOUNT,
 }
 
 // Defaults overlaid with each decodable field of raw

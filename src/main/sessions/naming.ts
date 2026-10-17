@@ -1,8 +1,7 @@
 // Names and sprites for new masters.
 
 import path from "node:path"
-
-const ICONS = ["gengar", "bulbasaur", "charizard", "mudkip"]
+import { ICON_PACKS, type IconPack } from "../../shared/icons.ts"
 
 export const AGENT_NAMES = [
   "Clanker", "Tinbox", "Claudius Maximus", "Sir Bleeps", "Rustbucket", "Bolt Bonaparte",
@@ -20,9 +19,10 @@ export const AGENT_NAMES = [
 const pick = <A>(list: ReadonlyArray<A>): A => list[Math.floor(Math.random() * list.length)]!
 
 // Sprite for a new master, preferring unused ones
-export const nextIcon = (used: ReadonlySet<string | null>) => {
-  const free = ICONS.filter((i) => !used.has(i))
-  return pick(free.length ? free : ICONS)
+export const nextIcon = (used: ReadonlySet<string | null>, pack: IconPack) => {
+  const icons = ICON_PACKS[pack]
+  const free = icons.filter((i) => !used.has(i))
+  return pick(free.length ? free : icons)
 }
 
 export const defaultMasterName = (options: {

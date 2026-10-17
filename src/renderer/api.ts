@@ -1,5 +1,5 @@
 import type { ChatImage } from "../shared/images.ts"
-import type { RequestId, SessionId, SkillId } from "../shared/ids.ts"
+import type { AccountId, RequestId, SessionId, SkillId } from "../shared/ids.ts"
 import type { Bridge, EventChannel, Events, InvokeChannel, InvokePayload, InvokeResult } from "../shared/ipc.ts"
 import type { PermissionDecision } from "../shared/ipc.ts"
 import type { NewMaster } from "../shared/session.ts"
@@ -36,18 +36,31 @@ export const api = {
   pickFolder: ask("dialog:pick-folder"),
   openFinder: call("open:finder"),
   openVSCode: call("open:vscode"),
+  openUrl: call("open:url"),
   updateInfo: ask("update:info"),
   runUpdate: call("update:run"),
   onUpdateLog: on("update:log"),
   getUsage: ask("usage:get"),
   refreshUsage: ask("usage:refresh"),
+  restartCoordinator: ask("coordinator:restart"),
   onUsage: on("usage:update"),
+
+  listAccounts: ask("accounts:list"),
+  addAccount: call("accounts:add"),
+  removeAccount: call("accounts:remove"),
+  switchAccount: call("accounts:switch"),
+  loginAccount: call("accounts:login"),
+  loginCode: (id: AccountId, code: string) => bridge.invoke("accounts:login-code", { id, code }),
+  cancelLogin: call("accounts:login-cancel"),
+  onLogin: on("account:login"),
 
   listSessions: ask("session:list"),
   createMaster: (options: NewMaster) => bridge.invoke("master:create", options),
   rename: (id: SessionId, name: string) => bridge.invoke("session:rename", { id, name }),
   closeSession: call("session:close"),
   reopenSession: call("session:reopen"),
+  archiveSession: call("session:archive"),
+  unarchiveSession: call("session:unarchive"),
   deleteSession: call("session:delete"),
   sessionMenu: call("session:menu"),
   onCreated: on("session:created"),
@@ -66,10 +79,19 @@ export const api = {
   setSkillPlugin: (id: SkillId, enabled: boolean) => bridge.invoke("skills:plugin", { id, enabled }),
   restoreSkill: (id: SkillId) => bridge.invoke("skills:restore", { id }),
 
+  resolvePaths: call("attachment:resolve"),
+  openLink: call("attachment:open-url"),
+  openPath: call("attachment:open"),
+  revealPath: call("attachment:reveal"),
+
   chatSend: (id: SessionId, text: string, images: ReadonlyArray<ChatImage>) => bridge.invoke("chat:send", { id, text, images }),
   chatInterrupt: call("chat:interrupt"),
+  chatModel: (id: SessionId, model: string) => bridge.invoke("chat:model", { id, model }),
+  chatEffort: (id: SessionId, effort: string) => bridge.invoke("chat:effort", { id, effort }),
   chatPermission: (id: SessionId, requestId: RequestId, decision: PermissionDecision) =>
     bridge.invoke("chat:permission", { id, requestId, decision }),
   chatHistory: call("chat:history"),
   onChatEvent: on("chat:event"),
+  onChatReset: on("chat:reset"),
+  onCoordinatorStatus: on("coordinator:status"),
 }

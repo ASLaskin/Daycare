@@ -1,68 +1,3 @@
-.skill-rail {
-  --sr-strip: 26px;
-  --sr-panel: 252px;
-  position: relative;
-  display: flex;
-  height: 100%;
-  min-height: 0;
-  flex: none;
-  font: var(--fs)/1.4 var(--sans);
-}
-
-.skill-rail .sr-strip {
-  flex: none;
-  width: var(--sr-strip);
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 0;
-  background: var(--panel);
-  border-left: 1px solid var(--line);
-  border-radius: 0;
-  color: var(--faint);
-}
-.skill-rail .sr-strip:hover { background: var(--panel-2); color: var(--text); }
-.skill-rail .sr-strip:active { transform: none; }
-.skill-rail .sr-strip-label { writing-mode: vertical-rl; font-size: 12px; font-weight: 600; letter-spacing: 0.02em; }
-.skill-rail .sr-strip-count { margin-top: auto; font: 11px var(--mono); color: var(--faint); }
-.skill-rail .sr-chev {
-  width: 6px;
-  height: 6px;
-  border-left: 1.5px solid currentColor;
-  border-bottom: 1.5px solid currentColor;
-  transform: rotate(45deg);
-  transition: transform var(--t) var(--ease);
-}
-.skill-rail.open .sr-chev { transform: rotate(-135deg); }
-
-.skill-rail .sr-panel {
-  display: none;
-  position: relative;
-  flex: none;
-  width: var(--sr-panel);
-  min-height: 0;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px 10px 10px;
-  background: var(--panel);
-  border-left: 1px solid var(--line);
-  animation: rail-in var(--t) var(--ease-out) both;
-}
-.skill-rail.open .sr-panel { display: flex; }
-@keyframes rail-in { from { opacity: 0; transform: translateX(6px); } }
-
-.skill-rail .sr-handle { position: absolute; left: -4px; top: 0; width: 8px; height: 100%; cursor: col-resize; z-index: 3; }
-.skill-rail .sr-handle::after { content: ""; position: absolute; inset: 0 3px; background: var(--accent); opacity: 0; transition: opacity var(--t) var(--ease); }
-.skill-rail .sr-handle:hover::after, .skill-rail .sr-handle.dragging::after { opacity: 0.7; transition-delay: 120ms; }
-
-.skill-rail .sr-head { padding: 0 2px; min-width: 0; }
-.skill-rail .sr-session { display: flex; flex-direction: column; min-width: 0; }
-.skill-rail .sr-session-label { color: var(--faint); font-size: 11px; }
-.skill-rail .sr-session-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.skill-rail .sr-session.quiet .sr-session-name { color: var(--faint); font-weight: 400; }
-
 .skill-rail .sr-search { width: 100%; height: 30px; padding: 0 9px; }
 
 .skill-rail .sr-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; margin: 0 -4px; padding: 0 4px; }
@@ -83,7 +18,6 @@
 .skill-rail .sr-item.active { background: var(--panel-3); }
 .skill-rail .sr-invoke { font: 12px var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .skill-rail .sr-desc { color: var(--faint); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.skill-rail .sr-empty { color: var(--faint); font-size: 12px; padding: 12px 6px; }
 
 .skill-rail .sr-foot { flex: none; display: flex; flex-direction: column; gap: 4px; padding-top: 8px; border-top: 1px solid var(--line); }
 .skill-rail .sr-foot .hint { font-size: 11px; }

@@ -1,6 +1,8 @@
 import type { ChatEvent, ChatEventOf } from "../../shared/chat.ts"
+import { collectAttachments } from "../attachments/store.ts"
 import { el, tildify } from "../dom.ts"
 import { prune } from "./caps.ts"
+import { appendLinked } from "./links.ts"
 import { renderFoot } from "./foot.ts"
 import { cap } from "./format.ts"
 import { permission, resolvePerm } from "./permissions.ts"
@@ -18,9 +20,6 @@ import type { ChatSession } from "./types.ts"
 const COST_IS_CUMULATIVE = true
 
 const ready = (s: ChatSession, ev: ChatEventOf<"ready">) => {
-  if (ev.model) {
-    s.stats.model = ev.model
-  }
   if (ev.cwd) {
     s.cwd = ev.cwd
   }
@@ -47,7 +46,9 @@ const userMessage = (s: ChatSession, ev: ChatEventOf<"user">) => {
     m.append(omittedNote(ev.omittedImages))
   }
   if (ev.text) {
-    m.append(el("div", "chat-bubble", ev.text))
+    const bubble = el("div", "chat-bubble")
+    appendLinked(bubble, ev.text, s.cwd)
+    m.append(bubble)
   }
   s.thread.insertBefore(m, s.working)
   s.pinned = true
@@ -114,6 +115,16 @@ const rateLimit = (s: ChatSession, ev: ChatEventOf<"rate-limit">) => {
   renderFoot(s)
 }
 
+// Ends an orphaned turn
+const interrupted = (s: ChatSession, ev: ChatEventOf<"interrupted">) => {
+  ;[...s.tools]
+    .filter(([, card]) => !card.done)
+    .forEach(([toolUseId]) => toolEnd(s, { kind: "tool-end", toolUseId, isError: true, content: "interrupted", structured: null }))
+  notice(s, "error", `Interrupted: ${ev.reason}.`)
+  closeTurn(s)
+  setRunning(s, false)
+}
+
 const HANDLERS: { readonly [K in ChatEvent["kind"]]: (s: ChatSession, ev: ChatEventOf<K>) => void } = {
   ready,
   state: (s, ev) => setRunning(s, ev.state === "running"),
@@ -136,6 +147,11 @@ const HANDLERS: { readonly [K in ChatEvent["kind"]]: (s: ChatSession, ev: ChatEv
   "rate-limit": rateLimit,
   error: (s, ev) => notice(s, "error", ev.message || "Something went wrong."),
   exit: endSession,
+  notice: (s, ev) => notice(s, "info", ev.message),
+  interrupted,
+  "history-evicted": (s) => notice(s, "info", "Earlier history is unavailable. Daycare keeps the most recent 8 MiB."),
+  oversized: (s, ev) =>
+    notice(s, "info", `A ${ev.original} event of ${Math.round(ev.bytes / 1024)} KiB was too large to keep. Preview:`, cap(ev.preview)),
 }
 
 // Draw one event; counts every kind main replays
@@ -143,6 +159,7 @@ export const apply = (s: ChatSession, ev: ChatEvent) => {
   if (ev.kind !== "text-delta") {
     s.applied += 1
   }
+  collectAttachments(s.id, ev, s.cwd)
   const handler = HANDLERS[ev.kind] as (s: ChatSession, ev: ChatEvent) => void
   handler(s, ev)
 }

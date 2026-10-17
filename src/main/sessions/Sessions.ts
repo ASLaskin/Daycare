@@ -1,6 +1,7 @@
 // Sessions service: wires state, handlers and background work.
 
 import { Context, Effect, Layer, Stream } from "effect"
+import { Accounts } from "../accounts/Accounts.ts"
 import { AppPaths } from "../AppPaths.ts"
 import { Chat } from "../chat/Chat.ts"
 import { ControlHandlers } from "../control/ControlHandlers.ts"
@@ -20,6 +21,7 @@ export type { SessionsShape }
 
 const make = Effect.gen(function* () {
   const core = makeCore({
+    accounts: yield* Accounts,
     chat: yield* Chat,
     power: yield* Power,
     settings: yield* SettingsStore,

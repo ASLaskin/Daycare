@@ -14,12 +14,16 @@ html, body {
 }
 html[data-font="inter"] body { font-feature-settings: "cv11", "ss03", "calt"; }
 
+/* Window colour shows until the theme applies */
+html:not([data-theme]), html:not([data-theme]) body { background: transparent; }
+html:not([data-theme]) body { visibility: hidden; }
+
 body { display: grid; grid-template-columns: var(--sidebar-w) 1fr; }
 body.resizing { cursor: col-resize; user-select: none; }
 body.resizing-row { cursor: row-resize; user-select: none; }
 body.resizing .pane, body.resizing-row .pane { pointer-events: none; }
 
-::selection { background: rgba(122, 162, 255, 0.35); }
+::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: transparent; border-radius: 10px; border: 3px solid transparent; background-clip: padding-box; }

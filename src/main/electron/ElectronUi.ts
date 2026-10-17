@@ -25,6 +25,10 @@ export const ElectronUi = Layer.effect(
         Effect.promise(() =>
           dialog.showMessageBox(win, { type: "warning", buttons: [confirmLabel, "Cancel"], defaultId: 1, cancelId: 1, message, detail }),
         ).pipe(Effect.map(({ response }) => response === 0)),
+      choose: ({ message, detail, buttons, defaultId, cancelId }) =>
+        Effect.promise(() => dialog.showMessageBox(win, { type: "question", buttons: [...buttons], defaultId, cancelId, message, detail })).pipe(
+          Effect.map(({ response }) => response),
+        ),
     })
   }),
 )

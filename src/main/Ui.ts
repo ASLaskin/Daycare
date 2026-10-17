@@ -10,5 +10,13 @@ export class Ui extends Context.Service<
     // Desktop notification while the window is unfocused
     readonly notify: (title: string, body: string) => void
     readonly confirm: (options: { readonly message: string; readonly detail: string; readonly confirmLabel: string }) => Effect.Effect<boolean>
+    // Index of the picked button
+    readonly choose: (options: {
+      readonly message: string
+      readonly detail: string
+      readonly buttons: ReadonlyArray<string>
+      readonly defaultId: number
+      readonly cancelId: number
+    }) => Effect.Effect<number>
   }
 >()("daycare/Ui") {}

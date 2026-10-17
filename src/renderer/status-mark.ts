@@ -1,20 +1,20 @@
-// Status dots and their shared hover peek card.
+// Status marks and their shared hover peek card.
 
 import type { SessionView } from "../shared/session.ts"
 import { fmtTokens, showContext } from "./context-meter.ts"
-import { el, setClass, setText } from "./dom.ts"
+import { el, setClass } from "./dom.ts"
 import { STATUS_LABEL } from "./status.ts"
 import { workerSummary } from "./worker-summary.ts"
 
-export const paintDot = (dot: HTMLElement, info: SessionView) => {
-  setClass(dot, `status-dot ${info.status}`)
-  dot.setAttribute("aria-label", `${info.name}, ${STATUS_LABEL[info.status]}`)
+export const paintMark = (mark: HTMLElement, info: SessionView) => {
+  setClass(mark, `status-mark ${info.status}`)
+  mark.setAttribute("aria-label", `${info.name}, ${STATUS_LABEL[info.status]}`)
 }
 
-export const statusDot = (info: SessionView) => {
-  const dot = el("span")
-  paintDot(dot, info)
-  return dot
+export const statusMark = (info: SessionView) => {
+  const mark = el("span")
+  paintMark(mark, info)
+  return mark
 }
 
 let card: HTMLElement | null = null

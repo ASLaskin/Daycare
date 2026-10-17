@@ -55,8 +55,9 @@ const wait = (n) => (lines >= n ? Promise.resolve() : new Promise((resolve) => w
       setInterval(() => {}, 1000);
     }
     if (s.exit !== undefined) {
-      // Exit after stdout drains
-      process.stdout.write('', () => process.exit(s.exit));
+      // Exit once pending stdout is written; process.exit drops it under Bun
+      process.exitCode = s.exit;
+      process.stdin.destroy();
     }
   }
 })();

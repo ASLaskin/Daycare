@@ -3,11 +3,14 @@
 import type { ChatEvent } from "../../shared/chat.ts"
 import type { SessionId } from "../../shared/ids.ts"
 import type { SessionView } from "../../shared/session.ts"
+import { forgetAttachments } from "../attachments/store.ts"
 import { onSettingsChanged } from "../store.ts"
 import { prune } from "./caps.ts"
 import { autosize, wireComposer } from "./composer.ts"
 import { apply } from "./events.ts"
 import { renderFoot } from "./foot.ts"
+import { wireEffortPicker } from "./effort-picker.ts"
+import { wireModelPicker } from "./model-picker.ts"
 import { toBottom, updateJump } from "./scroll.ts"
 import type { ChatSession } from "./types.ts"
 import { buildView } from "./view.ts"
@@ -46,6 +49,7 @@ export const mount = (info: SessionView, host: HTMLElement) => {
   const ro = new ResizeObserver(() => onResize(s))
   const s: ChatSession = {
     id: info.id,
+    info,
     name: info.name,
     cwd: info.cwd,
     host,
@@ -64,7 +68,7 @@ export const mount = (info: SessionView, host: HTMLElement) => {
     stickRaf: 0,
     liveThink: null,
     emptyEl: v.empty,
-    stats: { model: info.model || "", cost: 0, ctx: 0, turns: 0, rate: null },
+    stats: { cost: 0, ctx: 0, turns: 0, rate: null },
     wasHidden: false,
     savedTop: 0,
     timers: new Set(),
@@ -82,12 +86,16 @@ export const mount = (info: SessionView, host: HTMLElement) => {
     input: v.input,
     send: v.send,
     stop: v.stop,
+    model: v.model,
+    effort: v.effort,
     foot: v.foot,
     taskbar: v.taskbar,
     taskList: v.taskList,
     taskSummary: v.taskSummary,
   }
   wireComposer(s)
+  wireModelPicker(s, info)
+  wireEffortPicker(s, info)
   ro.observe(v.scroll)
   sessions.set(info.id, s)
   renderFoot(s)
@@ -118,6 +126,22 @@ export const hydrate = (id: SessionId, events: ReadonlyArray<ChatEvent>) => {
     }, 50)
     s.timers.add(t)
   }
+}
+
+// Redraw a mounted pane from authoritative history
+export const reset = (id: SessionId, events: ReadonlyArray<ChatEvent>) => {
+  const s = sessions.get(id)
+  if (!s) {
+    return
+  }
+  const draft = s.input.value
+  mount(s.info, s.host)
+  const fresh = sessions.get(id)
+  if (fresh && draft) {
+    fresh.input.value = draft
+    autosize(fresh.input)
+  }
+  hydrate(id, events)
 }
 
 export const event = (id: SessionId, ev: ChatEvent) => {
@@ -173,4 +197,5 @@ export const dispose = (id: SessionId) => {
   s.perms.clear()
   s.tasks.clear()
   sessions.delete(id)
+  forgetAttachments(id)
 }

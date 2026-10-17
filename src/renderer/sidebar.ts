@@ -5,9 +5,12 @@ import { $, el } from "./dom.ts"
 import { getActiveMaster } from "./focus.ts"
 import { syncChildren } from "./keyed.ts"
 import { isRenaming } from "./rename.ts"
+import { archivedEntries } from "./sidebar-archived.ts"
 import { closedRows, openRows } from "./sidebar-items.ts"
-import { closedDots, openDots } from "./sidebar-strip.ts"
+import { paintSidebarMode, sidebarMode } from "./sidebar-mode.ts"
+import { closedMarks, openMarks } from "./sidebar-strip.ts"
 import { closedInfo, panes } from "./state.ts"
+import { fireSessionsChanged } from "./store.ts"
 
 const newestFirst = (a: SessionView, b: SessionView) => b.createdAt - a.createdAt
 
@@ -22,6 +25,14 @@ export const renderSidebar = () => {
   const open = [...panes.values()].map((p) => p.info).filter((i) => i.role === "master").sort(newestFirst)
   const closed = [...closedInfo.values()].filter((i) => i.role === "master").sort(newestFirst)
   const openViews = open.map((info) => ({ info, active: info.id === active }))
-  syncChildren($("#master-list"), [...openRows(openViews), ...(closed.length ? [closedHeading] : []), ...closedRows(closed)])
-  syncChildren($("#master-strip"), [...openDots(openViews), ...(closed.length ? [closedDivider] : []), ...closedDots(closed)])
+  const archived = [...closedInfo.values()].filter((i) => i.archived)
+  paintSidebarMode(archived.length)
+  syncChildren(
+    $("#master-list"),
+    sidebarMode.current === "archived"
+      ? archivedEntries(archived)
+      : [...openRows(openViews), ...(closed.length ? [closedHeading] : []), ...closedRows(closed)],
+  )
+  syncChildren($("#master-strip"), [...openMarks(openViews), ...(closed.length ? [closedDivider] : []), ...closedMarks(closed)])
+  fireSessionsChanged()
 }

@@ -7,11 +7,12 @@ import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import { AppPaths } from "../src/main/AppPaths.ts"
+import { SettingsStore } from "../src/main/settings/SettingsStore.ts"
 import { Usage } from "../src/main/usage/Usage.ts"
 import { UsageSource } from "../src/main/usage/UsageSource.ts"
 import { RateLimited, UsageUnavailable } from "../src/main/usage/errors.ts"
 import { normalizeUsage, retryAfterMs } from "../src/main/usage/normalize.ts"
-import { asDirPath } from "../src/shared/ids.ts"
+import { type AccountId, asAccountId, asDirPath } from "../src/shared/ids.ts"
 import type { UsageLimit } from "../src/shared/usage.ts"
 
 const limit = (percent: number): UsageLimit => ({ kind: "session", label: "Session", percent, resetsAt: null })
@@ -19,15 +20,20 @@ const limit = (percent: number): UsageLimit => ({ kind: "session", label: "Sessi
 type Reply = "ok" | "rate-limited" | "down"
 
 // Fake source answering replies in order, counting calls
-const withUsage = <A>(replies: Array<Reply>, body: (calls: Ref.Ref<number>) => Effect.Effect<A, never, Usage>) =>
+const withUsage = <A>(
+  replies: Array<Reply>,
+  body: (calls: Ref.Ref<number>, fetched: Array<AccountId>) => Effect.Effect<A, never, Usage | SettingsStore>,
+) =>
   Effect.gen(function* () {
     // Start the clock at a real date
     yield* TestClock.setTime(Date.UTC(2026, 0, 1))
     const calls = yield* Ref.make(0)
+    const fetched: Array<AccountId> = []
     const source = Layer.succeed(
       UsageSource,
       UsageSource.of({
-        fetch: Effect.gen(function* () {
+        fetch: (account) => Effect.gen(function* () {
+          fetched.push(account)
           const n = yield* Ref.getAndUpdate(calls, (c) => c + 1)
           const reply = replies[n] ?? "ok"
           if (reply === "rate-limited") {
@@ -42,7 +48,9 @@ const withUsage = <A>(replies: Array<Reply>, body: (calls: Ref.Ref<number>) => E
     )
     const userData = asDirPath(fs.mkdtempSync(path.join(os.tmpdir(), "daycare-usage-")))
     const paths = Layer.succeed(AppPaths, AppPaths.of({ userData, appRoot: userData, home: userData }))
-    return yield* body(calls).pipe(Effect.provide(Usage.layer.pipe(Layer.provide([source, paths]))))
+    return yield* body(calls, fetched).pipe(
+      Effect.provide(Usage.layer.pipe(Layer.provide(source), Layer.provideMerge(SettingsStore.layer), Layer.provide(paths))),
+    )
   }).pipe(Effect.provide(TestClock.layer()), Effect.runPromise)
 
 const refresh = (manual = false) => Usage.use((u) => u.refresh({ manual }))
@@ -106,6 +114,25 @@ describe("Usage pacing", () => {
         yield* TestClock.adjust("11 seconds")
         const after = yield* refresh(true)
         expect(after.limits[0]!.percent).toBe(1)
+      }),
+    ))
+})
+
+describe("Usage per account", () => {
+  test("switching accounts shows that account's numbers and fetches for it", () =>
+    withUsage([], (_calls, fetched) =>
+      Effect.gen(function* () {
+        yield* refresh()
+        yield* TestClock.adjust("1 second")
+        const store = yield* SettingsStore
+        const work = asAccountId("w1")
+        yield* store.update({ accounts: [{ id: work, label: "Work" }], activeAccount: work })
+        yield* TestClock.adjust("1 second")
+        expect(fetched).toEqual(["default", work].map(asAccountId))
+        expect((yield* Usage.use((u) => u.get)).limits[0]!.percent).toBe(2)
+        yield* store.update({ activeAccount: asAccountId("default") })
+        yield* TestClock.adjust("1 second")
+        expect((yield* Usage.use((u) => u.get)).limits[0]!.percent).toBe(1)
       }),
     ))
 })

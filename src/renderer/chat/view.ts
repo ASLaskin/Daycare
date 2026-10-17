@@ -11,7 +11,7 @@ const taskStrip = () => {
   taskbar.hidden = true
   const taskHead = button("chat-tasks-head")
   const taskSummary = el("span", "chat-tasks-summary")
-  taskHead.append(el("span", "chat-chev", "›"), el("span", "chat-tasks-dot"), taskSummary)
+  taskHead.append(el("span", "chat-chev", "›"), taskSummary)
   const taskList = el("div", "chat-tasks-list")
   wireToggle(taskHead, taskList)
   taskbar.append(taskHead, taskList)
@@ -72,8 +72,16 @@ const composer = () => {
   const actions = el("div", "chat-actions")
   actions.append(stop, send)
   box.append(files.thumbs, files.attach, input, actions, files.picker)
-  wrap.append(box, el("div", "chat-hint", "Enter to send, Shift+Enter for a new line"))
-  return { composer: wrap, box, input, stop, send, ...files }
+  const model = el("select", "chat-model")
+  model.setAttribute("aria-label", "Model")
+  const effort = el("select", "chat-model")
+  effort.setAttribute("aria-label", "Effort")
+  const pickers = el("div", "chat-pickers")
+  pickers.append(model, effort)
+  const under = el("div", "chat-under")
+  under.append(el("div", "chat-hint", "Enter to send, Shift+Enter for a new line"), pickers)
+  wrap.append(box, under)
+  return { composer: wrap, box, input, stop, send, model, effort, ...files }
 }
 
 // Placeholder shown until the first real content

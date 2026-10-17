@@ -72,7 +72,7 @@ test("MCP initialize, ping and tools/list", async () => {
   expect(at(init, "result", "serverInfo", "name")).toBe("daycare")
   expect(at(await rpc({ jsonrpc: "2.0", id: 2, method: "ping" }), "result")).toEqual({})
   const tools = arr(at(await rpc({ jsonrpc: "2.0", id: 3, method: "tools/list" }), "result", "tools"))
-  expect(tools.map((t) => at(t, "name"))).toEqual(["spawn_subagent", "list_subagents", "wait_for_subagents", "read_subagent", "send_to_subagent"])
+  expect(tools.map((t) => at(t, "name"))).toEqual(["spawn_subagent", "list_subagents", "wait_for_subagents", "read_subagent", "send_to_subagent", "archive_subagent"])
   // Every input schema is an object schema
   expect(tools.every((t) => at(t, "inputSchema", "type") === "object")).toBe(true)
   expect(at(tools[0], "inputSchema", "required")).toEqual(["name", "task"])

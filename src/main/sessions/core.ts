@@ -5,6 +5,7 @@ import fs from "node:fs"
 import path from "node:path"
 import type { SessionId } from "../../shared/ids.ts"
 import type { SessionStatus } from "../../shared/session.ts"
+import type { Accounts } from "../accounts/Accounts.ts"
 import type { AppPaths } from "../AppPaths.ts"
 import type { Ui } from "../Ui.ts"
 import type { Chat } from "../chat/Chat.ts"
@@ -15,6 +16,7 @@ import type { Usage } from "../usage/Usage.ts"
 import { isSettled, record, type Session, view } from "./model.ts"
 
 export interface SessionDeps {
+  readonly accounts: Accounts["Service"]
   readonly chat: Chat["Service"]
   readonly power: Power["Service"]
   readonly settings: SettingsStore["Service"]

@@ -1,4 +1,4 @@
-// Sidebar collapsed to a strip of status dots.
+// Sidebar collapsed to a strip of status marks.
 
 import { $ } from "./dom.ts"
 import { onSettingsChanged, saveSettings, settings } from "./store.ts"
