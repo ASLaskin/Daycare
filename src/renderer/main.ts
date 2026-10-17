@@ -12,6 +12,7 @@ import "./theme/theme.css"
 import { applyAppearance } from "./appearance.ts"
 import { initCoordinatorView } from "./coordinator-view.ts"
 import { $ } from "./dom.ts"
+import { initDropGuard } from "./drop-guard.ts"
 import { relayoutAll } from "./layout.ts"
 import { initSidebarCollapse } from "./sidebar-collapse.ts"
 import { initSidebarMode } from "./sidebar-mode.ts"
@@ -39,6 +40,7 @@ onSettingsChanged(() => {
   renderSettings()
 })
 
+initDropGuard()
 initUsage()
 initAccountPicker()
 initSidebarResize()

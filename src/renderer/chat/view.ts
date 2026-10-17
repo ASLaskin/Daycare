@@ -35,9 +35,26 @@ const transcript = () => {
   return { scroll, thread, working, jump }
 }
 
+const ACCEPT = "image/png,image/jpeg,image/gif,image/webp"
+
+const attachControls = () => {
+  const thumbs = el("div", "chat-thumbs chat-thumbs-draft")
+  thumbs.hidden = true
+  const attach = button("chat-attach", "+")
+  attach.title = "Attach images"
+  attach.setAttribute("aria-label", "Attach images")
+  const picker = el("input", "chat-picker")
+  picker.type = "file"
+  picker.accept = ACCEPT
+  picker.multiple = true
+  picker.hidden = true
+  return { thumbs, attach, picker }
+}
+
 const composer = () => {
   const wrap = el("div", "chat-composer")
   const box = el("div", "chat-box")
+  const files = attachControls()
   const input = el("textarea", "chat-input")
   input.rows = 1
   input.placeholder = "Ask Claude anything"
@@ -54,7 +71,7 @@ const composer = () => {
   send.innerHTML = SEND_ICON
   const actions = el("div", "chat-actions")
   actions.append(stop, send)
-  box.append(input, actions)
+  box.append(files.thumbs, files.attach, input, actions, files.picker)
   const model = el("select", "chat-model")
   model.setAttribute("aria-label", "Model")
   const effort = el("select", "chat-model")
@@ -64,7 +81,7 @@ const composer = () => {
   const under = el("div", "chat-under")
   under.append(el("div", "chat-hint", "Enter to send, Shift+Enter for a new line"), pickers)
   wrap.append(box, under)
-  return { composer: wrap, input, stop, send, model, effort }
+  return { composer: wrap, box, input, stop, send, model, effort, ...files }
 }
 
 // Placeholder shown until the first real content
@@ -88,5 +105,5 @@ export const buildView = (info: SessionView, host: HTMLElement) => {
   host.replaceChildren(root)
   const empty = emptyState(info)
   log.thread.prepend(empty)
-  return { ...tasks, ...log, input: comp.input, stop: comp.stop, send: comp.send, model: comp.model, effort: comp.effort, foot, root, empty }
+  return { ...tasks, ...log, ...comp, foot, root, empty }
 }

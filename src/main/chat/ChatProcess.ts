@@ -5,6 +5,7 @@ import type { ChatEvent } from "../../shared/chat.ts"
 import type { DirPath, FilePath, SessionId } from "../../shared/ids.ts"
 import type { Json } from "../../shared/json.ts"
 import { LineFramer, parseLine } from "./framing.ts"
+import { keepRecentImages } from "./historyImages.ts"
 import { StreamNormalizer } from "./normalize.ts"
 import { HISTORY_MAX, historyFromTranscript } from "./transcript.ts"
 
@@ -133,6 +134,9 @@ export class ChatProcess {
       this.events.push(event)
       if (this.events.length >= HISTORY_MAX + 200) {
         this.events.splice(0, this.events.length - HISTORY_MAX)
+      }
+      if (event.kind === "user" && event.images.length) {
+        this.events.splice(0, this.events.length, ...keepRecentImages(this.events))
       }
     }
     this.publish(event)

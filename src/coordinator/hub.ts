@@ -215,7 +215,7 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
     }
     const handle = provider(id)
     store.startTurn(db, id)
-    chat(id, { kind: "user", text })
+    chat(id, { kind: "user", text, images: [], omittedImages: 0 })
     const accepted = handle.input(text)
     refresh(id)
     return accepted

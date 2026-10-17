@@ -1,6 +1,7 @@
 // Chat events sent from main to the renderer.
 
 import { Schema } from "effect"
+import { ChatImage } from "./images.ts"
 import { ClaudeSessionId, DirPath, RequestId, TaskId, ToolUseId } from "./ids.ts"
 
 export const ChatState = Schema.Literals(["running", "idle"])
@@ -74,7 +75,12 @@ export const ChatEvent = Schema.Union([
     // Set when the CLI withdrew the prompt
     reason: Schema.optionalKey(Schema.Literal("cancelled")),
   }),
-  event("user", { text: Schema.String }),
+  event("user", {
+    text: Schema.String,
+    images: Schema.Array(ChatImage),
+    // Images left out of history to bound its size
+    omittedImages: Schema.Number,
+  }),
   event("rate-limit", { percent: Schema.Number }),
   event("error", { message: Schema.String }),
   // Turn lost its provider; next send continues

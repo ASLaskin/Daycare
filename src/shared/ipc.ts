@@ -4,6 +4,7 @@ import { Schema } from "effect"
 import { type Account, type AccountStatus, LoginCode, type LoginProgress } from "./accounts.ts"
 import { ResolveRequest, type ResolvedPath } from "./attachments.ts"
 import type { ChatEvent } from "./chat.ts"
+import { ChatImage } from "./images.ts"
 import { AccountId, DirPath, type FilePath, RequestId, SessionId } from "./ids.ts"
 import type { PowerStatus } from "./power.ts"
 import { NewMaster, type SessionView } from "./session.ts"
@@ -70,7 +71,7 @@ export const Invoke = {
   "attachment:open": Schema.String,
   "attachment:reveal": Schema.String,
 
-  "chat:send": Schema.Struct({ id: Id, text: Schema.String }),
+  "chat:send": Schema.Struct({ id: Id, text: Schema.String, images: Schema.Array(ChatImage) }),
   "chat:interrupt": Id,
   "chat:model": Schema.Struct({ id: Id, model: Schema.String }),
   "chat:effort": Schema.Struct({ id: Id, effort: Schema.String }),

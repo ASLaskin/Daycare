@@ -100,7 +100,7 @@ describe("mentionsOf", () => {
   })
 
   test("reads user text", () => {
-    expect(mentionsOf({ kind: "user", text: "look at /tmp/shot.png and https://a.dev" })).toMatchObject({
+    expect(mentionsOf({ kind: "user", text: "look at /tmp/shot.png and https://a.dev", images: [], omittedImages: 0 })).toMatchObject({
       paths: ["/tmp/shot.png"],
       urls: ["https://a.dev/"],
     })

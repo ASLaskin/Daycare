@@ -1,3 +1,4 @@
+import type { ChatImage } from "../shared/images.ts"
 import type { AccountId, RequestId, SessionId, SkillId } from "../shared/ids.ts"
 import type { Bridge, EventChannel, Events, InvokeChannel, InvokePayload, InvokeResult } from "../shared/ipc.ts"
 import type { PermissionDecision } from "../shared/ipc.ts"
@@ -83,7 +84,7 @@ export const api = {
   openPath: call("attachment:open"),
   revealPath: call("attachment:reveal"),
 
-  chatSend: (id: SessionId, text: string) => bridge.invoke("chat:send", { id, text }),
+  chatSend: (id: SessionId, text: string, images: ReadonlyArray<ChatImage>) => bridge.invoke("chat:send", { id, text, images }),
   chatInterrupt: call("chat:interrupt"),
   chatModel: (id: SessionId, model: string) => bridge.invoke("chat:model", { id, model }),
   chatEffort: (id: SessionId, effort: string) => bridge.invoke("chat:effort", { id, effort }),

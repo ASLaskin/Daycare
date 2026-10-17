@@ -12,6 +12,7 @@ import { existingPath, resolveMentions } from "../attachments/paths.ts"
 import { validateUrl } from "../attachments/urls.ts"
 import { AppPaths } from "../AppPaths.ts"
 import { Ui } from "../Ui.ts"
+import { prepareImages } from "../chat/images.ts"
 import { Power } from "../power/Power.ts"
 import { ClaudeBinary } from "../sessions/Claude.ts"
 import { Sessions } from "../sessions/Sessions.ts"
@@ -19,6 +20,7 @@ import { SettingsStore } from "../settings/SettingsStore.ts"
 import { Skills } from "../skills/Skills.ts"
 import { Updater } from "../updater/Updater.ts"
 import { Usage } from "../usage/Usage.ts"
+import { downscale } from "./downscale.ts"
 import { MainWindow } from "./Window.ts"
 import { showSessionMenu } from "./sessionMenu.ts"
 
@@ -117,7 +119,8 @@ export const Ipc = Layer.effectDiscard(
         ),
       "attachment:reveal": (raw) => existingPath(raw, home).pipe(Effect.map((found) => shell.showItemInFolder(found.path))),
 
-      "chat:send": ({ id, text }) => sessions.chatSend(id, text),
+      "chat:send": ({ id, text, images }) =>
+        prepareImages(images, downscale).pipe(Effect.flatMap((ready) => sessions.chatSend(id, text, ready))),
       "chat:interrupt": (id) => sessions.chatInterrupt(id),
       "chat:model": ({ id, model }) => sessions.setModel(id, model),
       "chat:effort": ({ id, effort }) => sessions.setEffort(id, effort),

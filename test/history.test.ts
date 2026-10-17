@@ -75,7 +75,7 @@ test("an oversized entry becomes a decodable oversized event", () => {
 
 test("partial output survives reopening until its text completes", () => {
   const { db, conn } = setup()
-  record(conn, id, 1, { kind: "user", text: "hi" })
+  record(conn, id, 1, { kind: "user", text: "hi", images: [], omittedImages: 0 })
   record(conn, id, 1, delta("m1:0", "Hel"))
   record(conn, id, 1, delta("m1:0", "lo"))
   conn.close()
@@ -84,7 +84,7 @@ test("partial output survives reopening until its text completes", () => {
   expect(events(reopened).events.map((e) => e.kind)).toEqual(["user", "text-delta", "text-delta"])
   record(reopened, id, 1, text("m1:0", "Hello"))
   accounted(reopened)
-  expect(events(reopened).events).toEqual([{ kind: "user", text: "hi" }, text("m1:0", "Hello")])
+  expect(events(reopened).events).toEqual([{ kind: "user", text: "hi", images: [], omittedImages: 0 }, text("m1:0", "Hello")])
 })
 
 test("utf8Prefix cuts on a character boundary", () => {

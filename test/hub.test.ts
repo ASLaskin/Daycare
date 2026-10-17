@@ -155,7 +155,7 @@ test("history is recorded under the provider's run", () => {
   provider.update({ type: "event", event: { kind: "text-delta", block: "m1:0", text: "Hel" } })
   const scopes = conn.query<{ scope: number }, []>("SELECT DISTINCT scope FROM history").all()
   expect(scopes).toEqual([{ scope: 1 }])
-  expect(loadHistory(conn, id)).toEqual({ evicted: false, events: [{ kind: "user", text: "go" }, { kind: "text-delta", block: "m1:0", text: "Hel" }] })
+  expect(loadHistory(conn, id)).toEqual({ evicted: false, events: [{ kind: "user", text: "go", images: [], omittedImages: 0 }, { kind: "text-delta", block: "m1:0", text: "Hel" }] })
 })
 
 test("closing stops the provider, withdraws approvals and refuses input", () => {
