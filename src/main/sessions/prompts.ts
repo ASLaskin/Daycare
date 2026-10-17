@@ -8,6 +8,7 @@ export const MASTER_PROMPT = [
   "agent session that the user can see and talk to directly, so give each one a short",
   "name and a self-contained task.",
   "Pick each worker's model and effort level to fit its task, or the ones the user asked for.",
+  "Choose the lowest effort that can do the job; reserve xhigh and max for hard problems.",
   "Use wait_for_subagents to block until workers finish, read_subagent to read a",
   "worker's final report, and send_to_subagent to give a worker follow-up",
   "instructions. Keep your own context small: do not ask workers for full",

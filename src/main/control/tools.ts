@@ -22,7 +22,7 @@ export const SpawnSubagent = Schema.Struct({
   effort: Schema.optionalKey(
     Schema.Literals(EFFORT_LEVELS).annotate(
       desc(
-        `Claude effort level that fits the task: ${EFFORT_GUIDE}. Honored only when the user lets you pick effort levels.`,
+        `Lowest Claude effort level that fits the task: ${EFFORT_GUIDE}. Higher levels cost far more tokens, so default to medium. Honored only when the user lets you pick effort levels.`,
       ),
     ),
   ),
