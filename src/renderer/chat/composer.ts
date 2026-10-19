@@ -1,6 +1,7 @@
 import type { ChatImage } from "../../shared/images.ts"
 import { api } from "../api.ts"
 import { toast } from "../toast.ts"
+import { wireAttachMenu } from "./attach-menu.ts"
 import { wireAttachInput } from "./attach-input.ts"
 import { renderAttachments, takeAttachments } from "./attachments.ts"
 import { setRunning } from "./running.ts"
@@ -80,6 +81,7 @@ export const wireComposer = (s: ChatSession) => {
   })
   s.stop.addEventListener("click", () => interrupt(s))
   wireAttachInput(s)
+  wireAttachMenu(s)
   s.root.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && s.running && !e.isComposing) {
       e.preventDefault()
