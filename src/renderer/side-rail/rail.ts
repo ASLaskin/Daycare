@@ -32,8 +32,8 @@ const show = (tab: RailTab, open: boolean) => {
   }
 }
 
-// Clicking the active tab closes the rail
-const choose = (tab: RailTab) => {
+// Choosing the active tab closes the rail
+export const toggleRailTab = (tab: RailTab) => {
   const open = !(sideRail.open && sideRail.tab === tab)
   show(tab, open)
   sideRail.saving++
@@ -46,7 +46,7 @@ const tabButton = (id: RailTab, label: string) => {
   const b = el("button", null, label)
   b.type = "button"
   b.dataset["tab"] = id
-  b.onclick = () => choose(id)
+  b.onclick = () => toggleRailTab(id)
   return b
 }
 

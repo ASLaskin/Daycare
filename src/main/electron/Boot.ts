@@ -7,6 +7,8 @@ import { Power } from "../power/Power.ts"
 import { Sessions } from "../sessions/Sessions.ts"
 import { Ui } from "../Ui.ts"
 import { Usage } from "../usage/Usage.ts"
+import { resolveBindings } from "../../shared/shortcuts/bindings.ts"
+import { pressCombo } from "../../shared/shortcuts/combo.ts"
 import { devHooks } from "./devHooks.ts"
 import { MainWindow } from "./Window.ts"
 
@@ -16,8 +18,16 @@ const forward = <A>(changes: Effect.Effect<Stream.Stream<A>, never, Scope.Scope>
     Effect.forkScoped,
   )
 
-const isCloseShortcut = (input: Electron.Input) =>
-  input.type === "keyDown" && input.meta && !input.shift && !input.alt && !input.control && input.key.toLowerCase() === "w"
+const mac = process.platform === "darwin"
+const closeKeys = resolveBindings({}, mac).get("closeSession") ?? []
+
+const isCloseShortcut = (input: Electron.Input) => {
+  if (input.type !== "keyDown") {
+    return false
+  }
+  const combo = pressCombo({ key: input.key, code: input.code, meta: input.meta, ctrl: input.control, alt: input.alt, shift: input.shift }, mac)
+  return combo !== null && closeKeys.includes(combo)
+}
 
 export const Boot = Layer.effectDiscard(
   Effect.gen(function* () {
@@ -31,7 +41,7 @@ export const Boot = Layer.effectDiscard(
     yield* forward(usage.changes, (u) => ui.send("usage:update", u))
     yield* forward(power.changes, (p) => ui.send("power:update", p))
 
-    // Cmd+W closes the active master, not the window
+    // Close session shortcut closes the active master, not the window
     win.webContents.on("before-input-event", (event, input) => {
       if (!isCloseShortcut(input)) {
         return

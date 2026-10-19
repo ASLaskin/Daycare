@@ -3,7 +3,7 @@
 import type { SessionId } from "../shared/ids.ts"
 import * as chat from "./chat/index.ts"
 import { el } from "./dom.ts"
-import { focusSession } from "./focus.ts"
+import { focused, focusSession } from "./focus.ts"
 import { type Pane, panes } from "./state.ts"
 
 // Static SVG markup for the zoom button.
@@ -16,6 +16,15 @@ const ZOOM_TITLE = "Zoom this pane (double-click the header)"
 const UNZOOM_TITLE = "Back to the layout (Esc)"
 
 let zoomedId: SessionId | null = null
+
+export const isZoomed = () => zoomedId !== null
+
+export const toggleZoomFocused = () => {
+  const id = focused()?.id
+  if (id) {
+    toggleZoom(id)
+  }
+}
 
 const setIcon = (p: Pane, name: keyof typeof ICONS, title: string) => {
   const btn = p.pane.querySelector<HTMLElement>(".icon-zoom")

@@ -8,6 +8,7 @@ import { CLAUDE_DEFAULT_EFFORT } from "./efforts.ts"
 import { isJsonObject, type Json } from "./json.ts"
 import { SAME_AS_MASTER } from "./models.ts"
 import { PermissionMode, Provider } from "./session.ts"
+import { KeyCombo } from "./shortcuts/combo.ts"
 import { GRAPHITE } from "./theme/builtins.ts"
 import { CustomThemes, ThemeDraft } from "./theme/themes.ts"
 
@@ -67,6 +68,8 @@ export const Settings = Schema.Struct({
   zoomDblClick: Schema.Boolean,
   maxCols: Schema.Int,
   stageGap: Schema.Finite,
+  // Rebound keys by shortcut id; missing ids use defaults
+  shortcuts: Schema.Record(Schema.String, KeyCombo),
   locations: Schema.Array(Location),
   // Added accounts; Default is implicit
   accounts: Schema.Array(Account),
@@ -113,6 +116,7 @@ export const baseSettings: Omit<Settings, "locations"> = {
   zoomDblClick: true,
   maxCols: 4,
   stageGap: 10,
+  shortcuts: {},
   accounts: [],
   activeAccount: DEFAULT_ACCOUNT,
 }

@@ -22,6 +22,7 @@ import { initSessions } from "./sessions.ts"
 import { initSettingsView, renderSettings, renderTabs } from "./settings-view.ts"
 import { clampLocation, initNewSession, renderLocationPickers, setCurrentLocation } from "./new-session.ts"
 import { initSheet } from "./sheet.ts"
+import { applyShortcutHints } from "./shortcut-hints.ts"
 import { initShortcuts } from "./shortcuts.ts"
 import { mountSideRail } from "./side-rail/rail.ts"
 import * as skills from "./skills/index.ts"
@@ -32,11 +33,13 @@ setCurrentLocation(Math.min(s.defaultLocation, s.locations.length - 1))
 applyAppearance()
 relayoutAll()
 renderLocationPickers()
+applyShortcutHints()
 
 onSettingsChanged(() => {
   clampLocation()
   applyAppearance()
   renderLocationPickers()
+  applyShortcutHints()
   renderSettings()
 })
 

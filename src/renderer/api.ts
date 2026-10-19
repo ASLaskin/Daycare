@@ -43,6 +43,7 @@ export const api = {
   getUsage: ask("usage:get"),
   refreshUsage: ask("usage:refresh"),
   restartCoordinator: ask("coordinator:restart"),
+  toggleFullScreen: ask("window:fullscreen"),
   onUsage: on("usage:update"),
 
   listAccounts: ask("accounts:list"),
