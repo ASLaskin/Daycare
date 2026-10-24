@@ -4,6 +4,7 @@ import { $, el } from "./dom.ts"
 import { initPowerView } from "./power-view.ts"
 import { refreshAccounts, renderAccounts, wireAccounts } from "./settings-accounts.ts"
 import { renderAppearance, wireAppearance } from "./settings-appearance.ts"
+import { renderButtons, wireButtons } from "./settings-buttons.ts"
 import { renderGeneral, wireGeneral } from "./settings-general.ts"
 import { renderLayoutPanel, wireLayoutPanel } from "./settings-layout.ts"
 import * as skills from "./skills/index.ts"
@@ -27,6 +28,7 @@ export const closeSettings = () => view().classList.add("hidden")
 
 export const renderSettings = () => {
   renderGeneral()
+  renderButtons()
   renderAppearance()
   renderLayoutPanel()
   renderAccounts()
@@ -64,6 +66,7 @@ export const toggleSettings = () => (isSettingsOpen() ? closeSettings() : openSe
 
 export const initSettingsView = () => {
   wireGeneral()
+  wireButtons()
   wireAppearance()
   wireLayoutPanel()
   wireAccounts()

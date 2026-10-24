@@ -41,8 +41,7 @@
     <header class="toolbar">
       <div id="project-actions" class="toolbar-controls project hidden">
         <span id="project-path" class="project-path"></span>
-        <button id="open-vscode" class="ghost" title="Open this folder in VS Code">VS Code</button>
-        <button id="open-finder" class="ghost" title="Show this folder in Finder">Finder</button>
+        <div id="project-buttons" class="project-buttons"></div>
       </div>
       <div class="toolbar-controls">
         <div id="layout-picker" class="seg" role="group" aria-label="Layout"></div>
@@ -205,6 +204,26 @@
             <div class="hint">Numbered in order. ⌘1 to ⌘9 open a session in that location.</div>
             <div id="location-rows" class="location-rows"></div>
             <button id="add-location" class="ghost add">Add location</button>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Top buttons</div>
+            <div class="hint">Choose which buttons show above the active session.</div>
+            <label class="toggle-row">
+              <div class="toggle-label">VS Code</div>
+              <input type="checkbox" id="set-button-vscode" class="switch" />
+            </label>
+            <label class="toggle-row">
+              <div class="toggle-label">GitHub</div>
+              <input type="checkbox" id="set-button-github" class="switch" />
+            </label>
+            <label class="toggle-row">
+              <div id="set-button-finder-label" class="toggle-label">Finder</div>
+              <input type="checkbox" id="set-button-finder" class="switch" />
+            </label>
+            <div class="hint">Custom buttons run a shell command in the session folder.</div>
+            <div id="custom-button-rows" class="custom-button-rows"></div>
+            <button id="add-custom-button" class="ghost add">Add button</button>
           </div>
         </div>
 
