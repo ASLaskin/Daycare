@@ -5,7 +5,8 @@ import { type Account, type AccountStatus, LoginCode, type LoginProgress } from 
 import { ResolveRequest, type ResolvedPath } from "./attachments.ts"
 import type { ChatEvent } from "./chat.ts"
 import { ChatImage } from "./images.ts"
-import { AccountId, DirPath, type FilePath, RequestId, SessionId } from "./ids.ts"
+import { AccountId, DirPath, type FilePath, type HttpUrl, RequestId, SessionId } from "./ids.ts"
+import { OpenCommand } from "./topButtons.ts"
 import type { PowerStatus } from "./power.ts"
 import { NewMaster, type SessionView } from "./session.ts"
 import { type Settings, SettingsPatch } from "./settings.ts"
@@ -32,6 +33,8 @@ export const Invoke = {
   "dialog:pick-folder": None,
   "open:finder": DirPath,
   "open:vscode": DirPath,
+  "project:github": DirPath,
+  "open:command": OpenCommand,
   "open:url": Schema.String,
   "update:info": None,
   "update:run": Schema.String,
@@ -103,6 +106,8 @@ export interface InvokeResult {
   "dialog:pick-folder": DirPath | null
   "open:finder": void
   "open:vscode": void
+  "project:github": HttpUrl | null
+  "open:command": void
   "open:url": void
   "update:info": BuildInfo | null
   "update:run": UpdateResult

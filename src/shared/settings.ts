@@ -10,6 +10,7 @@ import { SAME_AS_MASTER } from "./models.ts"
 import { PermissionMode, Provider } from "./session.ts"
 import { KeyCombo } from "./shortcuts/combo.ts"
 import { GRAPHITE } from "./theme/builtins.ts"
+import { BuiltinButton, CustomButton } from "./topButtons.ts"
 import { CustomThemes, ThemeDraft } from "./theme/themes.ts"
 
 export const Location = Schema.Struct({ label: Schema.String, path: DirPath })
@@ -71,6 +72,8 @@ export const Settings = Schema.Struct({
   // Rebound keys by shortcut id; missing ids use defaults
   shortcuts: Schema.Record(Schema.String, KeyCombo),
   locations: Schema.Array(Location),
+  hiddenButtons: Schema.Array(BuiltinButton),
+  customButtons: Schema.Array(CustomButton),
   // Added accounts; Default is implicit
   accounts: Schema.Array(Account),
   activeAccount: AccountId,
@@ -117,6 +120,8 @@ export const baseSettings: Omit<Settings, "locations"> = {
   maxCols: 4,
   stageGap: 10,
   shortcuts: {},
+  hiddenButtons: [],
+  customButtons: [],
   accounts: [],
   activeAccount: DEFAULT_ACCOUNT,
 }

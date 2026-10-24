@@ -13,6 +13,8 @@ import { validateUrl } from "../attachments/urls.ts"
 import { AppPaths } from "../AppPaths.ts"
 import { Ui } from "../Ui.ts"
 import { prepareImages } from "../chat/images.ts"
+import { runCommand } from "../projects/command.ts"
+import { githubPage } from "../projects/github.ts"
 import { Power } from "../power/Power.ts"
 import { ClaudeBinary } from "../sessions/Claude.ts"
 import { Sessions } from "../sessions/Sessions.ts"
@@ -68,6 +70,12 @@ export const Ipc = Layer.effectDiscard(
             }
           })
         }),
+      "project:github": (dir) => Effect.promise(() => githubPage(dir)),
+      "open:command": ({ dir, index }) =>
+        settings.get.pipe(
+          Effect.map((s) => s.customButtons[index]),
+          Effect.flatMap((button) => (button ? Effect.sync(() => runCommand(dir, button.command)) : Effect.void)),
+        ),
       "open:url": (url) => (url.startsWith("https://") ? Effect.promise(() => shell.openExternal(url)) : Effect.void),
       "update:info": () => updater.info,
       "update:run": (source) => updater.run(source),

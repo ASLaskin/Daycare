@@ -36,6 +36,8 @@ export const api = {
   pickFolder: ask("dialog:pick-folder"),
   openFinder: call("open:finder"),
   openVSCode: call("open:vscode"),
+  githubPage: call("project:github"),
+  runCommand: call("open:command"),
   openUrl: call("open:url"),
   updateInfo: ask("update:info"),
   runUpdate: call("update:run"),

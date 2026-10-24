@@ -141,3 +141,6 @@
 .slider-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; }
 .slider-row .val { font: 12px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; min-width: 40px; text-align: right; }
 .inline-actions { display: flex; gap: 8px; align-items: center; }
+.custom-button-rows { display: flex; flex-direction: column; gap: 6px; }
+.custom-button-row { display: grid; grid-template-columns: 140px 1fr auto; gap: 8px; align-items: center; }
+.custom-button-row .ghost { padding: 4px 8px; font-size: 12px; }
