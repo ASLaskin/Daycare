@@ -3,6 +3,7 @@
 import { api } from "./api.ts"
 import { $, el } from "./dom.ts"
 import { getActiveMaster } from "./focus.ts"
+import { digitShortcutText } from "./keymap.ts"
 import { relocateMaster } from "./session-actions.ts"
 import { closeSettings } from "./settings-view.ts"
 import { openSheet } from "./sheet.ts"
@@ -39,7 +40,7 @@ export const renderLocationPickers = () => {
   $("#empty-locations").replaceChildren(
     ...settings().locations.map((l, i) => {
       const b = el("button", "loc-button")
-      b.append(el("span", null, l.label), el("span", "kbd", i < 9 ? `⌘${i + 1}` : ""))
+      b.append(el("span", null, l.label), el("span", "kbd", i < 9 ? digitShortcutText("newSessionAt", i + 1) : ""))
       b.title = l.path
       b.onclick = () => newSession(i)
       return b

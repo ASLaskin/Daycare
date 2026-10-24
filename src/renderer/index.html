@@ -201,7 +201,7 @@
 
           <div class="card">
             <div class="card-title">Locations</div>
-            <div class="hint">Numbered in order. ⌘1 to ⌘9 open a session in that location.</div>
+            <div id="locations-hint" class="hint">Numbered in order.</div>
             <div id="location-rows" class="location-rows"></div>
             <button id="add-location" class="ghost add">Add location</button>
           </div>
@@ -352,6 +352,17 @@
             <div class="inline-actions">
               <button type="button" id="reset-layout" class="ghost">Reset sizes</button>
               <span class="hint">Puts the sidebar, skills rail, and every split back to their defaults.</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="panel-shortcuts" class="settings-panel hidden">
+          <div class="card">
+            <div class="card-title">Keyboard shortcuts</div>
+            <div class="hint">Click a shortcut, then press the new keys. Esc cancels. Shortcuts need ⌘ or Ctrl, or a function key, so typing is never affected.</div>
+            <div id="shortcut-rows" class="shortcut-rows"></div>
+            <div class="inline-actions">
+              <button type="button" id="reset-shortcuts" class="ghost">Reset all</button>
             </div>
           </div>
         </div>

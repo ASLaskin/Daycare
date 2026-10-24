@@ -7,6 +7,7 @@ import { renderAppearance, wireAppearance } from "./settings-appearance.ts"
 import { renderButtons, wireButtons } from "./settings-buttons.ts"
 import { renderGeneral, wireGeneral } from "./settings-general.ts"
 import { renderLayoutPanel, wireLayoutPanel } from "./settings-layout.ts"
+import { cancelRecording, renderShortcuts, wireShortcuts } from "./settings-shortcuts.ts"
 import * as skills from "./skills/index.ts"
 import { initUpdateView } from "./update-view.ts"
 
@@ -14,6 +15,7 @@ const PANELS = [
   { id: "general", label: "General" },
   { id: "appearance", label: "Appearance" },
   { id: "layout", label: "Layout" },
+  { id: "shortcuts", label: "Shortcuts" },
   { id: "accounts", label: "Accounts" },
   { id: "skills", label: "Skills" },
 ] as const
@@ -24,13 +26,17 @@ const view = () => $("#settings")
 
 export const isSettingsOpen = () => !view().classList.contains("hidden")
 
-export const closeSettings = () => view().classList.add("hidden")
+export const closeSettings = () => {
+  cancelRecording()
+  view().classList.add("hidden")
+}
 
 export const renderSettings = () => {
   renderGeneral()
   renderButtons()
   renderAppearance()
   renderLayoutPanel()
+  renderShortcuts()
   renderAccounts()
 }
 
@@ -45,6 +51,7 @@ export const renderTabs = () => {
 }
 
 const showPanel = (id: Panel) => {
+  cancelRecording()
   activePanel = id
   PANELS.forEach((p) => $(`#panel-${p.id}`).classList.toggle("hidden", p.id !== id))
   renderTabs()
@@ -69,6 +76,7 @@ export const initSettingsView = () => {
   wireButtons()
   wireAppearance()
   wireLayoutPanel()
+  wireShortcuts()
   wireAccounts()
   $("#open-settings").onclick = toggleSettings
   $("#close-settings").onclick = closeSettings

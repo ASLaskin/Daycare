@@ -19,5 +19,14 @@ export const closedInfo = new Map<SessionId, SessionView>()
 // Restored session to focus once its pane opens.
 export const pendingFocus = { id: null as SessionId | null }
 
+const newestFirst = (a: SessionView, b: SessionView) => b.createdAt - a.createdAt
+
+// Open masters in sidebar order
+export const openMasters = () =>
+  [...panes.values()]
+    .map((p) => p.info)
+    .filter((i) => i.role === "master")
+    .sort(newestFirst)
+
 export const workersOf = (masterId: SessionId) =>
   [...panes.values()].filter((p) => p.info.parentId === masterId).map((p) => p.info)

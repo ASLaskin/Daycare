@@ -100,6 +100,7 @@ export const Ipc = Layer.effectDiscard(
       "session:delete": (id) => sessions.remove(id),
       "session:menu": sessionMenu,
       "coordinator:restart": () => sessions.restartCoordinator,
+      "window:fullscreen": () => Effect.sync(() => win.setFullScreen(!win.isFullScreen())),
 
       "power:status": () => power.status,
       "power:restore": () => power.restore,

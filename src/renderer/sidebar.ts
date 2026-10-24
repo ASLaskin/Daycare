@@ -9,7 +9,7 @@ import { archivedEntries } from "./sidebar-archived.ts"
 import { closedRows, openRows } from "./sidebar-items.ts"
 import { paintSidebarMode, sidebarMode } from "./sidebar-mode.ts"
 import { closedMarks, openMarks } from "./sidebar-strip.ts"
-import { closedInfo, panes } from "./state.ts"
+import { closedInfo, openMasters } from "./state.ts"
 import { fireSessionsChanged } from "./store.ts"
 
 const newestFirst = (a: SessionView, b: SessionView) => b.createdAt - a.createdAt
@@ -22,7 +22,7 @@ export const renderSidebar = () => {
     return
   }
   const active = getActiveMaster()
-  const open = [...panes.values()].map((p) => p.info).filter((i) => i.role === "master").sort(newestFirst)
+  const open = openMasters()
   const closed = [...closedInfo.values()].filter((i) => i.role === "master").sort(newestFirst)
   const openViews = open.map((info) => ({ info, active: info.id === active }))
   const archived = [...closedInfo.values()].filter((i) => i.archived)

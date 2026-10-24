@@ -59,6 +59,7 @@ export const Invoke = {
   "session:delete": Id,
   "session:menu": Id,
   "coordinator:restart": None,
+  "window:fullscreen": None,
 
   "power:status": None,
   "power:restore": None,
@@ -131,6 +132,7 @@ export interface InvokeResult {
   "session:delete": void
   "session:menu": void
   "coordinator:restart": void
+  "window:fullscreen": void
 
   "power:status": PowerStatus
   "power:restore": PowerStatus
