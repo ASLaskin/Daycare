@@ -6,7 +6,6 @@ import type { ChatSession } from "./types.ts"
 const hasFiles = (e: DragEvent) => e.dataTransfer?.types.includes("Files") ?? false
 
 export const wireAttachInput = (s: ChatSession) => {
-  s.attach.addEventListener("click", () => s.picker.click())
   s.picker.addEventListener("change", () => {
     const files = [...(s.picker.files ?? [])]
     s.picker.value = ""

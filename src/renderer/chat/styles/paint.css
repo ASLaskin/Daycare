@@ -1,0 +1,54 @@
+.paint {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--scrim);
+  backdrop-filter: blur(8px);
+  z-index: 20;
+}
+.paint-card {
+  width: min(840px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-xl);
+  box-shadow: 0 30px 80px color-mix(in srgb, var(--shadow) 55%, transparent);
+}
+.paint-bar { display: flex; justify-content: space-between; gap: 8px; }
+.paint-tools, .paint-actions { display: flex; gap: 6px; }
+.paint button {
+  padding: 6px 12px;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+}
+.paint button:hover { background: var(--panel-3); }
+.paint .paint-tool.active { border-color: var(--accent); color: var(--accent); }
+.paint .paint-done { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.paint-stage { position: relative; line-height: 0; }
+.paint-canvas {
+  width: 100%;
+  height: auto;
+  background: #ffffff;
+  border-radius: var(--r);
+  cursor: crosshair;
+  touch-action: none;
+}
+.paint-text {
+  position: absolute;
+  min-width: 120px;
+  padding: 0;
+  margin: 0;
+  border: 1px dashed var(--faint);
+  background: transparent;
+  color: #000000;
+  font: 24px -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  line-height: 1.25;
+  resize: none;
+  outline: none;
+}

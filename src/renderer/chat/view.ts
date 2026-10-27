@@ -41,8 +41,8 @@ const attachControls = () => {
   const thumbs = el("div", "chat-thumbs chat-thumbs-draft")
   thumbs.hidden = true
   const attach = button("chat-attach", "+")
-  attach.title = "Attach images"
-  attach.setAttribute("aria-label", "Attach images")
+  attach.title = "Attach"
+  attach.setAttribute("aria-label", "Attach")
   const picker = el("input", "chat-picker")
   picker.type = "file"
   picker.accept = ACCEPT
