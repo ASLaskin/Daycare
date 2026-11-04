@@ -13,3 +13,13 @@ export const OOGA_BOOGA_PROMPT = [
 
 // Base prompt with the caveman instruction appended when on
 export const withOogaBooga = (prompt: string, on: boolean) => (on ? `${prompt}\n\n${OOGA_BOOGA_PROMPT}` : prompt)
+
+// Short per-turn reminder; the launch-time prompt alone is too weak and never reaches running sessions
+export const OOGA_BOOGA_REMINDER = "(Ooga booga mode is on: reply in terse caveman prose. Code, commands and machine-read text stay normal.)"
+
+// Message text with the reminder appended when on
+export const withOogaBoogaReminder = (text: string, on: boolean) => (on ? `${text}\n\n${OOGA_BOOGA_REMINDER}` : text)
+
+// Message text without the reminder, for replayed history
+export const withoutOogaBoogaReminder = (text: string) =>
+  text.endsWith(OOGA_BOOGA_REMINDER) ? text.slice(0, -OOGA_BOOGA_REMINDER.length).trimEnd() : text

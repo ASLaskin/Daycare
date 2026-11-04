@@ -166,8 +166,7 @@ export const makeService = (core: Core, lifecycle: Lifecycle): SessionsShape => 
         if (!s) {
           return
         }
-        s.hadTurn = true
-        run(chat.send(id, text, images, files))
+        lifecycle.sendText(s, text, images, files)
         core.setStatus(s, "working", "thinking")
         core.persist()
       }),

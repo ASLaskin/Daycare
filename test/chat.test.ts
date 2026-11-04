@@ -7,6 +7,7 @@ import os from "node:os"
 import path from "node:path"
 import { Chat } from "../src/main/chat/Chat.ts"
 import { LineFramer } from "../src/main/chat/framing.ts"
+import { OOGA_BOOGA_REMINDER } from "../src/main/sessions/oogaBooga.ts"
 import { historyFromTranscript } from "../src/main/chat/transcript.ts"
 import type { ChatEvent } from "../src/shared/chat.ts"
 import { asDirPath, asFilePath, asRequestId, asSessionId, type FilePath } from "../src/shared/ids.ts"
@@ -321,6 +322,14 @@ test("images go to claude as content blocks and stay in history", async () => {
   expect(users.map((u) => [u.text, u.images])).toEqual([["what is this", [image]], ["", [image]]])
 })
 
+test("the ooga booga reminder reaches claude but not the shown chat", async () => {
+  const m = launch([{ waitStdin: 1 }, { exit: 0 }])
+  run((chat) => chat.send(m.id, "hi", [], [], true))
+  expect(await until(() => kinds(m.ev(), "exit").length === 1)).toBe(true)
+  expect(m.stdin().map((l) => at(l, "message", "content"))).toEqual([`hi\n\n${OOGA_BOOGA_REMINDER}`])
+  expect(kinds(run((chat) => chat.history(m.id)), "user").map((u) => u.text)).toEqual(["hi"])
+})
+
 test("history is capped and deltas are streamed but not kept", async () => {
   const delta = (t: string) =>
     J({ type: "stream_event", event: { type: "content_block_delta", index: 1, delta: { type: "text_delta", text: t } }, parent_tool_use_id: null })
@@ -446,6 +455,12 @@ describe("transcript replay", () => {
     const long = historyFromTranscript(capped)
     expect(long.length).toBe(2000)
     expect(item(long)).toMatchObject({ text: "tail" })
+  })
+
+  test("drops the ooga booga reminder from replayed user text", () => {
+    const tpo = asFilePath(path.join(dir, "ooga.jsonl"))
+    fs.writeFileSync(tpo, J({ type: "user", message: { role: "user", content: `hi\n\n${OOGA_BOOGA_REMINDER}` }, uuid: "u0" }))
+    expect(historyFromTranscript(tpo)).toMatchObject([{ kind: "user", text: "hi" }])
   })
 
   test("restores images sent as content parts", () => {
