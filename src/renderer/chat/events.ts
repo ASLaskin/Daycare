@@ -10,6 +10,7 @@ import { setRunning } from "./running.ts"
 import { stick } from "./scroll.ts"
 import { renderTasks, task } from "./tasks.ts"
 import { textDelta, textFinal } from "./text.ts"
+import { sentFiles } from "./file-chips.ts"
 import { sentThumbs } from "./thumbs.ts"
 import { settleThinking, thinking } from "./thinking.ts"
 import { toolEnd, toolStart } from "./tools.ts"
@@ -44,6 +45,9 @@ const userMessage = (s: ChatSession, ev: ChatEventOf<"user">) => {
   }
   if (ev.omittedImages) {
     m.append(omittedNote(ev.omittedImages))
+  }
+  if (ev.files.length) {
+    m.append(sentFiles(ev.files))
   }
   if (ev.text) {
     const bubble = el("div", "chat-bubble")

@@ -1,4 +1,4 @@
-// Menu under the plus button: upload image or drawing.
+// Menu under the plus button: upload file or drawing.
 
 import { el } from "../dom.ts"
 import { button } from "./controls.ts"
@@ -10,7 +10,7 @@ export const wireAttachMenu = (s: ChatSession) => {
   menu.hidden = true
   menu.setAttribute("role", "menu")
   const entries: ReadonlyArray<readonly [string, () => void]> = [
-    ["Upload image", () => s.picker.click()],
+    ["Upload file", () => s.picker.click()],
     ["Drawing", () => openPaint(s)],
   ]
   const close = () => {

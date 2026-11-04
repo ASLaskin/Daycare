@@ -35,8 +35,6 @@ const transcript = () => {
   return { scroll, thread, working, jump }
 }
 
-const ACCEPT = "image/png,image/jpeg,image/gif,image/webp"
-
 const attachControls = () => {
   const thumbs = el("div", "chat-thumbs chat-thumbs-draft")
   thumbs.hidden = true
@@ -45,7 +43,6 @@ const attachControls = () => {
   attach.setAttribute("aria-label", "Attach")
   const picker = el("input", "chat-picker")
   picker.type = "file"
-  picker.accept = ACCEPT
   picker.multiple = true
   picker.hidden = true
   return { thumbs, attach, picker }

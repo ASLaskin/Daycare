@@ -7,7 +7,7 @@ import { arr, at, type JsonObject, num, obj, str } from "../../shared/json.ts"
 import { cap, flatten, structuredOf, toolResults, toolTitle } from "./content.ts"
 import { parseLine } from "./framing.ts"
 import { keepRecentImages } from "./historyImages.ts"
-import { imagesFromContent } from "./userContent.ts"
+import { filesFromContent, imagesFromContent, withoutFileRefs } from "./userContent.ts"
 
 export const HISTORY_MAX = 2000
 
@@ -42,17 +42,18 @@ export const historyFromTranscript = (transcriptPath: FilePath | null): Array<Ch
 const replayUser = (e: JsonObject): ReadonlyArray<ChatEvent> => {
   const content = at(e, "message", "content")
   if (typeof content === "string") {
-    return content.trim() ? [{ kind: "user", text: cap(content), images: [], omittedImages: 0 }] : []
+    return content.trim() ? [{ kind: "user", text: cap(content), images: [], omittedImages: 0, files: [] }] : []
   }
   if (!Array.isArray(content)) {
     return []
   }
   const results = toolResults(content)
   if (!results.length) {
-    // User text and images sent as content parts.
-    const text = flatten(content)
+    // User text, images and files sent as content parts.
+    const text = flatten(withoutFileRefs(content))
     const images = imagesFromContent(content)
-    return text.trim() || images.length ? [{ kind: "user", text, images, omittedImages: 0 }] : []
+    const files = filesFromContent(content)
+    return text.trim() || images.length || files.length ? [{ kind: "user", text, images, omittedImages: 0, files }] : []
   }
   return results.map(
     (p): ChatEvent => ({

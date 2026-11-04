@@ -1,5 +1,5 @@
 import type { ChatImage } from "../shared/images.ts"
-import type { AccountId, RequestId, SessionId, SkillId } from "../shared/ids.ts"
+import { type AccountId, asFilePath, type FilePath, type RequestId, type SessionId, type SkillId } from "../shared/ids.ts"
 import type { Bridge, EventChannel, Events, InvokeChannel, InvokePayload, InvokeResult } from "../shared/ipc.ts"
 import type { PermissionDecision } from "../shared/ipc.ts"
 import type { NewMaster } from "../shared/session.ts"
@@ -87,7 +87,13 @@ export const api = {
   openPath: call("attachment:open"),
   revealPath: call("attachment:reveal"),
 
-  chatSend: (id: SessionId, text: string, images: ReadonlyArray<ChatImage>) => bridge.invoke("chat:send", { id, text, images }),
+  chatSend: (id: SessionId, text: string, images: ReadonlyArray<ChatImage>, files: ReadonlyArray<FilePath>) =>
+    bridge.invoke("chat:send", { id, text, images, files }),
+  saveFile: call("chat:save-file"),
+  pathForFile: (file: File): FilePath | null => {
+    const path = bridge.pathForFile(file)
+    return path ? asFilePath(path) : null
+  },
   chatInterrupt: call("chat:interrupt"),
   chatModel: (id: SessionId, model: string) => bridge.invoke("chat:model", { id, model }),
   chatEffort: (id: SessionId, effort: string) => bridge.invoke("chat:effort", { id, effort }),

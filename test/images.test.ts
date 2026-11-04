@@ -5,7 +5,7 @@ import { Effect, Exit } from "effect"
 import { fitSize, prepareImages } from "../src/main/chat/images.ts"
 import { keepRecentImages } from "../src/main/chat/historyImages.ts"
 import { imagesFromContent, userContent } from "../src/main/chat/userContent.ts"
-import { attachProblem } from "../src/renderer/chat/attach-rules.ts"
+import { attachRoute } from "../src/renderer/chat/attach-rules.ts"
 import type { ChatEvent } from "../src/shared/chat.ts"
 import {
   asBase64,
@@ -59,11 +59,19 @@ describe("type detection", () => {
 })
 
 describe("attach rules", () => {
-  test("count, then type, then size", () => {
-    expect(attachProblem({ attached: MAX_IMAGES, bytes: 1, mediaType: null })).toBe(TOO_MANY_MESSAGE)
-    expect(attachProblem({ attached: 0, bytes: 1, mediaType: null })).toBe(UNSUPPORTED_MESSAGE)
-    expect(attachProblem({ attached: 0, bytes: MAX_INPUT_BYTES + 1, mediaType: "image/png" })).toBe(TOO_LARGE_MESSAGE)
-    expect(attachProblem({ attached: MAX_IMAGES - 1, bytes: MAX_INPUT_BYTES, mediaType: "image/webp" })).toBeNull()
+  const candidate = { images: 0, files: 0, bytes: 1, mediaType: null, hasPath: true }
+
+  test("supported images within limits stay image blocks", () => {
+    expect(attachRoute({ ...candidate, images: MAX_IMAGES - 1, bytes: MAX_INPUT_BYTES, mediaType: "image/webp" })).toEqual({
+      kind: "image",
+      mediaType: "image/webp",
+    })
+  })
+
+  test("other files, and images past the limits, go by path", () => {
+    expect(attachRoute(candidate)).toEqual({ kind: "file" })
+    expect(attachRoute({ ...candidate, images: MAX_IMAGES, mediaType: "image/png" })).toEqual({ kind: "file" })
+    expect(attachRoute({ ...candidate, bytes: MAX_INPUT_BYTES + 1, mediaType: "image/png" })).toEqual({ kind: "file" })
   })
 })
 
@@ -127,7 +135,7 @@ describe("content blocks", () => {
 })
 
 describe("history image cap", () => {
-  const user = (n: number): ChatEvent => ({ kind: "user", text: `m${n}`, images: Array<ChatImage>(n).fill(png), omittedImages: 0 })
+  const user = (n: number): ChatEvent => ({ kind: "user", text: `m${n}`, images: Array<ChatImage>(n).fill(png), omittedImages: 0, files: [] })
 
   test("keeps the newest images and counts the rest", () => {
     const out = keepRecentImages([user(3), { kind: "error", message: "x" }, user(2), user(2)], 3)

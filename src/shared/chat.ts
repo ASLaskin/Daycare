@@ -1,8 +1,8 @@
 // Chat events sent from main to the renderer.
 
-import { Schema } from "effect"
+import { Effect, Schema } from "effect"
 import { ChatImage } from "./images.ts"
-import { ClaudeSessionId, DirPath, RequestId, TaskId, ToolUseId } from "./ids.ts"
+import { ClaudeSessionId, DirPath, FilePath, RequestId, TaskId, ToolUseId } from "./ids.ts"
 
 export const ChatState = Schema.Literals(["running", "idle"])
 export type ChatState = typeof ChatState.Type
@@ -80,6 +80,8 @@ export const ChatEvent = Schema.Union([
     images: Schema.Array(ChatImage),
     // Images left out of history to bound its size
     omittedImages: Schema.Number,
+    // Other files, sent to claude by path
+    files: Schema.Array(FilePath).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
   }),
   event("rate-limit", { percent: Schema.Number }),
   event("error", { message: Schema.String }),

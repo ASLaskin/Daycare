@@ -1,6 +1,6 @@
 // Exposes the IPC contract channels as window.daycare.
 
-import { contextBridge, ipcRenderer } from "electron"
+import { contextBridge, ipcRenderer, webUtils } from "electron"
 import { type Bridge, Invoke } from "../shared/ipc.ts"
 
 const invokable = new Set<string>(Object.keys(Invoke))
@@ -13,6 +13,7 @@ const bridge: Bridge = {
     ipcRenderer.on(channel, wrapped)
     return () => ipcRenderer.removeListener(channel, wrapped)
   },
+  pathForFile: (file) => webUtils.getPathForFile(file),
 }
 
 contextBridge.exposeInMainWorld("daycare", bridge)

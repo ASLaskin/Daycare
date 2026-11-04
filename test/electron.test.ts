@@ -113,13 +113,38 @@ describe("Ipc", () => {
     const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0]).toString("base64")
     const pdf = Buffer.from("%PDF-1.7 file").toString("base64")
     await withIpc(async () => {
-      await handlers.get("chat:send")!({}, { id: "a", text: "hi", images: [{ mediaType: "image/png", data: png }] })
-      await expect(Promise.resolve(handlers.get("chat:send")!({}, { id: "a", text: "hi", images: [{ mediaType: "image/png", data: pdf }] }))).rejects.toThrow(
-        "Only PNG, JPEG, GIF and WebP images are supported.",
-      )
-      await expect(Promise.resolve(handlers.get("chat:send")!({}, { id: "a", text: "hi", images: [{ mediaType: "image/tiff", data: png }] }))).rejects.toThrow()
+      await handlers.get("chat:send")!({}, { id: "a", text: "hi", images: [{ mediaType: "image/png", data: png }], files: [] })
+      await expect(
+        Promise.resolve(handlers.get("chat:send")!({}, { id: "a", text: "hi", images: [{ mediaType: "image/png", data: pdf }], files: [] })),
+      ).rejects.toThrow("Only PNG, JPEG, GIF and WebP images are supported.")
+      await expect(
+        Promise.resolve(handlers.get("chat:send")!({}, { id: "a", text: "hi", images: [{ mediaType: "image/tiff", data: png }], files: [] })),
+      ).rejects.toThrow()
     })
-    expect(calls).toEqual([["chatSend", ["a", "hi", [{ mediaType: "image/png", data: png }]]]])
+    expect(calls).toEqual([["chatSend", ["a", "hi", [{ mediaType: "image/png", data: png }], []]]])
+  })
+
+  test("chat:send passes existing files by path and rejects missing ones", async () => {
+    calls.length = 0
+    const dir = tmp()
+    const csv = path.join(dir, "data.csv")
+    fs.writeFileSync(csv, "a,b\n")
+    await withIpc(async () => {
+      await handlers.get("chat:send")!({}, { id: "a", text: "read it", images: [], files: [csv] })
+      await expect(
+        Promise.resolve(handlers.get("chat:send")!({}, { id: "a", text: "hi", images: [], files: [path.join(dir, "gone.csv")] })),
+      ).rejects.toThrow("gone.csv is no longer available.")
+    })
+    expect(calls).toEqual([["chatSend", ["a", "read it", [], [csv]]]])
+  })
+
+  test("chat:save-file stores a path-less file and returns its path", async () => {
+    let saved = ""
+    await withIpc(async () => {
+      saved = String(await handlers.get("chat:save-file")!({}, { name: "notes.txt", data: Buffer.from("hey").toString("base64") }))
+    })
+    expect(path.basename(saved)).toBe("notes.txt")
+    expect(fs.readFileSync(saved, "utf8")).toBe("hey")
   })
 })
 

@@ -1,9 +1,8 @@
-import type { ChatImage } from "../../shared/images.ts"
 import { api } from "../api.ts"
 import { toast } from "../toast.ts"
 import { wireAttachMenu } from "./attach-menu.ts"
 import { wireAttachInput } from "./attach-input.ts"
-import { renderAttachments, takeAttachments } from "./attachments.ts"
+import { type Draft, restoreAttachments, takeAttachments } from "./attachments.ts"
 import { setRunning } from "./running.ts"
 import { atBottom, toBottom, updateJump } from "./scroll.ts"
 import { errorText } from "./turn.ts"
@@ -17,16 +16,15 @@ export const autosize = (input: HTMLTextAreaElement) => {
   input.style.overflowY = input.scrollHeight > COMPOSER_MAX_PX ? "auto" : "hidden"
 }
 
-const isEmpty = (s: ChatSession) => s.input.value.trim() === "" && !s.attachments.length
+const isEmpty = (s: ChatSession) => s.input.value.trim() === "" && !s.attachments.length && !s.files.length
 
 // Put an unsent message back when the composer is still empty
-const restoreDraft = (s: ChatSession, text: string, images: ReadonlyArray<ChatImage>, sync: () => void) => {
+const restoreDraft = (s: ChatSession, text: string, draft: Draft, sync: () => void) => {
   if (!isEmpty(s)) {
     return
   }
   s.input.value = text
-  s.attachments.push(...images)
-  renderAttachments(s)
+  restoreAttachments(s, draft)
   sync()
 }
 
@@ -35,14 +33,14 @@ const submit = (s: ChatSession, sync: () => void) => {
   if (isEmpty(s) || s.ended) {
     return
   }
-  const images = takeAttachments(s)
+  const draft = takeAttachments(s)
   s.input.value = ""
   sync()
   setRunning(s, true)
   s.pinned = true
-  api.chatSend(s.id, text, images).catch((err: unknown) => {
+  api.chatSend(s.id, text, draft.images, draft.files).catch((err: unknown) => {
     setRunning(s, false)
-    restoreDraft(s, text, images, sync)
+    restoreDraft(s, text, draft, sync)
     toast(`Could not send the message: ${errorText(err)}`)
   })
 }

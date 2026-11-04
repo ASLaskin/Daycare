@@ -3,6 +3,7 @@
 import { Context, Effect, Layer, Schema } from "effect"
 import { activeAccountOf, DEFAULT_ACCOUNT } from "../../shared/accounts.ts"
 import type { ChatEvent } from "../../shared/chat.ts"
+import { fileRefText } from "../../shared/files.ts"
 import { Accepted, type Approval, type Command, Created, type LiveSession, type SessionHistory } from "../../shared/coordinator.ts"
 import { asSessionId, type RequestId, type SessionId } from "../../shared/ids.ts"
 import type { NewMaster, SessionView } from "../../shared/session.ts"
@@ -210,8 +211,9 @@ const make = (version: string) =>
           }
         }),
       // Resolves on coordinator acceptance, not provider delivery
-      chatSend: (id, text) =>
-        request({ method: "send", session: id, text }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Accepted)), Effect.orDie, Effect.asVoid),
+      // Files ride along as path lines in the text
+      chatSend: (id, text, _images, files) =>
+        request({ method: "send", session: id, text: [...files.map(fileRefText), text].filter(Boolean).join("\n\n") }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Accepted)), Effect.orDie, Effect.asVoid),
       chatInterrupt: (id) => request({ method: "interrupt", session: id }).pipe(Effect.asVoid),
       setModel: (id, model) => request({ method: "model", session: id, model }).pipe(Effect.asVoid),
       setEffort: (id, effort) => request({ method: "effort", session: id, effort }).pipe(Effect.asVoid),
