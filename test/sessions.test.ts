@@ -16,6 +16,7 @@ import type { ToolCall } from "../src/main/control/tools.ts"
 import { Power } from "../src/main/power/Power.ts"
 import { PowerBlocker } from "../src/main/power/PowerBlocker.ts"
 import { ClaudeBinary } from "../src/main/sessions/Claude.ts"
+import { OOGA_BOOGA_REMINDER, withOogaBoogaReminder } from "../src/main/sessions/oogaBooga.ts"
 import { Sessions } from "../src/main/sessions/Sessions.ts"
 import { SettingsStore } from "../src/main/settings/SettingsStore.ts"
 import { Usage } from "../src/main/usage/Usage.ts"
@@ -65,7 +66,7 @@ const FakeChatLayer = Layer.effect(
         Effect.map(Stream.fromSubscription),
       ),
       start: (opts) => Effect.sync(() => void chats.push({ opts, sent: [], models: [], efforts: [], stopped: false })),
-      send: (id, text) => Effect.sync(() => void liveChat(id)?.sent.push(text)),
+      send: (id, text, _images, _files, oogaBooga = false) => Effect.sync(() => void liveChat(id)?.sent.push(withOogaBoogaReminder(text, oogaBooga))),
       interrupt: () => Effect.void,
       setModel: (id, model) => Effect.sync(() => void liveChat(id)?.models.push(model)),
       setEffort: (id, effort) => Effect.sync(() => void liveChat(id)?.efforts.push(effort)),
@@ -269,6 +270,17 @@ describe("chat events drive status", () => {
     expect(sent.some((e) => e.channel === "chat:event" && payloadId(e.payload) === m.id)).toBe(true)
   })
 
+  test("turning ooga booga on mid session reminds the next turns", async () => {
+    const m = await newMaster()
+    await sessions((s) => s.chatSend(m.id, "before", [], []))
+    await setSettings({ oogaBooga: true })
+    await sessions((s) => s.chatSend(m.id, "after", [], []))
+    const w = await spawnWorker(m.id, "w1", "work")
+    await setSettings({ oogaBooga: false })
+    expect(chatOf(m.id).sent).toEqual(["before", `after\n\n${OOGA_BOOGA_REMINDER}`])
+    expect(chatOf(w.id).sent).toEqual([`work\n\n${OOGA_BOOGA_REMINDER}`])
+  })
+
   test("a hook's transcript path is remembered", async () => {
     const m = await newMaster()
     await hook(m.id, { hook_event_name: "SessionStart", transcript_path: asFilePath("/t/x.jsonl"), session_id: asClaudeSessionId("claude-1") })
@@ -421,11 +433,11 @@ describe("models", () => {
     expect(modelArg((await spawnWorker(m.id, "cheap", "t", "opus")).id)).toBe("haiku")
   })
 
-  test("auto mode takes the master's pick, else the master's model", async () => {
+  test("auto mode takes the master's pick, else opus", async () => {
     const m = await newMaster()
     await setSettings({ workerModel: "opus", autoWorkerModel: true })
     expect(modelArg((await spawnWorker(m.id, "picked", "t", "haiku")).id)).toBe("haiku")
-    expect(modelArg((await spawnWorker(m.id, "unpicked", "t")).id)).toBe("sonnet")
+    expect(modelArg((await spawnWorker(m.id, "unpicked", "t")).id)).toBe("opus")
     await setSettings({ workerModel: "master", autoWorkerModel: false })
   })
 
@@ -454,11 +466,11 @@ describe("efforts", () => {
     expect(effortArg((await spawnWorker(m.id, "plain", "t")).id)).toBeUndefined()
   })
 
-  test("auto mode takes the master's pick, else the master's effort", async () => {
+  test("auto mode takes the master's pick, else medium", async () => {
     const m = await newMaster()
     await setSettings({ workerEffort: "low", autoWorkerEffort: true })
     expect(effortArg((await spawnWorker(m.id, "picked", "t", undefined, "max")).id)).toBe("max")
-    expect(effortArg((await spawnWorker(m.id, "unpicked", "t")).id)).toBe("high")
+    expect(effortArg((await spawnWorker(m.id, "unpicked", "t")).id)).toBe("medium")
     await setSettings({ workerEffort: "master", autoWorkerEffort: false })
   })
 

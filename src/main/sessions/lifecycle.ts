@@ -5,7 +5,8 @@ import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import { activeAccountOf, DEFAULT_ACCOUNT, hasAccount } from "../../shared/accounts.ts"
-import { asClaudeSessionId, asDirPath, asSessionId } from "../../shared/ids.ts"
+import { asClaudeSessionId, asDirPath, asSessionId, type FilePath } from "../../shared/ids.ts"
+import type { ChatImage } from "../../shared/images.ts"
 import type { SessionRecord } from "../../shared/session.ts"
 import type { Core } from "./core.ts"
 import { cleanEnv } from "./env.ts"
@@ -25,6 +26,8 @@ export interface Lifecycle {
   readonly sessionExited: (s: Session) => void
   readonly removeSession: (s: Session) => void
   readonly submitText: (s: Session, text: string) => boolean
+  // User turn, with the live ooga booga setting
+  readonly sendText: (s: Session, text: string, images?: ReadonlyArray<ChatImage>, files?: ReadonlyArray<FilePath>) => void
 }
 
 export const makeLifecycle = (core: Core): Lifecycle => {
@@ -41,9 +44,9 @@ export const makeLifecycle = (core: Core): Lifecycle => {
       }),
     )
 
-  const sendText = (s: Session, text: string) => {
+  const sendText = (s: Session, text: string, images: ReadonlyArray<ChatImage> = [], files: ReadonlyArray<FilePath> = []) => {
     s.hadTurn = true
-    run(chat.send(s.id, text))
+    run(chat.send(s.id, text, images, files, run(settings.get).oogaBooga))
   }
 
   const startSession = (s: Session, resume: boolean) => {
@@ -206,5 +209,5 @@ export const makeLifecycle = (core: Core): Lifecycle => {
     return true
   }
 
-  return { createSession, startSession, killSession, closeSession, reopenSession, sessionExited, removeSession, submitText }
+  return { createSession, startSession, killSession, closeSession, reopenSession, sessionExited, removeSession, submitText, sendText }
 }
