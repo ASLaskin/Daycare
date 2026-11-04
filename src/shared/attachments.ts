@@ -103,8 +103,9 @@ const textMentions = (text: string): EventMentions => ({ urls: urlsIn(text), pat
 export const mentionsOf = (ev: ChatEvent): EventMentions => {
   switch (ev.kind) {
     case "text":
-    case "user":
       return textMentions(ev.text)
+    case "user":
+      return { ...textMentions(ev.text), paths: [...pathsIn(ev.text), ...ev.files] }
     case "tool-start": {
       const path = WRITE_TOOLS.has(ev.name) ? (str(at(ev.input, "file_path")) ?? str(at(ev.input, "notebook_path"))) : null
       return path ? { ...NONE, written: { toolUseId: ev.toolUseId, path } } : NONE

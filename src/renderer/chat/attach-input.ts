@@ -1,4 +1,4 @@
-// Paste, drag and drop, and picker input for images.
+// Paste, drag and drop, and picker input for attachments.
 
 import { addFiles } from "./attachments.ts"
 import type { ChatSession } from "./types.ts"

@@ -3,15 +3,18 @@
 import { Effect, Layer, Schema } from "effect"
 import { dialog, ipcMain, shell } from "electron"
 import { execFile } from "node:child_process"
+import path from "node:path"
 import { asDirPath, type DirPath } from "../../shared/ids.ts"
 import { Invoke, type InvokeChannel, type InvokePayload, type InvokeResult } from "../../shared/ipc.ts"
 import { Accounts } from "../accounts/Accounts.ts"
 import { isRunnablePath } from "../../shared/media.ts"
 import { handleMedia, MediaAllowlist } from "../attachments/MediaProtocol.ts"
 import { existingPath, resolveMentions } from "../attachments/paths.ts"
+import { saveAttachment } from "../attachments/saved.ts"
 import { validateUrl } from "../attachments/urls.ts"
 import { AppPaths } from "../AppPaths.ts"
 import { Ui } from "../Ui.ts"
+import { prepareFiles } from "../chat/files.ts"
 import { prepareImages } from "../chat/images.ts"
 import { runCommand } from "../projects/command.ts"
 import { githubPage } from "../projects/github.ts"
@@ -39,7 +42,7 @@ export const Ipc = Layer.effectDiscard(
     const updater = yield* Updater
     const ui = yield* Ui
     const claude = yield* ClaudeBinary
-    const { home } = yield* AppPaths
+    const { home, userData } = yield* AppPaths
     const { win } = yield* MainWindow
 
     const withProjectDirs = <A, E>(f: (dirs: ReadonlyArray<DirPath>) => Effect.Effect<A, E>) => Effect.flatMap(sessions.projectDirs, f)
@@ -128,8 +131,11 @@ export const Ipc = Layer.effectDiscard(
         ),
       "attachment:reveal": (raw) => existingPath(raw, home).pipe(Effect.map((found) => shell.showItemInFolder(found.path))),
 
-      "chat:send": ({ id, text, images }) =>
-        prepareImages(images, downscale).pipe(Effect.flatMap((ready) => sessions.chatSend(id, text, ready))),
+      "chat:send": ({ id, text, images, files }) =>
+        Effect.all([prepareImages(images, downscale), prepareFiles(files, home)]).pipe(
+          Effect.flatMap(([readyImages, readyFiles]) => sessions.chatSend(id, text, readyImages, readyFiles)),
+        ),
+      "chat:save-file": (req) => saveAttachment(asDirPath(path.join(userData, "attachments")), req),
       "chat:interrupt": (id) => sessions.chatInterrupt(id),
       "chat:model": ({ id, model }) => sessions.setModel(id, model),
       "chat:effort": ({ id, effort }) => sessions.setEffort(id, effort),

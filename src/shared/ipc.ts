@@ -4,6 +4,7 @@ import { Schema } from "effect"
 import { type Account, type AccountStatus, LoginCode, type LoginProgress } from "./accounts.ts"
 import { ResolveRequest, type ResolvedPath } from "./attachments.ts"
 import type { ChatEvent } from "./chat.ts"
+import { SaveFileRequest } from "./files.ts"
 import { ChatImage } from "./images.ts"
 import { AccountId, DirPath, type FilePath, type HttpUrl, RequestId, SessionId } from "./ids.ts"
 import { OpenCommand } from "./topButtons.ts"
@@ -75,7 +76,8 @@ export const Invoke = {
   "attachment:open": Schema.String,
   "attachment:reveal": Schema.String,
 
-  "chat:send": Schema.Struct({ id: Id, text: Schema.String, images: Schema.Array(ChatImage) }),
+  "chat:send": Schema.Struct({ id: Id, text: Schema.String, images: Schema.Array(ChatImage), files: Schema.Array(Schema.String) }),
+  "chat:save-file": SaveFileRequest,
   "chat:interrupt": Id,
   "chat:model": Schema.Struct({ id: Id, model: Schema.String }),
   "chat:effort": Schema.Struct({ id: Id, effort: Schema.String }),
@@ -149,6 +151,7 @@ export interface InvokeResult {
   "attachment:reveal": void
 
   "chat:send": void
+  "chat:save-file": FilePath
   "chat:interrupt": void
   "chat:model": void
   "chat:effort": void
@@ -184,4 +187,6 @@ export type EventChannel = keyof Events
 export interface Bridge {
   readonly invoke: <C extends InvokeChannel>(channel: C, payload: InvokePayload<C>) => Promise<InvokeResult[C]>
   readonly on: <C extends EventChannel>(channel: C, listener: (payload: Events[C]) => void) => () => void
+  // Disk path of a dropped or picked file, empty when it has none
+  readonly pathForFile: (file: File) => string
 }

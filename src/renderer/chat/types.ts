@@ -1,5 +1,5 @@
 import type { ChatImage } from "../../shared/images.ts"
-import type { DirPath, RequestId, SessionId, TaskId, ToolUseId } from "../../shared/ids.ts"
+import type { DirPath, FilePath, RequestId, SessionId, TaskId, ToolUseId } from "../../shared/ids.ts"
 import type { Json, JsonObject } from "../../shared/json.ts"
 import type { SessionView } from "../../shared/session.ts"
 
@@ -98,6 +98,7 @@ export interface ChatSession {
   readonly working: HTMLElement
   readonly jump: HTMLElement
   readonly attachments: Array<ChatImage>
+  readonly files: Array<FilePath>
   readonly box: HTMLElement
   readonly thumbs: HTMLElement
   readonly attach: HTMLButtonElement

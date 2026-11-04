@@ -79,6 +79,7 @@ export const mount = (info: SessionView, host: HTMLElement) => {
     working: v.working,
     jump: v.jump,
     attachments: [],
+    files: [],
     box: v.box,
     thumbs: v.thumbs,
     attach: v.attach,
