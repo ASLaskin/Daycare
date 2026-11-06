@@ -1,0 +1,12 @@
+{
+  "kind": "task",
+  "taskId": "task-1",
+  "status": "running",
+  "description": "Review",
+  "subagentType": "Explore",
+  "summary": "",
+  "lastTool": "Read",
+  "usage": {
+    "tokens": 10
+  }
+}

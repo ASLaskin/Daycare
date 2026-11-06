@@ -10,7 +10,6 @@ import { Sessions } from "../sessions/Sessions.ts"
 import { MainWindow } from "./Window.ts"
 
 const AUTOSTART_DELAY_MS = 500
-const DEMO_DELAY_MS = 600
 const SNAPSHOT_EVERY_MS = 5000
 
 const Autostart = Schema.Struct({
@@ -19,12 +18,6 @@ const Autostart = Schema.Struct({
   model: Schema.optionalKey(Schema.String),
   effort: Schema.optionalKey(Schema.String),
   permissionMode: Schema.optionalKey(PermissionMode),
-  name: Schema.optionalKey(Schema.String),
-})
-
-const Demo = Schema.Struct({
-  workers: Schema.optionalKey(Schema.Int),
-  cwd: Schema.optionalKey(DirPath),
   name: Schema.optionalKey(Schema.String),
 })
 
@@ -52,20 +45,6 @@ export const devHooks = Effect.gen(function* () {
       ...auto,
     }
     setTimeout(() => run(sessions.createMaster(options)), AUTOSTART_DELAY_MS)
-  }
-
-  // DAYCARE_DEMO: a master with idle workers
-  const demo = env["DAYCARE_DEMO"]
-  if (demo) {
-    const d = fromEnv(Demo, demo)
-    const cwd = d.cwd || asDirPath(os.homedir())
-    const startDemo = Effect.gen(function* () {
-      const m = yield* sessions.createMaster({ task: "", cwd, model: "sonnet", effort: "", permissionMode: "default", ...(d.name ? { name: d.name } : {}) })
-      yield* Effect.forEach(Array.from({ length: d.workers || 0 }, (_, i) => i + 1), (n) =>
-        sessions.create({ role: "worker", name: `Worker ${n}`, cwd, model: "sonnet", effort: "", permissionMode: "default", parentId: m.id }),
-      )
-    })
-    setTimeout(() => run(startDemo), DEMO_DELAY_MS)
   }
 
   // DAYCARE_EVAL: renderer scripts at given delays

@@ -1,0 +1,7 @@
+{
+  "type": "request",
+  "id": 1,
+  "command": {
+    "method": "unregister"
+  }
+}

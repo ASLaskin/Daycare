@@ -1,0 +1,9 @@
+{
+  "type": "request",
+  "id": 1,
+  "key": "k4",
+  "command": {
+    "method": "reopen",
+    "session": "s-master"
+  }
+}

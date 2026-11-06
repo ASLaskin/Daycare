@@ -6,16 +6,26 @@ import { withConfigDir } from "../main/accounts/paths.ts"
 import { StreamNormalizer } from "../main/chat/normalize.ts"
 import { toolTitle } from "../main/chat/content.ts"
 import type { ChatEvent } from "../shared/chat.ts"
+import type { ChatImage } from "../shared/images.ts"
 import type { StoredSession } from "../shared/coordinator.ts"
 import { isEffortLevel } from "../shared/efforts.ts"
 import { asRequestId, asToolUseId, type FilePath, type RequestId } from "../shared/ids.ts"
 import { obj, parseJson, str } from "../shared/json.ts"
+import { withOogaBooga } from "../main/sessions/oogaBooga.ts"
 import { MASTER_PROMPT, WORKER_PROMPT } from "../main/sessions/prompts.ts"
 import { bridge, DAYCARE_TOOLS, TOOL_TIMEOUT_SECONDS } from "./orchestration.ts"
 import { spawnGroup, stopGroup } from "./process.ts"
 import { type Answer, type ProviderHandle, type ProviderUpdate, Refused } from "./provider.ts"
 
 export type QueryFn = (params: { prompt: AsyncIterable<SDKUserMessage>; options: Options }) => AsyncIterable<object> & Pick<Query, "interrupt" | "close" | "setModel" | "applyFlagSettings">
+
+type ContentBlock = Exclude<SDKUserMessage["message"]["content"], string>[number]
+
+const imageParam = (image: ChatImage): ContentBlock => ({ type: "image", source: { type: "base64", media_type: image.mediaType, data: image.data } })
+
+// Plain text, or images followed by the text
+const userContent = (text: string, images: ReadonlyArray<ChatImage>): SDKUserMessage["message"]["content"] =>
+  images.length ? [...images.map(imageParam), ...(text ? [{ type: "text" as const, text }] : [])] : text
 
 // SDK values as plain JSON
 const toJson = (value: object) => parseJson(JSON.stringify(value))
@@ -38,6 +48,7 @@ export const startClaude = (
   claudePath: FilePath,
   update: (u: ProviderUpdate) => void,
   run: QueryFn = query,
+  options: { readonly oogaBooga?: boolean } = {},
 ): ProviderHandle => {
   const nativeId = session.nativeId
   if (!nativeId) {
@@ -120,7 +131,7 @@ export const startClaude = (
     prompt: prompts(),
     options: {
       pathToClaudeCodeExecutable: claudePath,
-      systemPrompt: { type: "preset", preset: "claude_code", append: master ? MASTER_PROMPT : WORKER_PROMPT },
+      systemPrompt: { type: "preset", preset: "claude_code", append: withOogaBooga(master ? MASTER_PROMPT : WORKER_PROMPT, options.oogaBooga === true) },
       // Workers replace Claude's own subagents
       disallowedTools: ["Task", "Agent"],
       ...(master
@@ -181,12 +192,12 @@ export const startClaude = (
   })()
 
   return {
-    input: (text) => {
+    input: (text, images = []) => {
       if (closed) {
         return Promise.reject(new Refused("claude has stopped"))
       }
       return new Promise<void>((confirm, refuse) => {
-        const message: SDKUserMessage = { type: "user", message: { role: "user", content: text }, parent_tool_use_id: null, uuid: crypto.randomUUID() }
+        const message: SDKUserMessage = { type: "user", message: { role: "user", content: userContent(text, images) }, parent_tool_use_id: null, uuid: crypto.randomUUID() }
         inputs.push({ message, confirm, refuse })
         wake()
       })

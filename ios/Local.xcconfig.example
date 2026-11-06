@@ -1,0 +1,7 @@
+// Copy to Local.xcconfig (gitignored) and fill in.
+
+// Team ID from developer.apple.com, Membership details
+DEVELOPMENT_TEAM = ABCDE12345
+
+// Reverse DNS you own; bundle ids become <prefix>.daycare and <prefix>.daycare.widgets
+BUNDLE_ID_PREFIX = com.yourname

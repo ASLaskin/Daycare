@@ -1,14 +1,12 @@
-// Power service with fake osascript, pmset and blocker.
+// Desktop lid closed keep awake with fake osascript and pmset.
 
 import { afterAll, describe, expect, test } from "bun:test"
-import { Effect, Layer, ManagedRuntime } from "effect"
 import { execFileSync, spawn } from "node:child_process"
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
-import type { PowerConfig, PowerInput } from "../src/main/power/config.ts"
-import { Power } from "../src/main/power/Power.ts"
-import { PowerBlocker } from "../src/main/power/PowerBlocker.ts"
+import type { LidInput, LidStatus, PowerConfig } from "../src/main/power/config.ts"
+import { LidMachine } from "../src/main/power/LidMachine.ts"
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "daycare-power-"))
 const log = (name: string) => path.join(root, `${name}.log`)
@@ -34,33 +32,22 @@ const pmset = writeBin(
 
 const config: PowerConfig = { osascript, pmset, sentinel, lidGraceMs: 700, isMac: true }
 
-const started: Array<number> = []
-const stopped: Array<number> = []
-const FakeBlocker = Layer.succeed(
-  PowerBlocker,
-  PowerBlocker.of({
-    start: () => started.push(started.length + 1),
-    stop: (id) => void stopped.push(id),
-    isStarted: (id) => started.length >= id && !stopped.includes(id),
-  }),
-)
-
 const readLog = (name: string) => (fs.existsSync(log(name)) ? fs.readFileSync(log(name), "utf8").trim().split("\n") : [])
 
 const fresh = () => {
-  started.length = 0
-  stopped.length = 0
   const leftovers = [log("osa"), log("pmset"), ...["osa-exit", "sleep-disabled", "lid-release"].map((f) => path.join(root, f))]
   leftovers.forEach((f) => fs.rmSync(f, { force: true }))
-  const runtime = ManagedRuntime.make(Power.layer(config).pipe(Layer.provide(FakeBlocker)))
-  const use = <A>(f: (p: Power["Service"]) => Effect.Effect<A>) => runtime.runPromise(Power.use(f))
+  const machine = new LidMachine(config, () => {})
+  machine.init()
   return {
-    runtime,
-    apply: (input: Partial<PowerInput>) =>
-      use((p) => p.apply({ mode: "while-running", lidClosed: false, activeCount: 0, busyCount: 0, ...input })),
-    status: () => use((p) => p.status),
-    restore: () => use((p) => p.restore),
-    dismissError: () => use((p) => p.dismissError),
+    apply: (input: Partial<LidInput>) => machine.apply({ mode: "while-running", lidClosed: false, busyCount: 0, ...input }),
+    status: () => machine.status(),
+    restore: () => new Promise<LidStatus>((resolve) => machine.restore(resolve)),
+    dismissError: () => {
+      machine.dismissError()
+      return machine.status()
+    },
+    release: () => machine.release(),
   }
 }
 
@@ -73,61 +60,37 @@ const shellFromOsaLine = (line: string) => {
 
 afterAll(() => fs.rmSync(root, { recursive: true, force: true }))
 
-test("the blocker follows working sessions, not open ones", async () => {
-  const p = fresh()
-  await p.apply({ mode: "off", activeCount: 3, busyCount: 3 })
-  expect(started.length).toBe(0)
-  await p.apply({ activeCount: 0, busyCount: 0 })
-  expect(started.length).toBe(0)
-  // Idle session holds nothing
-  await p.apply({ activeCount: 1, busyCount: 0 })
-  expect(started.length).toBe(0)
-  await p.apply({ activeCount: 1, busyCount: 1 })
-  expect((await p.status()).holding).toBe(true)
-  // Second session reuses the assertion
-  await p.apply({ activeCount: 2, busyCount: 1 })
-  expect(started.length).toBe(1)
-  await p.apply({ activeCount: 0, busyCount: 0 })
-  expect((await p.status()).holding).toBe(false)
-  expect(stopped.length).toBe(1)
-  await p.apply({ mode: "always" })
-  expect((await p.status()).holding).toBe(true)
-  // Quit
-  await p.runtime.dispose()
-  expect(stopped.length).toBe(2)
-})
-
 let watchdogScript = ""
 
 test("the lid escalation asks once, holds through the grace window, then lapses", async () => {
   const p = fresh()
-  await p.apply({ activeCount: 1, busyCount: 0, lidClosed: true })
+  p.apply({ busyCount: 0, lidClosed: true })
   await sleep(120)
   expect(readLog("osa").length).toBe(0)
 
-  await p.apply({ activeCount: 1, busyCount: 1, lidClosed: true })
+  p.apply({ busyCount: 1, lidClosed: true })
   await sleep(500)
   const lines = readLog("osa")
   expect(lines.length).toBe(1)
-  expect((await p.status()).lidClosedActive).toBe(true)
+  expect(p.status().active).toBe(true)
   watchdogScript = shellFromOsaLine(lines[0]!)
   expect(watchdogScript).toMatch(/ -a disablesleep 1/)
   expect(watchdogScript).toContain(sentinel)
 
-  await p.apply({ activeCount: 2, busyCount: 2, lidClosed: true })
+  p.apply({ busyCount: 2, lidClosed: true })
   await sleep(120)
   expect(readLog("osa").length).toBe(1)
 
   // Grace window holds, then releases
-  await p.apply({ activeCount: 1, busyCount: 0, lidClosed: true })
+  p.apply({ busyCount: 0, lidClosed: true })
   await sleep(500)
-  expect((await p.status()).lidClosedActive).toBe(true)
+  expect(p.status().active).toBe(true)
   expect(fs.existsSync(sentinel)).toBe(false)
   await sleep(900)
-  expect((await p.status()).lidClosedActive).toBe(false)
+  expect(p.status().active).toBe(false)
   expect(fs.existsSync(sentinel)).toBe(true)
   expect(readLog("osa").length).toBe(1)
-  await p.runtime.dispose()
+  p.release()
 })
 
 // Root watchdog reverting disablesleep
@@ -173,16 +136,16 @@ describe("the watchdog", () => {
 test("a cancelled dialog is reported, not retried, and cleared only when dismissed", async () => {
   const p = fresh()
   fs.writeFileSync(path.join(root, "osa-exit"), "1")
-  await p.apply({ activeCount: 1, busyCount: 1, lidClosed: true })
+  p.apply({ busyCount: 1, lidClosed: true })
   await sleep(200)
-  expect((await p.status()).lidClosedActive).toBe(false)
-  expect((await p.status()).error).not.toBeNull()
-  await p.apply({ activeCount: 1, busyCount: 1, lidClosed: true })
+  expect(p.status().active).toBe(false)
+  expect(p.status().error).not.toBeNull()
+  p.apply({ busyCount: 1, lidClosed: true })
   await sleep(500)
   expect(readLog("osa").length).toBe(1)
-  expect((await p.status()).error).not.toBeNull()
-  expect((await p.dismissError()).error).toBeNull()
-  await p.runtime.dispose()
+  expect(p.status().error).not.toBeNull()
+  expect(p.dismissError().error).toBeNull()
+  p.release()
 })
 
 test(
@@ -190,27 +153,25 @@ test(
   async () => {
     const p = fresh()
     fs.writeFileSync(path.join(root, "sleep-disabled"), "1")
-    await p.status()
     await sleep(250)
     // Not stale yet during the watchdog window
-    expect((await p.status()).stale).toBe(false)
+    expect(p.status().stale).toBe(false)
     await sleep(6200)
-    expect((await p.status()).stale).toBe(true)
-    expect((await p.status()).error).not.toBeNull()
+    expect(p.status().stale).toBe(true)
+    expect(p.status().error).not.toBeNull()
     const after = await p.restore()
     expect(readLog("osa").filter((l) => /disablesleep 0/.test(l)).length).toBe(1)
     expect([after.stale, after.error]).toEqual([false, null])
-    await p.runtime.dispose()
+    p.release()
   },
   { timeout: 10000 },
 )
 
-test("quitting drops the sentinel synchronously and releases the assertion", async () => {
+test("quitting drops the sentinel synchronously", async () => {
   const p = fresh()
-  await p.apply({ activeCount: 1, busyCount: 1, lidClosed: true })
+  p.apply({ busyCount: 1, lidClosed: true })
   await sleep(200)
-  expect((await p.status()).lidClosedActive).toBe(true)
-  await p.runtime.dispose()
+  expect(p.status().active).toBe(true)
+  p.release()
   expect(fs.existsSync(sentinel)).toBe(true)
-  expect(stopped.length).toBe(1)
 })

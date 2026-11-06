@@ -4,6 +4,7 @@ import { afterEach, expect, test } from "bun:test"
 import fs from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
+import { OOGA_BOOGA_REMINDER } from "../src/main/sessions/oogaBooga.ts"
 import { loadHistory, record } from "../src/coordinator/history.ts"
 import { type Launch, makeHub, type Subscriber } from "../src/coordinator/hub.ts"
 import type { Answer, ProviderUpdate } from "../src/coordinator/provider.ts"
@@ -12,7 +13,8 @@ import { DEFAULT_ACCOUNT } from "../src/shared/accounts.ts"
 import type { ChatEvent } from "../src/shared/chat.ts"
 import type { ServerMessage, SessionState } from "../src/shared/coordinator.ts"
 import { asNativeId } from "../src/shared/coordinator.ts"
-import { asAccountId, asDirPath, asRequestId, asSessionId } from "../src/shared/ids.ts"
+import { asAccountId, asDirPath, asFilePath, asRequestId, asSessionId, asToolUseId } from "../src/shared/ids.ts"
+import { asBase64 } from "../src/shared/images.ts"
 import { obj } from "../src/shared/json.ts"
 import { sample, tempDb } from "./fixtures/store.ts"
 
@@ -87,7 +89,7 @@ const answer = (hub: ReturnType<typeof makeHub>, request: string, choice: string
 // Running session with one launched fake provider
 const running = () => {
   const ctx = setup()
-  expect(ctx.hub.command({ method: "send", session: id, text: "go" })).toEqual({ result: { accepted: "coordinator" } })
+  expect(ctx.hub.command({ method: "send", session: id, text: "go", images: [], files: [] })).toEqual({ result: { accepted: "coordinator", entry: 1 } })
   const provider = ctx.fake.launches[0]
   if (!provider) {
     throw new Error("no provider launched")
@@ -97,9 +99,18 @@ const running = () => {
 
 test("send launches once, hands over input and answers with coordinator acceptance only", () => {
   const { hub, fake, provider } = running()
-  hub.command({ method: "send", session: id, text: "again" })
+  hub.command({ method: "send", session: id, text: "again", images: [], files: [] })
   expect(fake.launches.length).toBe(1)
   expect(provider.inputs).toEqual(["go", "again"])
+})
+
+test("ooga booga mode adds a reminder to every turn, including on running providers", () => {
+  const { hub, provider } = running()
+  hub.command({ method: "configure", workerModels: { workerModel: "inherit", autoWorkerModel: true }, workerEfforts: { workerEffort: "inherit", autoWorkerEffort: true }, oogaBooga: true })
+  hub.command({ method: "send", session: id, text: "again", images: [], files: [] })
+  expect(provider.inputs[0]).toBe("go")
+  expect(provider.inputs[1]).toStartWith("again")
+  expect(provider.inputs[1]).toContain(OOGA_BOOGA_REMINDER)
 })
 
 test("the first valid answer wins", () => {
@@ -134,7 +145,7 @@ test("subscribers get a snapshot, then every later event in order", () => {
   expect(history && "events" in history ? history.events.map((e) => e.kind) : null).toEqual(["user", "text", "permission"])
   expect(snapshot.approvals.map((a) => a.request)).toEqual([asRequestId("r")])
   provider.update({ type: "event", event: { kind: "text", block: "c", text: "after" } })
-  expect(received[0]).toEqual({ type: "event", seq: snapshot.seq + 1, event: { kind: "chat", session: id, event: { kind: "text", block: "c", text: "after" } } })
+  expect(received[0]).toEqual({ type: "event", seq: snapshot.seq + 1, event: { kind: "chat", session: id, entry: 4, event: { kind: "text", block: "c", text: "after" } } })
 })
 
 test("a subscriber that can take no more is dropped", () => {
@@ -164,7 +175,7 @@ test("closing stops the provider, withdraws approvals and refuses input", () => 
   expect(hub.command({ method: "close", session: id })).toEqual({ result: {} })
   expect(provider.closed).toBe(true)
   expect(hub.subscribe(() => true).approvals).toEqual([])
-  expect(hub.command({ method: "send", session: id, text: "more" })).toEqual({ error: "session is closed" })
+  expect(hub.command({ method: "send", session: id, text: "more", images: [], files: [] })).toEqual({ error: "session is closed" })
 })
 
 test("restart restores records as interrupted without launching providers", () => {
@@ -207,11 +218,11 @@ test("shutdown refuses new work at once, is idempotent, and survives a failing c
       }
     },
   }))
-  hub.command({ method: "send", session: asSessionId("a"), text: "go" })
-  hub.command({ method: "send", session: asSessionId("b"), text: "go" })
+  hub.command({ method: "send", session: asSessionId("a"), text: "go", images: [], files: [] })
+  hub.command({ method: "send", session: asSessionId("b"), text: "go", images: [], files: [] })
   const first = hub.shutdown()
   expect(hub.shutdown()).toBe(first)
-  expect(hub.command({ method: "send", session: asSessionId("a"), text: "late" })).toEqual({ error: "coordinator is stopping" })
+  expect(hub.command({ method: "send", session: asSessionId("a"), text: "late", images: [], files: [] })).toEqual({ error: "coordinator is stopping" })
   release()
   await first
   expect(closes).toBe(2)
@@ -220,7 +231,7 @@ test("shutdown refuses new work at once, is idempotent, and survives a failing c
 test("updates from a run that is no longer live keep their run and change no state", () => {
   const { conn, hub, fake, provider: first } = running()
   first.update({ type: "exited" })
-  hub.command({ method: "send", session: id, text: "second run" })
+  hub.command({ method: "send", session: id, text: "second run", images: [], files: [] })
   expect(fake.launches.length).toBe(2)
   first.update({ type: "event", event: { kind: "text", block: "late", text: "from run 1" } })
   approval(first.update, "late")
@@ -384,14 +395,14 @@ test("a reopened session cannot start a new provider until the old one has stopp
     launches += 1
     return { input: async () => {}, interrupt: () => {}, answer: () => false, close: () => stopped }
   })
-  hub.command({ method: "send", session: id, text: "first" })
+  hub.command({ method: "send", session: id, text: "first", images: [], files: [] })
   hub.command({ method: "close", session: id })
   hub.command({ method: "reopen", session: id })
-  expect(hub.command({ method: "send", session: id, text: "too soon" })).toEqual({ error: "the session's previous provider has not stopped yet; try again shortly, or restart the coordinator to recover" })
+  expect(hub.command({ method: "send", session: id, text: "too soon", images: [], files: [] })).toEqual({ error: "the session's previous provider has not stopped yet; try again shortly, or restart the coordinator to recover" })
   release()
   await stopped
   await Bun.sleep(0)
-  expect(hub.command({ method: "send", session: id, text: "now" })).toEqual({ result: { accepted: "coordinator" } })
+  expect(hub.command({ method: "send", session: id, text: "now", images: [], files: [] })).toMatchObject({ result: { accepted: "coordinator" } })
   expect(launches).toBe(2)
 })
 
@@ -411,20 +422,20 @@ const closable = () => {
 
 test("a close that fails keeps the session from starting another provider", async () => {
   const { hub, settle, closed } = closable()
-  hub.command({ method: "send", session: id, text: "first" })
+  hub.command({ method: "send", session: id, text: "first", images: [], files: [] })
   hub.command({ method: "close", session: id })
   hub.command({ method: "reopen", session: id })
   settle(true)
   await closed.catch(() => {})
   await Bun.sleep(0)
-  expect(hub.command({ method: "send", session: id, text: "again" })).toEqual({
+  expect(hub.command({ method: "send", session: id, text: "again", images: [], files: [] })).toEqual({
     error: "the session's previous provider has not stopped yet; try again shortly, or restart the coordinator to recover",
   })
 })
 
 test("shutdown also waits for a close that started earlier", async () => {
   const { hub, settle } = closable()
-  hub.command({ method: "send", session: id, text: "first" })
+  hub.command({ method: "send", session: id, text: "first", images: [], files: [] })
   hub.command({ method: "close", session: id })
   let done = false
   const stopping = hub.shutdown().then(() => {
@@ -458,7 +469,7 @@ test("moving a running session stops it and carries its transcript to the new ac
   const transcript = path.join(from, "projects", "-tmp", "n.jsonl")
   fs.mkdirSync(path.dirname(transcript), { recursive: true })
   fs.writeFileSync(transcript, "{}\n")
-  hub.command({ method: "send", session: id, text: "go" })
+  hub.command({ method: "send", session: id, text: "go", images: [], files: [] })
   expect(await hub.move(id, work, to)).toEqual({ result: {} })
   expect(fake.launches[0]?.closed).toBe(true)
   expect(fs.readFileSync(path.join(to, "projects", "-tmp", "n.jsonl"), "utf8")).toBe("{}\n")
@@ -528,4 +539,98 @@ test("codex sessions do not switch models", async () => {
   const conn = db.open()
   createSession(conn, sample("c", "codex", "idle"))
   expect(await makeHub(conn, fakeLaunch().launch).setModel(asSessionId("c"), "haiku")).toEqual({ error: "only claude sessions switch models" })
+})
+
+test("send records images and files on the user event and hands both to the provider", () => {
+  const db = tempDb()
+  dbs.push(db)
+  const conn = db.open()
+  createSession(conn, { ...sample("s", "claude", "idle"), nativeId: asNativeId("n") })
+  const inputs: Array<{ text: string; images: number }> = []
+  const hub = makeHub(conn, () => ({
+    input: async (text, images = []) => {
+      inputs.push({ text, images: images.length })
+    },
+    interrupt: () => {},
+    answer: () => false,
+    close: async () => {},
+  }))
+  const image = { mediaType: "image/png" as const, data: asBase64("iVBORw0KGgo=") }
+  const file = asFilePath("/tmp/data.csv")
+  expect(hub.send(id, { text: "look", images: [image], files: [file] })).toEqual({ accepted: "coordinator", entry: 1 })
+  expect(inputs).toEqual([{ text: "Attached file: /tmp/data.csv\n\nlook", images: 1 }])
+  const rows = hub.page(id, null, 10)?.rows ?? []
+  expect(rows).toEqual([{ entry: 1, event: { kind: "user", text: "look", images: [image], omittedImages: 0, files: [file] } }])
+})
+
+test("observers see every numbered event and state matches the snapshot point", () => {
+  const { hub, fake } = setup()
+  const seen: Array<[number, string]> = []
+  const stop = hub.observe((seq, event) => seen.push([seq, event.kind]))
+  const before = hub.state()
+  expect(before.epoch).toBe(hub.epoch)
+  hub.send(id, { text: "go", images: [], files: [] })
+  fake.launches[0]?.update({ type: "event", event: { kind: "text", block: "b", text: "hi" } })
+  stop()
+  fake.launches[0]?.update({ type: "event", event: { kind: "text", block: "c", text: "later" } })
+  expect(seen[0]?.[0]).toBe(before.seq + 1)
+  expect(seen.map(([, kind]) => kind)).toContain("chat")
+  expect(seen.every(([seq], i) => i === 0 || seq === (seen[i - 1]?.[0] ?? 0) + 1)).toBe(true)
+  expect(hub.subscribe(() => true).epoch).toBe(hub.epoch)
+  expect(hub.summary(id)?.preview).toBe("later")
+})
+
+test("keep awake follows busy sessions, persists its mode and carries the desktop's lid state", () => {
+  const db = tempDb()
+  dbs.push(db)
+  const conn = db.open()
+  createSession(conn, { ...sample("s", "claude", "idle"), nativeId: asNativeId("n") })
+  let held = false
+  const assertion = { hold: () => void (held = true), release: () => void (held = false), held: () => held }
+  const powers: Array<{ holding: boolean; busyCount: number }> = []
+  const fake = fakeLaunch()
+  const hub = makeHub(conn, fake.launch, { assertion })
+  hub.observe((_seq, event) => {
+    if (event.kind === "power") {
+      powers.push({ holding: event.power.holding, busyCount: event.power.busyCount })
+    }
+  })
+  hub.send(id, { text: "go", images: [], files: [] })
+  expect(hub.state().power).toMatchObject({ mode: "while-running", holding: true, busyCount: 1 })
+  fake.launches[0]?.update({ type: "event", event: { kind: "turn-end", isError: false, stopReason: null, costUsd: 0, contextTokens: 0, numTurns: 1, durationMs: 1, text: "" } })
+  expect(hub.state().power).toMatchObject({ holding: false, busyCount: 0 })
+  expect(powers).toEqual([
+    { holding: true, busyCount: 1 },
+    { holding: false, busyCount: 0 },
+  ])
+  hub.command({ method: "power", mode: "always" })
+  hub.command({ method: "lid", lid: { enabled: true, active: false } })
+  expect(hub.state().power).toMatchObject({ mode: "always", holding: true, lidClosed: { enabled: true, active: false } })
+  expect(makeHub(conn, fake.launch).state().power.mode).toBe("always")
+})
+
+test("media a tool writes under the session's cwd becomes a media event and is servable", () => {
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(tmpdir(), "daycare-hub-media-")))
+  dirs.push(dir)
+  const db = tempDb()
+  dbs.push(db)
+  const conn = db.open()
+  createSession(conn, { ...sample("s", "claude", "idle"), nativeId: asNativeId("n"), cwd: asDirPath(dir) })
+  const fake = fakeLaunch()
+  const hub = makeHub(conn, fake.launch)
+  const media: Array<string> = []
+  hub.observe((_seq, event) => {
+    if (event.kind === "media") {
+      media.push(...event.items.map((m) => m.name))
+    }
+  })
+  hub.send(id, { text: "draw", images: [], files: [] })
+  const update = fake.launches[0]!.update
+  update({ type: "event", event: { kind: "tool-start", toolUseId: asToolUseId("w"), name: "Write", title: "", input: { file_path: path.join(dir, "chart.png") }, parentToolUseId: null } })
+  fs.writeFileSync(path.join(dir, "chart.png"), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]))
+  update({ type: "event", event: { kind: "tool-end", toolUseId: asToolUseId("w"), isError: false, content: "ok", structured: null } })
+  expect(media).toEqual(["chart.png"])
+  expect(hub.media(id).map((m) => [m.name, m.mimeType])).toEqual([["chart.png", "image/png"]])
+  expect(hub.resolveMedia(id, path.join(dir, "chart.png"))?.entry).toBe(3)
+  expect(hub.resolveMedia(id, "/etc/hosts")).toBeNull()
 })

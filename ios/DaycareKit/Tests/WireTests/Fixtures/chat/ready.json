@@ -1,0 +1,13 @@
+{
+  "kind": "ready",
+  "claudeSessionId": "c-1",
+  "model": "opus",
+  "cwd": "/Users/me/code/app",
+  "tools": [
+    "Bash",
+    "Read"
+  ],
+  "slashCommands": [
+    "/compact"
+  ]
+}

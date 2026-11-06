@@ -8,9 +8,10 @@ import { SaveFileRequest } from "./files.ts"
 import { ChatImage } from "./images.ts"
 import { AccountId, DirPath, type FilePath, type HttpUrl, RequestId, SessionId } from "./ids.ts"
 import { OpenCommand } from "./topButtons.ts"
+import type { PairingInfo, PairingStatus } from "./mobile.ts"
 import type { PowerStatus } from "./power.ts"
 import { NewMaster, type SessionView } from "./session.ts"
-import { type Settings, SettingsPatch } from "./settings.ts"
+import { KeepAwake, type Settings, SettingsPatch } from "./settings.ts"
 import { RestoreSkill, SetSkillPlugin, SetSkillState, type SkillsListing } from "./skills.ts"
 import type { Usage } from "./usage.ts"
 
@@ -63,8 +64,13 @@ export const Invoke = {
   "window:fullscreen": None,
 
   "power:status": None,
+  "power:mode": KeepAwake,
   "power:restore": None,
   "power:dismiss-error": None,
+
+  "phone:pairing": None,
+  "phone:rotate": None,
+  "phone:setup": None,
 
   "skills:list": None,
   "skills:set": SetSkillState,
@@ -137,8 +143,13 @@ export interface InvokeResult {
   "window:fullscreen": void
 
   "power:status": PowerStatus
+  "power:mode": void
   "power:restore": PowerStatus
   "power:dismiss-error": PowerStatus
+
+  "phone:pairing": PairingStatus
+  "phone:rotate": PairingInfo
+  "phone:setup": PairingInfo
 
   "skills:list": SkillsListing
   "skills:set": SkillsListing

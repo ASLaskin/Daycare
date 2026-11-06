@@ -86,6 +86,13 @@
 .shortcut-keys.fixed { color: var(--muted); border-style: dashed; }
 .shortcut-keys[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent); }
 
+.phone-body { display: flex; gap: 20px; align-items: flex-start; }
+.phone-qr { flex: none; width: 184px; }
+.phone-qr svg { display: block; width: 184px; height: 184px; border-radius: var(--r); }
+.phone-details { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.phone-status { font-weight: 500; overflow-wrap: anywhere; }
+.phone-status.error { color: var(--needs); }
+
 .account-rows { display: flex; flex-direction: column; gap: 6px; }
 .account-row { display: grid; grid-template-columns: 160px 1fr auto auto; gap: 8px; align-items: center; }
 .account-row .account-status { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

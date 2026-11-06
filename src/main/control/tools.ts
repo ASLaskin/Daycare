@@ -15,14 +15,14 @@ export const SpawnSubagent = Schema.Struct({
   model: Schema.optionalKey(
     Schema.String.annotate(
       desc(
-        `Model that fits the task: ${MODEL_GUIDE}. Honored only when the user lets you pick models.`,
+        `Model matched to this task's difficulty: ${MODEL_GUIDE}. Honored only when the user lets you pick models.`,
       ),
     ),
   ),
   effort: Schema.optionalKey(
     Schema.Literals(EFFORT_LEVELS).annotate(
       desc(
-        `Lowest Claude effort level that fits the task: ${EFFORT_GUIDE}. Higher levels cost far more tokens, so default to medium. Honored only when the user lets you pick effort levels.`,
+        `Claude effort level matched to this task's difficulty: ${EFFORT_GUIDE}. Omitted means medium. Honored only when the user lets you pick effort levels.`,
       ),
     ),
   ),

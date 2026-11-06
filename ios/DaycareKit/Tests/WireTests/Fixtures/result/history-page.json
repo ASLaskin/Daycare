@@ -1,0 +1,33 @@
+{
+  "session": "s-master",
+  "rows": [
+    {
+      "entry": 1,
+      "event": {
+        "kind": "user",
+        "text": "Attached file: /tmp/a.png\nLook at this",
+        "images": [
+          {
+            "mediaType": "image/png",
+            "data": "iVBORw0KGgo="
+          }
+        ],
+        "omittedImages": 0,
+        "files": [
+          "/tmp/a.png"
+        ]
+      }
+    },
+    {
+      "entry": 3,
+      "event": {
+        "kind": "text",
+        "block": "b1",
+        "text": "Hello there"
+      }
+    }
+  ],
+  "hasOlder": true,
+  "hasNewer": false,
+  "evicted": true
+}

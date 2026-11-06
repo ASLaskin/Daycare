@@ -1,0 +1,14 @@
+{
+  "type": "event",
+  "seq": 4187,
+  "event": {
+    "kind": "chat",
+    "session": "s-master",
+    "entry": 42,
+    "event": {
+      "kind": "text",
+      "block": "b1",
+      "text": "Hello there"
+    }
+  }
+}

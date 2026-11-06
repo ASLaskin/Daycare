@@ -7,6 +7,7 @@ import { renderAppearance, wireAppearance } from "./settings-appearance.ts"
 import { renderButtons, wireButtons } from "./settings-buttons.ts"
 import { renderGeneral, wireGeneral } from "./settings-general.ts"
 import { renderLayoutPanel, wireLayoutPanel } from "./settings-layout.ts"
+import { hidePhone, showPhone } from "./settings-phone.ts"
 import { cancelRecording, renderShortcuts, wireShortcuts } from "./settings-shortcuts.ts"
 import * as skills from "./skills/index.ts"
 import { initUpdateView } from "./update-view.ts"
@@ -17,6 +18,7 @@ const PANELS = [
   { id: "layout", label: "Layout" },
   { id: "shortcuts", label: "Shortcuts" },
   { id: "accounts", label: "Accounts" },
+  { id: "phone", label: "Phone" },
   { id: "skills", label: "Skills" },
 ] as const
 type Panel = (typeof PANELS)[number]["id"]
@@ -28,6 +30,7 @@ export const isSettingsOpen = () => !view().classList.contains("hidden")
 
 export const closeSettings = () => {
   cancelRecording()
+  hidePhone()
   view().classList.add("hidden")
 }
 
@@ -61,12 +64,20 @@ const showPanel = (id: Panel) => {
   if (id === "accounts") {
     void refreshAccounts()
   }
+  if (id === "phone") {
+    showPhone()
+    return
+  }
+  hidePhone()
 }
 
 const openSettings = () => {
   renderSettings()
   renderTabs()
   view().classList.remove("hidden")
+  if (activePanel === "phone") {
+    showPhone()
+  }
 }
 
 export const toggleSettings = () => (isSettingsOpen() ? closeSettings() : openSettings())

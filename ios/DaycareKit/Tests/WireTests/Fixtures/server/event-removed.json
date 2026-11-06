@@ -1,0 +1,9 @@
+{
+  "type": "event",
+  "seq": 4184,
+  "event": {
+    "kind": "removed",
+    "session": "s-worker",
+    "parentId": "s-master"
+  }
+}

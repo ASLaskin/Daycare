@@ -1,0 +1,9 @@
+{
+  "type": "request",
+  "id": 1,
+  "key": "k8",
+  "command": {
+    "method": "remove",
+    "session": "s-worker"
+  }
+}

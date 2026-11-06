@@ -1,69 +1,37 @@
-// Sessions service: wires state, handlers and background work.
+// Sessions API used by IPC and boot; backed by the coordinator.
 
-import { Context, Effect, Layer, Stream } from "effect"
-import { Accounts } from "../accounts/Accounts.ts"
-import { AppPaths } from "../AppPaths.ts"
-import { Chat } from "../chat/Chat.ts"
-import { ControlHandlers } from "../control/ControlHandlers.ts"
-import { ControlEndpoint } from "../control/ControlServer.ts"
-import { Power } from "../power/Power.ts"
-import { SettingsStore } from "../settings/SettingsStore.ts"
-import { Ui } from "../Ui.ts"
-import { Usage } from "../usage/Usage.ts"
-import { makeChatEventHandler } from "./chatEvents.ts"
-import { makeCore } from "./core.ts"
-import { makeHookHandler } from "./hooks.ts"
-import { makeLifecycle } from "./lifecycle.ts"
-import { makeToolHandler } from "./orchestration.ts"
-import { makeService, type SessionsShape } from "./service.ts"
+import { Context, type Effect } from "effect"
+import type { ChatEvent } from "../../shared/chat.ts"
+import type { ChatImage } from "../../shared/images.ts"
+import type { AccountId, DirPath, FilePath, RequestId, SessionId } from "../../shared/ids.ts"
+import type { PermissionDecision } from "../../shared/ipc.ts"
+import type { NewMaster, SessionView } from "../../shared/session.ts"
+import type { Settings } from "../../shared/settings.ts"
+import type { AccountInUse } from "../accounts/actions.ts"
 
-export type { SessionsShape }
-
-const make = Effect.gen(function* () {
-  const core = makeCore({
-    accounts: yield* Accounts,
-    chat: yield* Chat,
-    power: yield* Power,
-    settings: yield* SettingsStore,
-    usage: yield* Usage,
-    ui: yield* Ui,
-    endpoint: yield* ControlEndpoint,
-    paths: yield* AppPaths,
-  })
-  const lifecycle = makeLifecycle(core)
-  const onChatEvent = makeChatEventHandler(core, lifecycle)
-  const onHook = makeHookHandler(core)
-  const { chat, settings } = core.deps
-
-  yield* chat.subscribe.pipe(
-    Effect.flatMap((events) => Stream.runForEach(events, ({ id, event }) => Effect.sync(() => onChatEvent(id, event)))),
-    Effect.forkScoped,
-  )
-
-  yield* settings.changes.pipe(
-    Effect.flatMap((changes) => Stream.runForEach(changes, () => Effect.sync(core.syncPower))),
-    Effect.forkScoped,
-  )
-
-  // Save sessions on quit
-  yield* Effect.addFinalizer(() =>
-    Effect.sync(() => {
-      core.quit()
-      core.persist()
-    }),
-  )
-
-  const handlers = ControlHandlers.of({
-    hook: (id, payload) => Effect.sync(() => onHook(id, payload)),
-    tool: makeToolHandler(core, lifecycle),
-  })
-
-  return { service: makeService(core, lifecycle), handlers }
-})
-
-export class Sessions extends Context.Service<Sessions, SessionsShape>()("daycare/Sessions") {
-  // Also provides ControlHandlers
-  static readonly layer = Layer.effectContext(
-    make.pipe(Effect.map(({ service, handlers }) => Context.make(Sessions, service).pipe(Context.add(ControlHandlers, handlers)))),
-  )
+export interface SessionsShape {
+  readonly list: Effect.Effect<ReadonlyArray<SessionView>>
+  readonly get: (id: SessionId) => Effect.Effect<SessionView | null>
+  readonly createMaster: (options: NewMaster) => Effect.Effect<SessionView>
+  readonly rename: (id: SessionId, name: string) => Effect.Effect<void>
+  readonly close: (id: SessionId) => Effect.Effect<void>
+  readonly reopen: (id: SessionId) => Effect.Effect<void>
+  // Workers only; archived ones keep their transcript
+  readonly archive: (id: SessionId) => Effect.Effect<void>
+  readonly unarchive: (id: SessionId) => Effect.Effect<void>
+  readonly remove: (id: SessionId) => Effect.Effect<void>
+  readonly chatSend: (id: SessionId, text: string, images: ReadonlyArray<ChatImage>, files: ReadonlyArray<FilePath>) => Effect.Effect<void>
+  readonly chatInterrupt: (id: SessionId) => Effect.Effect<void>
+  readonly setModel: (id: SessionId, model: string) => Effect.Effect<void>
+  readonly setEffort: (id: SessionId, effort: string) => Effect.Effect<void>
+  readonly chatRespond: (id: SessionId, requestId: RequestId, decision: PermissionDecision) => Effect.Effect<boolean>
+  readonly chatHistory: (id: SessionId) => Effect.Effect<ReadonlyArray<ChatEvent>>
+  readonly switchAccount: (to: AccountId) => Effect.Effect<Settings>
+  readonly removeAccount: (id: AccountId) => Effect.Effect<Settings, AccountInUse>
+  // Folders whose project skills apply
+  readonly projectDirs: Effect.Effect<ReadonlyArray<DirPath>>
+  // Interrupts running work
+  readonly restartCoordinator: Effect.Effect<void>
 }
+
+export class Sessions extends Context.Service<Sessions, SessionsShape>()("daycare/Sessions") {}

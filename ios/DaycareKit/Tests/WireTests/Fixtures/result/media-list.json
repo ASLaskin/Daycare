@@ -1,0 +1,32 @@
+{
+  "session": "s-master",
+  "items": [
+    {
+      "path": "/Users/me/code/app/out/demo.mp4",
+      "name": "demo.mp4",
+      "mimeType": "video/mp4",
+      "kind": "video",
+      "size": 4812000,
+      "modifiedAt": 1762300040000,
+      "entry": 40
+    },
+    {
+      "path": "/tmp/shot.png",
+      "name": "shot.png",
+      "mimeType": "image/png",
+      "kind": "image",
+      "size": 4812000,
+      "modifiedAt": 1762300040000,
+      "entry": 12
+    },
+    {
+      "path": "/Users/me/code/app/song.m4a",
+      "name": "song.m4a",
+      "mimeType": "audio/mp4",
+      "kind": "audio",
+      "size": 4812000,
+      "modifiedAt": 1762300040000,
+      "entry": null
+    }
+  ]
+}

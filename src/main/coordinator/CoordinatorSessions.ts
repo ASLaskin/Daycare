@@ -1,30 +1,38 @@
-// Sessions backed by the coordinator.
+// Sessions and keep awake backed by the coordinator.
 
 import { Context, Effect, Layer, Schema } from "effect"
+import path from "node:path"
 import { activeAccountOf, DEFAULT_ACCOUNT } from "../../shared/accounts.ts"
 import type { ChatEvent } from "../../shared/chat.ts"
-import { fileRefText } from "../../shared/files.ts"
 import { Accepted, type Approval, type Command, Created, type LiveSession, type SessionHistory } from "../../shared/coordinator.ts"
 import { asSessionId, type RequestId, type SessionId } from "../../shared/ids.ts"
 import type { NewMaster, SessionView } from "../../shared/session.ts"
 import { Accounts } from "../accounts/Accounts.ts"
-import { ControlHandlers } from "../control/ControlHandlers.ts"
-import { ToolError } from "../control/mcp.ts"
+import { defaultPowerConfig } from "../power/config.ts"
+import { makePower, Power } from "../power/Power.ts"
 import { Sessions, type SessionsShape } from "../sessions/Sessions.ts"
 import { defaultMasterName, nextIcon } from "../sessions/naming.ts"
-import { deleteDetail } from "../sessions/service.ts"
 import { SettingsStore } from "../settings/SettingsStore.ts"
 import { Ui } from "../Ui.ts"
+import { Usage } from "../usage/Usage.ts"
 import { runtimeDir, socketPath } from "../../shared/runtime.ts"
 import { AppPaths } from "../AppPaths.ts"
 import { makeCoordinatorAccounts } from "./accounts.ts"
+import { makeCatalogSync } from "./catalog.ts"
+import { makeAlerts } from "./alerts.ts"
 import { connect } from "./client.ts"
 import { restartCoordinator, startCoordinator } from "./launch.ts"
 import { coordinatorSetup } from "./paths.ts"
+import { makePhone, Phone } from "./Phone.ts"
 import { pick, view } from "./view.ts"
 import { makeWorkerModelsSync } from "./workerModels.ts"
 
 const approvalKey = (session: SessionId, request: RequestId) => `${session} ${request}`
+
+export const deleteDetail = (workers: number) =>
+  workers
+    ? `This ends it and its ${workers} worker${workers === 1 ? "" : "s"} and removes them from Daycare.`
+    : "This ends it and removes it from Daycare."
 
 // Retained events as the renderer draws them
 const restored = (h: SessionHistory): Array<ChatEvent> => {
@@ -39,7 +47,8 @@ const make = (version: string) =>
     const ui = yield* Ui
     const settingsStore = yield* SettingsStore
     const accounts = yield* Accounts
-    const { appRoot, home } = yield* AppPaths
+    const usage = yield* Usage
+    const { appRoot, home, userData } = yield* AppPaths
     // Why the coordinator failed to start
     let launchError: string | null = null
     const setup = () => coordinatorSetup(appRoot, home)
@@ -90,12 +99,27 @@ const make = (version: string) =>
     const remember = (a: Approval) => choices.set(approvalKey(a.session, a.request), a.choices)
 
     const workerModels = makeWorkerModelsSync(settingsStore, (command) => client.request(command))
+    const catalog = makeCatalogSync(settingsStore, accounts.configDir, (command) => client.request(command))
+
+    const power = yield* makePower({
+      config: defaultPowerConfig(path.join(userData, "lid-release")),
+      settings: settingsStore,
+      request: (command) => client.request(command),
+      settingsFile: path.join(userData, "settings.json"),
+    })
+
+    const alert = makeAlerts({ ui, usage, session: (id) => sessions.get(id) })
 
     const client = connect(socketPath(runtimeDir(process.env)), version, {
       status: (status) => {
         ui.send("coordinator:status", status.state === "unavailable" && launchError ? { state: "unavailable", message: launchError } : status)
         if (status.state === "connected") {
           void Effect.runFork(workerModels.pushCurrent)
+          void Effect.runFork(catalog.pushCurrent)
+          power.onConnect()
+        }
+        if (status.state === "unavailable") {
+          power.onDisconnect()
         }
       },
       snapshot: (snapshot) => {
@@ -111,9 +135,11 @@ const make = (version: string) =>
         })
         choices.clear()
         snapshot.approvals.forEach(remember)
+        power.onState(snapshot.power)
         void Effect.runFork(coordinatorAccounts.rehome(snapshot.sessions))
       },
       event: (event) => {
+        alert(event)
         switch (event.kind) {
           case "session":
             track(event.session)
@@ -131,11 +157,18 @@ const make = (version: string) =>
             cache(event.session, event.event)
             ui.send("chat:event", { id: event.session, event: event.event })
             return
+          case "power":
+            power.onState(event.power)
+            return
+          case "media":
+          case "catalog":
+            return
         }
       },
     })
     yield* Effect.addFinalizer(() => Effect.sync(client.close))
     yield* workerModels.follow
+    yield* catalog.follow
 
     const request = (command: Command) => Effect.promise(() => client.request(command))
 
@@ -189,7 +222,6 @@ const make = (version: string) =>
       ...coordinatorAccounts.actions,
       list: Effect.sync(() => [...sessions.values()]),
       get: (id) => Effect.sync(() => sessions.get(id) ?? null),
-      create: () => Effect.die(new Error("worker sessions are created by the coordinator")),
       createMaster,
       rename: (id, name) => request({ method: "rename", session: id, name }).pipe(Effect.asVoid),
       close: (id) => request({ method: "close", session: id }).pipe(Effect.asVoid),
@@ -211,9 +243,8 @@ const make = (version: string) =>
           }
         }),
       // Resolves on coordinator acceptance, not provider delivery
-      // Files ride along as path lines in the text
-      chatSend: (id, text, _images, files) =>
-        request({ method: "send", session: id, text: [...files.map(fileRefText), text].filter(Boolean).join("\n\n") }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Accepted)), Effect.orDie, Effect.asVoid),
+      chatSend: (id, text, images, files) =>
+        request({ method: "send", session: id, text, images, files }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Accepted)), Effect.orDie, Effect.asVoid),
       chatInterrupt: (id) => request({ method: "interrupt", session: id }).pipe(Effect.asVoid),
       setModel: (id, model) => request({ method: "model", session: id, model }).pipe(Effect.asVoid),
       setEffort: (id, effort) => request({ method: "effort", session: id, effort }).pipe(Effect.asVoid),
@@ -236,7 +267,6 @@ const make = (version: string) =>
         )
       },
       chatHistory: (id) => Effect.sync(() => history.get(id) ?? []),
-      restore: Effect.void,
       restartCoordinator: Effect.tryPromise(() => restartCoordinator(setup(), home)).pipe(
         Effect.tap(() =>
           Effect.sync(() => {
@@ -245,18 +275,20 @@ const make = (version: string) =>
         ),
         Effect.orDie,
       ),
-      projectDirs: Effect.sync(() => [...new Set([...sessions.values()].map((s) => s.cwd))]),
+      projectDirs: Effect.gen(function* () {
+        const current = yield* settingsStore.get
+        const dirs = [...[...sessions.values()].map((s) => s.cwd), ...current.locations.map((l) => l.path)]
+        return [...new Set(dirs.filter(Boolean))]
+      }),
     }
 
-    const handlers = ControlHandlers.of({
-      hook: () => Effect.void,
-      tool: () => Effect.fail(new ToolError({ message: "orchestration runs in the coordinator" })),
-    })
-    return { service, handlers }
+    return { service, power: power.service, phone: makePhone((command) => client.request(command)) }
   })
 
-// Also provides ControlHandlers, as Sessions.layer does
+// Sessions, Power and Phone share one coordinator connection
 export const coordinatorSessions = (version: string) =>
   Layer.effectContext(
-    make(version).pipe(Effect.map(({ service, handlers }) => Context.make(Sessions, service).pipe(Context.add(ControlHandlers, handlers)))),
+    make(version).pipe(
+      Effect.map(({ service, power, phone }) => Context.make(Sessions, service).pipe(Context.add(Power, power), Context.add(Phone, phone))),
+    ),
   )

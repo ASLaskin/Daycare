@@ -1,0 +1,12 @@
+{
+  "type": "request",
+  "id": 1,
+  "key": "k2",
+  "command": {
+    "method": "answer",
+    "session": "s-master",
+    "request": "req-1",
+    "choice": "deny",
+    "message": "Not now"
+  }
+}

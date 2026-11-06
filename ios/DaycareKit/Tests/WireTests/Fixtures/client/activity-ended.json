@@ -1,0 +1,8 @@
+{
+  "type": "request",
+  "id": 1,
+  "command": {
+    "method": "activity-ended",
+    "activity": "act-1"
+  }
+}

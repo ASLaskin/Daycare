@@ -1,0 +1,17 @@
+{
+  "type": "snapshot",
+  "epoch": "ep-1",
+  "seq": 0,
+  "sessions": [],
+  "approvals": [],
+  "power": {
+    "mode": "while-running",
+    "holding": true,
+    "busyCount": 2,
+    "battery": null,
+    "lidClosed": null,
+    "error": null
+  },
+  "catalog": null,
+  "unavailable": []
+}

@@ -1,0 +1,28 @@
+{
+  "kind": "permission",
+  "requestId": "req-1",
+  "toolUseId": "tool-1",
+  "name": "Bash",
+  "title": "Run npm test",
+  "input": {
+    "command": "npm test",
+    "timeout": 120
+  },
+  "description": "Runs the test suite",
+  "suggestions": [
+    {
+      "type": "addRules",
+      "rules": [
+        {
+          "toolName": "Bash"
+        }
+      ]
+    }
+  ],
+  "requiresUserInteraction": false,
+  "choices": [
+    "allow",
+    "always",
+    "deny"
+  ]
+}

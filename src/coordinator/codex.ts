@@ -5,9 +5,11 @@ import pkg from "../../package.json" with { type: "json" }
 import type { ChatEvent } from "../shared/chat.ts"
 import { asNativeId, type StoredSession } from "../shared/coordinator.ts"
 import { asRequestId, type FilePath, type RequestId } from "../shared/ids.ts"
+import { type ChatImage, imageDataUrl } from "../shared/images.ts"
 import { at, type Json, type JsonObject, obj, parseJson, str } from "../shared/json.ts"
 import { lineSplitter } from "../shared/lines.ts"
 import type { PermissionMode } from "../shared/session.ts"
+import { withOogaBooga } from "../main/sessions/oogaBooga.ts"
 import { MASTER_PROMPT, WORKER_PROMPT } from "../main/sessions/prompts.ts"
 import { codexEvents } from "./codexEvents.ts"
 import { codexRequest } from "./codexRequests.ts"
@@ -34,14 +36,26 @@ const UNSANDBOXED_NOTICE =
 
 type Spawn = typeof spawnGroup
 
-export const startCodex = (session: StoredSession, codexPath: FilePath, update: (u: ProviderUpdate) => void, spawn: Spawn = spawnGroup): ProviderHandle => {
+// Text then data url images, as turn/start takes them
+export const turnInput = (text: string, images: ReadonlyArray<ChatImage>): Json => [
+  { type: "text", text },
+  ...images.map((image) => ({ type: "image", url: imageDataUrl(image) })),
+]
+
+export const startCodex = (
+  session: StoredSession,
+  codexPath: FilePath,
+  update: (u: ProviderUpdate) => void,
+  spawn: Spawn = spawnGroup,
+  options: { readonly oogaBooga?: boolean } = {},
+): ProviderHandle => {
   if (!session.nativeId && session.state !== "creating") {
     throw new Error("codex session has no thread: its creation is incomplete")
   }
   const child = spawn(codexPath, ["app-server"], { cwd: session.cwd, env: process.env })
   const pending = new Map<number, { readonly resolve: (result: Json) => void; readonly reject: (e: Error) => void }>()
   const approvals = new Map<RequestId, { readonly id: Json; readonly reply: (answer: Answer) => Json | null }>()
-  const queued: Array<{ readonly text: string; readonly resolve: () => void; readonly reject: (e: Error) => void }> = []
+  const queued: Array<{ readonly text: string; readonly images: ReadonlyArray<ChatImage>; readonly resolve: () => void; readonly reject: (e: Error) => void }> = []
   let thread: string | null = null
   let turn: string | null = null
   let unsandboxed = false
@@ -87,8 +101,8 @@ export const startCodex = (session: StoredSession, codexPath: FilePath, update: 
   // Unsandboxed sessions ask before unsafe commands
   const approvalPolicy = () => (unsandboxed ? "untrusted" : POLICY[session.permissionMode].approvalPolicy)
 
-  const startTurn = (text: string): Promise<void> =>
-    request("turn/start", { threadId: thread, input: [{ type: "text", text }], approvalPolicy: approvalPolicy() }).then(
+  const startTurn = (text: string, images: ReadonlyArray<ChatImage>): Promise<void> =>
+    request("turn/start", { threadId: thread, input: turnInput(text, images), approvalPolicy: approvalPolicy() }).then(
       () => undefined,
       (e: Error) => {
         fail(`turn/start: ${e.message}`)
@@ -197,7 +211,7 @@ export const startCodex = (session: StoredSession, codexPath: FilePath, update: 
       cwd: session.cwd,
       approvalPolicy: approvalPolicy(),
       sandbox: POLICY[session.permissionMode].sandbox,
-      developerInstructions: master ? MASTER_PROMPT : WORKER_PROMPT,
+      developerInstructions: withOogaBooga(master ? MASTER_PROMPT : WORKER_PROMPT, options.oogaBooga === true),
       ...(session.model ? { model: session.model } : {}),
       ...(master ? { config: { mcp_servers: { daycare: { ...bridge(session.id), tool_timeout_sec: TOOL_TIMEOUT_SECONDS } } } } : {}),
     }
@@ -216,7 +230,7 @@ export const startCodex = (session: StoredSession, codexPath: FilePath, update: 
     }
     update({ type: "created" })
     thread = id
-    queued.splice(0).forEach((q) => startTurn(q.text).then(q.resolve, q.reject))
+    queued.splice(0).forEach((q) => startTurn(q.text, q.images).then(q.resolve, q.reject))
   }
 
   open().catch((e: Error) => {
@@ -226,14 +240,14 @@ export const startCodex = (session: StoredSession, codexPath: FilePath, update: 
   })
 
   return {
-    input: (text) => {
+    input: (text, images = []) => {
       if (ended) {
         return Promise.reject(new Refused("codex has stopped"))
       }
       if (thread) {
-        return startTurn(text)
+        return startTurn(text, images)
       }
-      return new Promise<void>((resolve, reject) => queued.push({ text, resolve, reject }))
+      return new Promise<void>((resolve, reject) => queued.push({ text, images, resolve, reject }))
     },
     interrupt: () => {
       if (thread && turn) {

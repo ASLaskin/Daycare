@@ -1,0 +1,9 @@
+{
+  "kind": "tool-end",
+  "toolUseId": "tool-1",
+  "isError": false,
+  "content": "3 passed",
+  "structured": {
+    "passed": 3
+  }
+}

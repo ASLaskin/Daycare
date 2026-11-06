@@ -1,0 +1,10 @@
+{
+  "type": "request",
+  "id": 1,
+  "key": "k11",
+  "command": {
+    "method": "effort",
+    "session": "s-master",
+    "effort": "low"
+  }
+}

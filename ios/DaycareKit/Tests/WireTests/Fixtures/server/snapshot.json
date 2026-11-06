@@ -1,0 +1,160 @@
+{
+  "type": "snapshot",
+  "epoch": "ep-1",
+  "seq": 4182,
+  "sessions": [
+    {
+      "id": "s-master",
+      "provider": "claude",
+      "nativeId": "native-1",
+      "role": "master",
+      "parentId": null,
+      "name": "Ada",
+      "icon": "fox",
+      "cwd": "/Users/me/code/app",
+      "model": "opus",
+      "effort": "high",
+      "permissionMode": "default",
+      "state": "running",
+      "closed": false,
+      "archived": false,
+      "error": null,
+      "createdAt": 1762300000000,
+      "run": 2,
+      "accountId": "default",
+      "configDir": null,
+      "live": true,
+      "lastEntry": 41,
+      "lastEventAt": 1762300050000,
+      "preview": "Looking at the tests now"
+    },
+    {
+      "id": "s-worker",
+      "provider": "claude",
+      "nativeId": null,
+      "role": "worker",
+      "parentId": "s-master",
+      "name": "Bo",
+      "icon": null,
+      "cwd": "/Users/me/code/app",
+      "model": null,
+      "effort": null,
+      "permissionMode": "default",
+      "state": "idle",
+      "closed": false,
+      "archived": false,
+      "error": null,
+      "createdAt": 1762300000000,
+      "run": 2,
+      "accountId": "default",
+      "configDir": "/Users/me/.claude-work",
+      "live": false,
+      "lastEntry": null,
+      "lastEventAt": null,
+      "preview": null
+    }
+  ],
+  "approvals": [
+    {
+      "session": "s-master",
+      "request": "req-1",
+      "choices": [
+        "allow",
+        "always",
+        "deny"
+      ],
+      "event": {
+        "kind": "permission",
+        "requestId": "req-1",
+        "toolUseId": "tool-1",
+        "name": "Bash",
+        "title": "Run npm test",
+        "input": {
+          "command": "npm test",
+          "timeout": 120
+        },
+        "description": "Runs the test suite",
+        "suggestions": [
+          {
+            "type": "addRules",
+            "rules": [
+              {
+                "toolName": "Bash"
+              }
+            ]
+          }
+        ],
+        "requiresUserInteraction": false,
+        "choices": [
+          "allow",
+          "always",
+          "deny"
+        ]
+      }
+    }
+  ],
+  "power": {
+    "mode": "while-running",
+    "holding": true,
+    "busyCount": 2,
+    "battery": {
+      "percent": 64,
+      "pluggedIn": false,
+      "charging": false,
+      "minutesRemaining": 185,
+      "readAt": 1762300000000
+    },
+    "lidClosed": {
+      "enabled": false,
+      "active": false
+    },
+    "error": null
+  },
+  "catalog": {
+    "locations": [
+      {
+        "label": "app",
+        "path": "/Users/me/code/app"
+      }
+    ],
+    "accounts": [
+      {
+        "id": "default",
+        "label": "Default"
+      },
+      {
+        "id": "work",
+        "label": "Work"
+      }
+    ],
+    "activeAccount": "default",
+    "defaultLocation": "/Users/me/code/app",
+    "provider": "claude",
+    "model": "opus",
+    "effort": "high",
+    "permissionMode": "acceptEdits",
+    "models": [
+      {
+        "id": "opus",
+        "label": "Opus"
+      },
+      {
+        "id": "sonnet",
+        "label": "Sonnet"
+      }
+    ],
+    "efforts": [
+      {
+        "id": "low",
+        "label": "Low"
+      },
+      {
+        "id": "high",
+        "label": "High"
+      }
+    ]
+  },
+  "unavailable": [
+    "codex"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "type": "request",
+  "id": 1,
+  "key": "k10",
+  "command": {
+    "method": "model",
+    "session": "s-master",
+    "model": "sonnet"
+  }
+}

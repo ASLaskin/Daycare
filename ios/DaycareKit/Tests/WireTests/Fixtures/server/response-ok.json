@@ -1,0 +1,9 @@
+{
+  "type": "response",
+  "id": 7,
+  "result": {
+    "accepted": "coordinator",
+    "entry": 43
+  },
+  "replayed": true
+}

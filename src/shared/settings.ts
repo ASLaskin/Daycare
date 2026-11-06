@@ -18,6 +18,8 @@ export type Location = typeof Location.Type
 
 export const KeepAwake = Schema.Literals(["off", "while-running", "always"])
 export type KeepAwake = typeof KeepAwake.Type
+// Coordinator mode until a client sets one
+export const DEFAULT_KEEP_AWAKE: KeepAwake = "while-running"
 
 export const AppIcon = Schema.Literals(["random", "block", "sleepybot", "house"])
 export const Motion = Schema.Literals(["off", "fast", "normal", "slow"])
@@ -46,7 +48,7 @@ export const Settings = Schema.Struct({
   oogaBooga: Schema.Boolean,
   // Coordinator only
   provider: Provider,
-  keepAwake: KeepAwake,
+  // Desktop only; the keep awake mode lives in the coordinator
   keepAwakeLidClosed: Schema.Boolean,
   appIcon: AppIcon,
   railOpen: Schema.Boolean,
@@ -98,7 +100,6 @@ export const baseSettings: Omit<Settings, "locations"> = {
   permissionMode: "default",
   oogaBooga: false,
   provider: "claude",
-  keepAwake: "while-running",
   keepAwakeLidClosed: false,
   appIcon: "random",
   railOpen: false,

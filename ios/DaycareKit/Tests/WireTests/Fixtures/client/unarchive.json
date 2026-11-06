@@ -1,0 +1,9 @@
+{
+  "type": "request",
+  "id": 1,
+  "key": "k6",
+  "command": {
+    "method": "unarchive",
+    "session": "s-worker"
+  }
+}

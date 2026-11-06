@@ -175,20 +175,20 @@
 
           <div class="card">
             <div class="card-title">Keep the Mac awake</div>
-            <div class="hint">Daycare keeps your Mac from sleeping only while a session is actually working. Sessions that are idle, done, or waiting on you let it sleep as normal. The display is still free to turn off.</div>
+            <div class="hint">Daycare keeps your Mac from sleeping only while a session is actually working. Sessions that are idle, done, or waiting on you let it sleep as normal. The display is still free to turn off and the screen may lock. This works with the window closed, and the phone app can change it too.</div>
             <div class="field-grid two">
               <label>Stay awake
                 <select id="set-keep-awake">
                   <option value="off">Never</option>
                   <option value="while-running">While a session is working</option>
-                  <option value="always">Whenever Daycare is open</option>
+                  <option value="always">Always</option>
                 </select>
               </label>
             </div>
             <label id="keep-awake-lid-row" class="toggle-row">
               <div>
                 <div class="toggle-label">Keep going with the lid closed</div>
-                <div class="hint">macOS sleeps on lid close whatever an app asks for, so this flips the system sleep switch instead and asks for your admin password once, when a session starts working. Normal sleep comes back 10 minutes after the last session stops working, and when Daycare quits or crashes.</div>
+                <div class="hint">macOS sleeps on lid close whatever an app asks for, so this flips the system sleep switch instead and asks for your admin password once, when a session starts working. Normal sleep comes back 10 minutes after the last session stops working, and when the Daycare app quits or crashes. Only this Mac can turn it on.</div>
               </div>
               <input type="checkbox" id="set-keep-awake-lid" class="switch" />
             </label>
@@ -377,6 +377,10 @@
               <button type="submit" class="ghost">Add and log in</button>
             </form>
           </div>
+        </div>
+
+        <div id="panel-phone" class="settings-panel hidden">
+          <div id="phone-panel"></div>
         </div>
 
         <div id="panel-skills" class="settings-panel hidden">

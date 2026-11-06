@@ -1,6 +1,7 @@
 // Settings general panel.
 
-import type { Settings } from "../shared/settings.ts"
+import type { KeepAwake, Settings } from "../shared/settings.ts"
+import { api } from "./api.ts"
 import { $ } from "./dom.ts"
 import { previewDings } from "./ding.ts"
 import { input, onSelect, onToggle, select } from "./fields.ts"
@@ -15,9 +16,7 @@ export const renderGeneral = () => {
   input("set-ask").checked = s.askOnNew
   input("set-random-names").checked = s.randomNames
   input("set-done-sounds").checked = s.doneSounds
-  select("set-keep-awake").value = s.keepAwake
   input("set-keep-awake-lid").checked = s.keepAwakeLidClosed
-  $("#keep-awake-lid-row").classList.toggle("collapsed", s.keepAwake === "off")
   locationOptions(select("set-default-location"), s.defaultLocation)
   select("set-provider").value = s.provider
   select("set-master-model").value = s.masterModel
@@ -65,5 +64,5 @@ export const wireGeneral = () => {
   onSelect("set-worker-effort", (workerEffort) => saveSettings({ workerEffort }))
   onToggle("set-auto-worker-effort", (autoWorkerEffort) => saveSettings({ autoWorkerEffort }))
   onSelect("set-permission", (v) => saveSettings({ permissionMode: v as Settings["permissionMode"] }))
-  onSelect("set-keep-awake", (v) => saveSettings({ keepAwake: v as Settings["keepAwake"] }))
+  onSelect("set-keep-awake", (v) => api.setPowerMode(v as KeepAwake))
 }

@@ -1,0 +1,11 @@
+Daycare.xcodeproj/
+Local.xcconfig
+DaycareKit/.build/
+DaycareKit/.swiftpm/
+build/
+DerivedData/
+xcuserdata/
+Daycare/Info.plist
+Daycare/Daycare.entitlements
+DaycareWidgets/Info.plist
+DaycareWidgets/DaycareWidgets.entitlements

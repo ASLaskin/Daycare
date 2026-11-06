@@ -2,10 +2,11 @@
 
 import { Database } from "bun:sqlite"
 import { Result, Schema } from "effect"
+import { DesktopCatalog } from "../shared/catalog.ts"
 import { type SessionState, StoredSession, WorkerEfforts, WorkerModels } from "../shared/coordinator.ts"
 import type { FilePath, SessionId } from "../shared/ids.ts"
-import { parseJson } from "../shared/json.ts"
-import { baseSettings } from "../shared/settings.ts"
+import { type Json, parseJson } from "../shared/json.ts"
+import { baseSettings, KeepAwake } from "../shared/settings.ts"
 
 const MIGRATIONS = [
   `CREATE TABLE sessions (
@@ -42,6 +43,32 @@ const MIGRATIONS = [
   `CREATE TABLE config (key TEXT PRIMARY KEY, value TEXT NOT NULL);`,
   `ALTER TABLE sessions ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;`,
   `ALTER TABLE sessions ADD COLUMN effort TEXT;`,
+  `ALTER TABLE sessions ADD COLUMN last_entry INTEGER NOT NULL DEFAULT 0;
+  UPDATE sessions SET last_entry = (SELECT COALESCE(MAX(seq), 0) FROM history WHERE session_id = sessions.id);
+  ALTER TABLE history ADD COLUMN at INTEGER;`,
+  `CREATE TABLE mobile_requests (
+    key TEXT NOT NULL,
+    device TEXT NOT NULL,
+    method TEXT NOT NULL,
+    result TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (device, key)
+  ) WITHOUT ROWID;
+  CREATE INDEX mobile_requests_created ON mobile_requests(created_at);
+  CREATE TABLE mobile_devices (
+    device TEXT PRIMARY KEY,
+    apns_token TEXT NOT NULL,
+    environment TEXT NOT NULL,
+    push_to_start TEXT,
+    kinds TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+  CREATE TABLE mobile_activities (
+    activity TEXT PRIMARY KEY,
+    device TEXT NOT NULL,
+    token TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
+  );`,
 ]
 
 // Active sessions become interrupted, attempted creations incomplete
@@ -196,23 +223,29 @@ export const getSession = (db: Database, id: SessionId): Loaded | null => {
   return row ? decode(row) : null
 }
 
+const readConfig = (db: Database, key: string): Json | null => {
+  const row = db.query<{ value: string }, { key: string }>("SELECT value FROM config WHERE key = $key").get({ key })
+  return row ? parseJson(row.value) : null
+}
+
+const writeConfig = (db: Database, key: string, value: Json) => {
+  db.query("INSERT INTO config (key, value) VALUES ($key, $value) ON CONFLICT (key) DO UPDATE SET value = $value").run({
+    key,
+    value: JSON.stringify(value),
+  })
+}
+
 const WORKER_MODELS = "worker_models"
 
 const decodeWorkerModels = Schema.decodeUnknownResult(WorkerModels)
 
 // Last pushed by the app, else the app's defaults
 export const loadWorkerModels = (db: Database): WorkerModels => {
-  const row = db.query<{ value: string }, { key: string }>("SELECT value FROM config WHERE key = $key").get({ key: WORKER_MODELS })
-  const decoded = decodeWorkerModels(row ? parseJson(row.value) : null)
+  const decoded = decodeWorkerModels(readConfig(db, WORKER_MODELS))
   return Result.isSuccess(decoded) ? decoded.success : { workerModel: baseSettings.workerModel, autoWorkerModel: baseSettings.autoWorkerModel }
 }
 
-export const saveWorkerModels = (db: Database, models: WorkerModels) => {
-  db.query("INSERT INTO config (key, value) VALUES ($key, $value) ON CONFLICT (key) DO UPDATE SET value = $value").run({
-    key: WORKER_MODELS,
-    value: JSON.stringify(models),
-  })
-}
+export const saveWorkerModels = (db: Database, models: WorkerModels) => writeConfig(db, WORKER_MODELS, models)
 
 const WORKER_EFFORTS = "worker_efforts"
 
@@ -220,16 +253,41 @@ const decodeWorkerEfforts = Schema.decodeUnknownResult(WorkerEfforts)
 
 // Last pushed by the app, else the app's defaults
 export const loadWorkerEfforts = (db: Database): WorkerEfforts => {
-  const row = db.query<{ value: string }, { key: string }>("SELECT value FROM config WHERE key = $key").get({ key: WORKER_EFFORTS })
-  const decoded = decodeWorkerEfforts(row ? parseJson(row.value) : null)
+  const decoded = decodeWorkerEfforts(readConfig(db, WORKER_EFFORTS))
   return Result.isSuccess(decoded) ? decoded.success : { workerEffort: baseSettings.workerEffort, autoWorkerEffort: baseSettings.autoWorkerEffort }
 }
 
-export const saveWorkerEfforts = (db: Database, efforts: WorkerEfforts) => {
-  db.query("INSERT INTO config (key, value) VALUES ($key, $value) ON CONFLICT (key) DO UPDATE SET value = $value").run({
-    key: WORKER_EFFORTS,
-    value: JSON.stringify(efforts),
-  })
+export const saveWorkerEfforts = (db: Database, efforts: WorkerEfforts) => writeConfig(db, WORKER_EFFORTS, efforts)
+
+const OOGA_BOOGA = "ooga_booga"
+
+// Caveman prompt for providers launched from now on
+export const loadOogaBooga = (db: Database): boolean => readConfig(db, OOGA_BOOGA) === true
+
+export const saveOogaBooga = (db: Database, on: boolean) => writeConfig(db, OOGA_BOOGA, on)
+
+const KEEP_AWAKE = "keep_awake"
+
+const decodeKeepAwake = Schema.decodeUnknownResult(KeepAwake)
+
+// Null until a client sets a mode
+export const loadKeepAwake = (db: Database): KeepAwake | null => {
+  const decoded = decodeKeepAwake(readConfig(db, KEEP_AWAKE))
+  return Result.isSuccess(decoded) ? decoded.success : null
 }
+
+export const saveKeepAwake = (db: Database, mode: KeepAwake) => writeConfig(db, KEEP_AWAKE, mode)
+
+const CATALOG = "catalog"
+
+const decodeCatalog = Schema.decodeUnknownResult(DesktopCatalog)
+
+// Null until a desktop pushes one
+export const loadCatalog = (db: Database): DesktopCatalog | null => {
+  const decoded = decodeCatalog(readConfig(db, CATALOG))
+  return Result.isSuccess(decoded) ? decoded.success : null
+}
+
+export const saveCatalog = (db: Database, catalog: DesktopCatalog) => writeConfig(db, CATALOG, catalog)
 
 export const newId = () => crypto.randomUUID()

@@ -1,4 +1,4 @@
-// Keeps the coordinator's subagent model and effort settings in step with the app's.
+// Syncs worker model, effort and ooga booga settings to the coordinator.
 
 import { Effect, Stream } from "effect"
 import type { Command, WorkerEfforts, WorkerModels } from "../../shared/coordinator.ts"
@@ -9,18 +9,21 @@ import type { SettingsStore } from "../settings/SettingsStore.ts"
 interface WorkerConfig {
   readonly workerModels: WorkerModels
   readonly workerEfforts: WorkerEfforts
+  readonly oogaBooga: boolean
 }
 
 const workerConfigOf = (s: Settings): WorkerConfig => ({
   workerModels: { workerModel: s.workerModel, autoWorkerModel: s.autoWorkerModel },
   workerEfforts: { workerEffort: s.workerEffort, autoWorkerEffort: s.autoWorkerEffort },
+  oogaBooga: s.oogaBooga,
 })
 
 const same = (a: WorkerConfig, b: WorkerConfig) =>
   a.workerModels.workerModel === b.workerModels.workerModel &&
   a.workerModels.autoWorkerModel === b.workerModels.autoWorkerModel &&
   a.workerEfforts.workerEffort === b.workerEfforts.workerEffort &&
-  a.workerEfforts.autoWorkerEffort === b.workerEfforts.autoWorkerEffort
+  a.workerEfforts.autoWorkerEffort === b.workerEfforts.autoWorkerEffort &&
+  a.oogaBooga === b.oogaBooga
 
 export const makeWorkerModelsSync = (settings: SettingsStore["Service"], send: (command: Command) => Promise<Json>) => {
   // Dropped while disconnected; connecting pushes again

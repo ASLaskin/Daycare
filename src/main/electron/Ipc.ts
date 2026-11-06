@@ -18,6 +18,7 @@ import { prepareFiles } from "../chat/files.ts"
 import { prepareImages } from "../chat/images.ts"
 import { runCommand } from "../projects/command.ts"
 import { githubPage } from "../projects/github.ts"
+import { Phone } from "../coordinator/Phone.ts"
 import { Power } from "../power/Power.ts"
 import { ClaudeBinary } from "../sessions/Claude.ts"
 import { Sessions } from "../sessions/Sessions.ts"
@@ -38,6 +39,7 @@ export const Ipc = Layer.effectDiscard(
     const usage = yield* Usage
     const accounts = yield* Accounts
     const power = yield* Power
+    const phone = yield* Phone
     const skills = yield* Skills
     const updater = yield* Updater
     const ui = yield* Ui
@@ -106,8 +108,13 @@ export const Ipc = Layer.effectDiscard(
       "window:fullscreen": () => Effect.sync(() => win.setFullScreen(!win.isFullScreen())),
 
       "power:status": () => power.status,
+      "power:mode": (mode) => power.setMode(mode),
       "power:restore": () => power.restore,
       "power:dismiss-error": () => power.dismissError,
+
+      "phone:pairing": () => phone.pairing,
+      "phone:rotate": () => phone.rotate,
+      "phone:setup": () => phone.setup,
 
       "skills:list": () => withProjectDirs((dirs) => skills.list(dirs)),
       "skills:set": (input) => withProjectDirs((dirs) => skills.setState(input, dirs)),

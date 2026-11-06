@@ -1,0 +1,16 @@
+{
+  "type": "request",
+  "id": 1,
+  "key": "k12",
+  "command": {
+    "method": "configure",
+    "workerModels": {
+      "workerModel": "sonnet",
+      "autoWorkerModel": true
+    },
+    "workerEfforts": {
+      "workerEffort": "low",
+      "autoWorkerEffort": false
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "type": "request",
+  "id": 1,
+  "key": "k5",
+  "command": {
+    "method": "archive",
+    "session": "s-worker"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "type": "request",
+  "id": 1,
+  "key": "k7",
+  "command": {
+    "method": "rename",
+    "session": "s-master",
+    "name": "Ada 2"
+  }
+}

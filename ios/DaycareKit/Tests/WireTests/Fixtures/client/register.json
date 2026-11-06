@@ -1,0 +1,14 @@
+{
+  "type": "request",
+  "id": 1,
+  "command": {
+    "method": "register",
+    "apnsToken": "abcd",
+    "environment": "development",
+    "pushToStart": null,
+    "kinds": [
+      "approval",
+      "battery-low"
+    ]
+  }
+}

@@ -3,8 +3,6 @@
 import { describe, expect, test } from "bun:test"
 import { Effect, Exit } from "effect"
 import { fitSize, prepareImages } from "../src/main/chat/images.ts"
-import { keepRecentImages } from "../src/main/chat/historyImages.ts"
-import { imagesFromContent, userContent } from "../src/main/chat/userContent.ts"
 import { attachRoute } from "../src/renderer/chat/attach-rules.ts"
 import type { ChatEvent } from "../src/shared/chat.ts"
 import {
@@ -110,40 +108,5 @@ describe("prepareImages", () => {
     expect(fitSize({ width: 1000, height: 800 })).toBeNull()
     expect(fitSize({ width: 4000, height: 2000 }, 1000)).toEqual({ width: 1000, height: 500 })
     expect(fitSize({ width: 10, height: 9000 }, 900)).toEqual({ width: 1, height: 900 })
-  })
-})
-
-describe("content blocks", () => {
-  test("plain text stays a string", () => {
-    expect(userContent("hi", [])).toBe("hi")
-  })
-
-  test("images come first as base64 blocks, then the text", () => {
-    expect(userContent("look", [png])).toEqual([
-      { type: "image", source: { type: "base64", media_type: "image/png", data: png.data } },
-      { type: "text", text: "look" },
-    ])
-    expect(userContent("", [png])).toEqual([{ type: "image", source: { type: "base64", media_type: "image/png", data: png.data } }])
-  })
-
-  test("images round trip from content, skipping other parts", () => {
-    const content = userContent("look", [png])
-    const parts = Array.isArray(content) ? content : []
-    const extra = [{ type: "image", source: { type: "url", url: "https://x" } }, { type: "image", source: { type: "base64", media_type: "image/bmp", data: "AA" } }]
-    expect(imagesFromContent([...parts, ...extra])).toEqual([png])
-  })
-})
-
-describe("history image cap", () => {
-  const user = (n: number): ChatEvent => ({ kind: "user", text: `m${n}`, images: Array<ChatImage>(n).fill(png), omittedImages: 0, files: [] })
-
-  test("keeps the newest images and counts the rest", () => {
-    const out = keepRecentImages([user(3), { kind: "error", message: "x" }, user(2), user(2)], 3)
-    expect(out.map((e) => (e.kind === "user" ? [e.images.length, e.omittedImages] : e.kind))).toEqual([[0, 3], "error", [1, 1], [2, 0]])
-  })
-
-  test("leaves history under the cap untouched", () => {
-    const events = [user(1), user(2)]
-    expect(keepRecentImages(events, 3)).toEqual(events)
   })
 })

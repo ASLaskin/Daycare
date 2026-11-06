@@ -1,0 +1,6 @@
+{
+  "kind": "permission-resolved",
+  "requestId": "req-1",
+  "allowed": false,
+  "reason": "cancelled"
+}

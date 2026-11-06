@@ -41,7 +41,7 @@ const setup = (accept: Accept = "resolve") => {
       close: async () => {},
     }
   }
-  const hub = makeHub(conn, launch, 50)
+  const hub = makeHub(conn, launch, { ackMs: 50 })
   const tool = async (name: string, input: Json, from: SessionId = master, signal = new AbortController().signal) => {
     const r = await hub.tool(from, name, input, signal)
     if ("error" in r) {
@@ -171,6 +171,6 @@ test("claude workers follow the subagent effort settings the app pushed", async 
   expect(await effortOf("low")).toBe("medium")
   hub.command({ method: "configure", workerModels: defaultModels, workerEfforts: { workerEffort: "medium", autoWorkerEffort: true } })
   expect(await effortOf("max")).toBe("max")
-  expect(await effortOf()).toBe("high")
+  expect(await effortOf()).toBe("medium")
   await expect(effortOf("extreme")).rejects.toThrow("bad arguments for spawn_subagent")
 })

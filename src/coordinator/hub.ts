@@ -1,22 +1,79 @@
 // Single owner of sessions, approvals, persistence and event order.
 
+import { withOogaBoogaReminder } from "../main/sessions/oogaBooga.ts"
 import type { Database } from "bun:sqlite"
+import { randomUUID } from "node:crypto"
+import type { DesktopCatalog } from "../shared/catalog.ts"
 import type { ChatEvent } from "../shared/chat.ts"
-import type { Approval, Command, HubEvent, LiveSession, ServerMessage, SessionHistory, Snapshot, StoredSession } from "../shared/coordinator.ts"
-import { asNativeId } from "../shared/coordinator.ts"
-import { type AccountId, asSessionId, type DirPath, type SessionId } from "../shared/ids.ts"
+import type {
+  Accepted,
+  Approval,
+  Command,
+  Entry,
+  Epoch,
+  HubEvent,
+  LiveSession,
+  MediaItem,
+  ServerMessage,
+  SessionHistory,
+  Snapshot,
+  StoredSession,
+} from "../shared/coordinator.ts"
+import { asEpoch, asNativeId } from "../shared/coordinator.ts"
+import { fileRefText } from "../shared/files.ts"
+import { type AccountId, asSessionId, type DirPath, type FilePath, type SessionId } from "../shared/ids.ts"
+import type { ChatImage } from "../shared/images.ts"
 import { isEffortLevel } from "../shared/efforts.ts"
 import type { Json } from "../shared/json.ts"
-import { loadHistory, record } from "./history.ts"
+import type { HistoryPage } from "../shared/mobile.ts"
+import type { Battery, PowerState } from "../shared/power.ts"
+import { type Cursor, loadHistory, loadRows, page, record, type Summary, summary } from "./history.ts"
+import { makeMediaIndex } from "./media.ts"
 import { ACK_MS, makeOrchestration, type WorkerSpec } from "./orchestration.ts"
+import { type Assertion, noAssertion } from "./power/assertion.ts"
+import { makePower } from "./power/power.ts"
 import type { ProviderHandle, ProviderUpdate } from "./provider.ts"
 import * as store from "./store.ts"
 import { carryTranscript } from "./transcript.ts"
 
-export type Launch = (session: StoredSession, update: (u: ProviderUpdate) => void) => ProviderHandle
+export interface LaunchOptions {
+  // Append the caveman style prompt
+  readonly oogaBooga: boolean
+}
+
+export type Launch = (session: StoredSession, update: (u: ProviderUpdate) => void, options: LaunchOptions) => ProviderHandle
 
 // False when the subscriber can take no more
 export type Subscriber = (msg: ServerMessage) => boolean
+
+// Every numbered event, in broadcast order
+export type Observer = (seq: number, event: HubEvent) => void
+
+export interface HubOptions {
+  readonly ackMs?: number
+  // Idle sleep assertion; tests hold none
+  readonly assertion?: Assertion
+  // Why keep awake cannot work on this platform
+  readonly powerUnsupported?: string
+}
+
+// What one user turn carries
+export interface UserMessage {
+  readonly text: string
+  readonly images: ReadonlyArray<ChatImage>
+  readonly files: ReadonlyArray<FilePath>
+}
+
+// Slim state without history
+export interface HubState {
+  readonly epoch: Epoch
+  readonly seq: number
+  readonly sessions: ReadonlyArray<LiveSession>
+  readonly approvals: ReadonlyArray<Approval>
+  readonly power: PowerState
+  readonly unavailable: ReadonlyArray<string>
+  readonly catalog: DesktopCatalog | null
+}
 
 // History budget for one snapshot
 export const SNAPSHOT_BUDGET = 192 * 1024 * 1024
@@ -27,7 +84,11 @@ const REFUSALS = ["deny", "decline", "cancel"]
 
 const approvalKey = (session: SessionId, request: string) => `${session} ${request}`
 
-export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
+// Text the provider gets: file references ahead of the message
+export const providerText = (message: UserMessage) => [...message.files.map(fileRefText), message.text].filter(Boolean).join("\n\n")
+
+export const makeHub = (db: Database, launch: Launch, options: HubOptions = {}) => {
+  const epoch = asEpoch(randomUUID())
   const recovered = store.recover(db)
   const loaded = store.loadSessions(db)
   const sessions = new Map(loaded.flatMap((l) => ("session" in l ? [[l.session.id, l.session] as const] : [])))
@@ -39,6 +100,7 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
   // Providers still shutting down after close
   const closing = new Map<SessionId, Promise<void>>()
   const subscribers = new Set<Subscriber>()
+  const observers = new Set<Observer>()
   let seq = 0
   // Set when shutdown begins
   let stopping: Promise<void> | null = null
@@ -46,6 +108,8 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
   let settleWaits = () => {}
   let workerModels = store.loadWorkerModels(db)
   let workerEfforts = store.loadWorkerEfforts(db)
+  let oogaBooga = store.loadOogaBooga(db)
+  let catalog = store.loadCatalog(db)
 
   const session = (id: SessionId) => {
     const s = sessions.get(id)
@@ -60,6 +124,7 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
   const broadcast = (event: HubEvent) => {
     seq += 1
     const msg: ServerMessage = { type: "event", seq, event }
+    observers.forEach((observe) => observe(seq, event))
     subscribers.forEach((send) => {
       if (!send(msg)) {
         subscribers.delete(send)
@@ -68,6 +133,19 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
     settleWaits()
   }
 
+  const power = makePower({
+    assertion: options.assertion ?? noAssertion,
+    load: () => store.loadKeepAwake(db),
+    save: (mode) => store.saveKeepAwake(db, mode),
+    onChange: (state) => broadcast({ kind: "power", power: state }),
+    ...(options.powerUnsupported ? { unsupported: options.powerUnsupported } : {}),
+  })
+
+  // Sessions whose provider is working on a turn
+  const busyCount = () => [...sessions.values()].filter((s) => providers.has(s.id) && (s.state === "running" || s.state === "creating")).length
+
+  const media = makeMediaIndex({ cwd: (id) => sessions.get(id)?.cwd ?? null, rows: (id) => loadRows(db, id) })
+
   const refresh = (id: SessionId) => {
     const loaded = store.getSession(db, id)
     if (!loaded || "error" in loaded) {
@@ -75,12 +153,18 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
     }
     sessions.set(id, loaded.session)
     broadcast({ kind: "session", session: live(loaded.session) })
+    power.setBusy(busyCount())
   }
 
   // Recorded under its run, by default the latest
-  const chat = (id: SessionId, event: ChatEvent, run = session(id).run) => {
-    record(db, id, run, event)
-    broadcast({ kind: "chat", session: id, event })
+  const chat = (id: SessionId, event: ChatEvent, run = session(id).run): Entry => {
+    const entry = record(db, id, run, event)
+    broadcast({ kind: "chat", session: id, entry, event })
+    const found = media.notice(id, entry, event)
+    if (found.length) {
+      broadcast({ kind: "media", session: id, items: found })
+    }
+    return entry
   }
 
   // Ends an orphaned turn and marks the session interrupted
@@ -195,7 +279,7 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
     refresh(id)
     launching.set(id, run)
     try {
-      const handle = launch(session(id), (u) => update(id, run, u))
+      const handle = launch(session(id), (u) => update(id, run, u), { oogaBooga })
       providers.set(id, { handle, run })
       return handle
     } catch (e) {
@@ -208,22 +292,26 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
     }
   }
 
-  // Promise settles on provider acceptance
-  const send = (id: SessionId, text: string): Promise<void> => {
+  // Delivered settles on provider acceptance
+  const deliver = (id: SessionId, message: UserMessage): { readonly entry: Entry; readonly delivered: Promise<void> } => {
     if (session(id).closed) {
       throw new Error("session is closed")
     }
     const handle = provider(id)
     store.startTurn(db, id)
-    chat(id, { kind: "user", text, images: [], omittedImages: 0, files: [] })
-    const accepted = handle.input(text)
+    const entry = chat(id, { kind: "user", text: message.text, images: [...message.images], omittedImages: 0, files: [...message.files] })
+    const delivered = handle.input(withOogaBoogaReminder(providerText(message), oogaBooga), message.images)
     refresh(id)
-    return accepted
+    return { entry, delivered }
   }
 
+  const textOnly = (text: string): UserMessage => ({ text, images: [], files: [] })
+
   // Answers on coordinator acceptance
-  const sendAccepted = (id: SessionId, text: string) => {
-    send(id, text).catch(() => {})
+  const sendAccepted = (id: SessionId, message: UserMessage): Accepted => {
+    const { entry, delivered } = deliver(id, message)
+    delivered.catch(() => {})
+    return { accepted: "coordinator", entry }
   }
 
   // Records a session before any provider process starts
@@ -269,11 +357,11 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
           accountId: w.master.accountId,
           configDir: w.master.configDir,
         }),
-      send,
+      send: (id, text) => deliver(id, textOnly(text)).delivered,
       archive: (id) => archive(id),
       history: (id) => loadHistory(db, id),
     },
-    ackMs,
+    options.ackMs ?? ACK_MS,
   )
   settleWaits = orchestration.settle
 
@@ -412,13 +500,12 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
           configDir: command.configDir,
         })
         if (command.prompt) {
-          sendAccepted(id, command.prompt)
+          sendAccepted(id, textOnly(command.prompt))
         }
         return { session: id }
       }
       case "send":
-        sendAccepted(command.session, command.text)
-        return { accepted: "coordinator" }
+        return sendAccepted(command.session, command)
       case "interrupt": {
         const running = providers.get(command.session)
         if (!running) {
@@ -492,6 +579,7 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
             stopOne(id, "the session was removed")
             store.deleteSession(db, id)
             sessions.delete(id)
+            media.forget(id)
             broadcast({ kind: "removed", session: id, parentId })
           })
         return {}
@@ -508,7 +596,26 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
         store.saveWorkerEfforts(db, command.workerEfforts)
         workerModels = command.workerModels
         workerEfforts = command.workerEfforts
+        if (command.oogaBooga !== undefined) {
+          store.saveOogaBooga(db, command.oogaBooga)
+          oogaBooga = command.oogaBooga
+        }
         return {}
+      case "power":
+        power.setMode(command.mode, command.initial === true)
+        return {}
+      case "lid":
+        power.setLid(command.lid)
+        return {}
+      case "catalog":
+        store.saveCatalog(db, command.catalog)
+        catalog = command.catalog
+        broadcast({ kind: "catalog", catalog })
+        return {}
+      case "pairing":
+      case "pairing-rotate":
+      case "pairing-setup":
+        throw new Error("pairing goes through the gateway")
     }
   }
 
@@ -548,13 +655,59 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
       )
       return {
         type: "snapshot",
+        epoch,
         seq,
         sessions: list.map(live),
         unavailable,
         history: Object.fromEntries(list.map((s) => [s.id, histories.get(s.id)!])),
         approvals: [...approvals.values()],
+        power: power.state(),
       }
     },
+
+    epoch,
+
+    // Permanent listener, called synchronously in broadcast order
+    observe: (observer: Observer) => {
+      observers.add(observer)
+      return () => {
+        observers.delete(observer)
+      }
+    },
+
+    // Pair with observe in one tick for a gapless snapshot
+    state: (): HubState => ({
+      epoch,
+      seq,
+      sessions: [...sessions.values()].sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id)).map(live),
+      approvals: [...approvals.values()],
+      power: power.state(),
+      unavailable,
+      catalog,
+    }),
+
+    // Last pushed by a desktop, null before any
+    catalog: (): DesktopCatalog | null => catalog,
+
+    // Null for an unknown session
+    page: (id: SessionId, cursor: Cursor, limit: number): HistoryPage | null => (sessions.has(id) ? page(db, id, cursor, limit) : null),
+
+    summary: (id: SessionId): Summary | null => (sessions.has(id) ? summary(db, id) : null),
+
+    // Same path as the send command, without a socket
+    send: (id: SessionId, message: UserMessage): Accepted => {
+      if (stopping) {
+        throw new Error("coordinator is stopping")
+      }
+      return sendAccepted(id, message)
+    },
+
+    media: (id: SessionId): ReadonlyArray<MediaItem> => media.list(id),
+
+    // Servable media file for a session, or null
+    resolveMedia: (id: SessionId, file: string): MediaItem | null => media.resolve(id, file),
+
+    battery: (reading: Battery | null) => power.setBattery(reading),
 
     unsubscribe: (send: Subscriber) => {
       subscribers.delete(send)
@@ -565,6 +718,7 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
       if (stopping) {
         return stopping
       }
+      power.stop()
       const live = [...providers.entries()].map(([id, { handle }]) => {
         providers.delete(id)
         lose(id, "the coordinator stopped")

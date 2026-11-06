@@ -7,9 +7,9 @@ export interface ModelChoice {
 }
 
 export const MODEL_CHOICES: ReadonlyArray<ModelChoice> = [
-  { id: "opus", label: "Opus", bestFor: "hard reasoning, design, and tricky bugs" },
-  { id: "sonnet", label: "Sonnet", bestFor: "everyday coding and most tasks" },
-  { id: "haiku", label: "Haiku", bestFor: "quick lookups and simple, mechanical edits" },
+  { id: "opus", label: "Opus", bestFor: "real coding and reasoning, design, and tricky bugs" },
+  { id: "sonnet", label: "Sonnet", bestFor: "routine, well specified coding" },
+  { id: "haiku", label: "Haiku", bestFor: "pure lookups and mechanical edits" },
 ]
 
 // Empty model means users default model 

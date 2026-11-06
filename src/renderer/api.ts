@@ -73,9 +73,14 @@ export const api = {
   onCloseShortcut: on("shortcut:close"),
 
   powerStatus: ask("power:status"),
+  setPowerMode: call("power:mode"),
   powerRestore: ask("power:restore"),
   powerDismissError: ask("power:dismiss-error"),
   onPower: on("power:update"),
+
+  phonePairing: ask("phone:pairing"),
+  phoneRotate: ask("phone:rotate"),
+  phoneSetup: ask("phone:setup"),
 
   listSkills: ask("skills:list"),
   setSkillState: (id: SkillId, state: SkillState) => bridge.invoke("skills:set", { id, state }),

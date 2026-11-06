@@ -5,7 +5,9 @@ import { expect, test } from "bun:test"
 import { type QueryFn, startClaude } from "../src/coordinator/claude.ts"
 import { type ProviderUpdate, Refused } from "../src/coordinator/provider.ts"
 import { asNativeId, type SessionState } from "../src/shared/coordinator.ts"
+import { OOGA_BOOGA_PROMPT } from "../src/main/sessions/oogaBooga.ts"
 import { asDirPath, asFilePath, asRequestId } from "../src/shared/ids.ts"
+import { asBase64 } from "../src/shared/images.ts"
 import { sample } from "./fixtures/store.ts"
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
@@ -191,4 +193,28 @@ test("claude runs on its account's config dir, or ~/.claude for Default", () => 
       process.env["CLAUDE_CONFIG_DIR"] = inherited
     }
   }
+})
+
+test("images go to claude as base64 blocks ahead of the text", async () => {
+  const { fake, handle } = start("idle")
+  const image = { mediaType: "image/png" as const, data: asBase64("iVBORw0KGgo=") }
+  handle.input("look", [image]).catch(() => {})
+  const first = await fake.prompt()?.[Symbol.asyncIterator]().next()
+  expect(first?.value?.message).toEqual({
+    role: "user",
+    content: [
+      { type: "image", source: { type: "base64", media_type: "image/png", data: image.data } },
+      { type: "text", text: "look" },
+    ],
+  })
+  fake.end()
+})
+
+test("ooga booga mode appends the caveman prompt", () => {
+  const fake = fakeQuery()
+  const session = { ...sample("s", "claude", "idle"), nativeId: asNativeId("native") }
+  startClaude(session, asFilePath("/bin/claude"), () => {}, fake.run, { oogaBooga: true })
+  const prompt = fake.options()?.systemPrompt
+  expect(JSON.stringify(prompt)).toContain(JSON.stringify(OOGA_BOOGA_PROMPT).slice(1, -1))
+  fake.end()
 })

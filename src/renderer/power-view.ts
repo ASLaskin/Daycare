@@ -1,17 +1,24 @@
-// Keep awake status and sidebar badge.
+// Keep awake status, mode picker and sidebar badge.
 
-import type { PowerStatus } from "../shared/power.ts"
+import type { PowerState, PowerStatus } from "../shared/power.ts"
 import { api } from "./api.ts"
 import { $ } from "./dom.ts"
+import { select } from "./fields.ts"
 import { saveSettings, settings } from "./store.ts"
 
-const describe = ({ mode, holding, lidClosedActive, error, busyCount }: PowerStatus) => {
-  const working = `${busyCount} session${busyCount === 1 ? "" : "s"} working`
+const describe = (power: PowerState | null, lidClosedActive: boolean, error: string | null) => {
   if (error) {
     return error
   }
-  if (holding) {
-    const reason = mode === "always" ? "always on" : working
+  if (!power) {
+    return "The coordinator is not reachable, so keep awake is unknown right now."
+  }
+  if (power.error) {
+    return power.error
+  }
+  const working = `${power.busyCount} session${power.busyCount === 1 ? "" : "s"} working`
+  if (power.holding) {
+    const reason = power.mode === "always" ? "always on" : working
     return `Holding your Mac awake, ${reason}${lidClosedActive ? ", lid close included" : ""}.`
   }
   if (lidClosedActive) {
@@ -20,24 +27,28 @@ const describe = ({ mode, holding, lidClosedActive, error, busyCount }: PowerSta
   return `Not holding anything right now, ${working}.`
 }
 
-const badgeText = ({ holding, lidClosedActive }: PowerStatus) => {
+const badgeText = (holding: boolean, lidClosedActive: boolean) => {
   if (!holding) {
     return ""
   }
   return lidClosedActive ? "Awake, lid closed" : "Keeping awake"
 }
 
-const renderPower = (power: PowerStatus) => {
-  const { holding, lidClosedActive, error, stale } = power
+const renderPower = ({ power, lidClosedActive, error, stale }: PowerStatus) => {
+  const holding = power?.holding ?? false
+  if (power) {
+    select("set-keep-awake").value = power.mode
+  }
+  $("#keep-awake-lid-row").classList.toggle("collapsed", power?.mode === "off")
   const box = $("#power-state")
-  box.classList.toggle("error", !!error)
-  box.textContent = describe(power)
+  box.classList.toggle("error", !!(error ?? power?.error))
+  box.textContent = describe(power, lidClosedActive, error)
   $("#power-restore").classList.toggle("hidden", !stale)
   $("#power-dismiss").classList.toggle("hidden", !error || stale)
   const badge = $("#power-badge")
   badge.classList.toggle("hidden", !holding)
-  badge.textContent = badgeText(power)
-  // Failed admin prompt turns the lid switch off.
+  badge.textContent = badgeText(holding, lidClosedActive)
+  // Failed admin prompt turns the lid switch off
   if (error && !stale && settings().keepAwakeLidClosed && !lidClosedActive) {
     saveSettings({ keepAwakeLidClosed: false })
   }

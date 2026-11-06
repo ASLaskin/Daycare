@@ -7,8 +7,6 @@ import os from "node:os"
 import path from "node:path"
 import { safeFileName, saveAttachment } from "../src/main/attachments/saved.ts"
 import { prepareFiles } from "../src/main/chat/files.ts"
-import { historyFromTranscript } from "../src/main/chat/transcript.ts"
-import { filesFromContent, userContent, withoutFileRefs } from "../src/main/chat/userContent.ts"
 import { attachRoute } from "../src/renderer/chat/attach-rules.ts"
 import { mentionsOf } from "../src/shared/attachments.ts"
 import { ChatEvent } from "../src/shared/chat.ts"
@@ -49,35 +47,6 @@ describe("file refs", () => {
   test("name is the last path segment", () => {
     expect(fileName(CSV)).toBe("data.csv")
     expect(fileName(asFilePath("/tmp/folder/"))).toBe("folder")
-  })
-})
-
-describe("user content with files", () => {
-  test("puts image, file and text blocks in order", () => {
-    expect(userContent("look", [png], [CSV])).toEqual([
-      { type: "image", source: { type: "base64", media_type: "image/png", data: png.data } },
-      { type: "text", text: fileRefText(CSV) },
-      { type: "text", text: "look" },
-    ])
-  })
-
-  test("files alone still make a block array", () => {
-    expect(userContent("", [], [CSV])).toEqual([{ type: "text", text: fileRefText(CSV) }])
-  })
-
-  test("splits file refs back out of the content", () => {
-    const content = userContent("look", [], [CSV])
-    expect(Array.isArray(content)).toBe(true)
-    const parts = Array.isArray(content) ? content : []
-    expect(filesFromContent(parts)).toEqual([CSV])
-    expect(withoutFileRefs(parts)).toEqual([{ type: "text", text: "look" }])
-  })
-
-  test("transcript replay shows files as files, not text", () => {
-    const tp = asFilePath(path.join(dir, "t.jsonl"))
-    const line = { type: "user", message: { role: "user", content: userContent("summarize", [], [CSV]) }, uuid: "u0" }
-    fs.writeFileSync(tp, JSON.stringify(line) + "\n")
-    expect(historyFromTranscript(tp)).toEqual([{ kind: "user", text: "summarize", images: [], omittedImages: 0, files: [CSV] }])
   })
 })
 

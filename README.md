@@ -9,10 +9,13 @@ bun start
 
 ## coordinator
 
-agents run in their own process now (the coordinator) so closing daycare doesnt kill them. its on by default on linux, on mac you gotta opt in for now
+agents run in their own process (the coordinator) so closing daycare doesnt kill them. its the only way sessions run now, mac and linux
+
+on mac daycare installs a launch agent (`~/Library/LaunchAgents/com.daycare.coordinator.plist`) so the coordinator comes back after a crash or reboot without opening the app. logs go to `~/Library/Logs/Daycare/coordinator.log`. on linux its a systemd user service (`daycare-coordinator.service`)
+
+to get rid of it on mac:
 
 ```sh
-DAYCARE_COORDINATOR=1 bun start
+launchctl bootout gui/$(id -u)/com.daycare.coordinator
+rm ~/Library/LaunchAgents/com.daycare.coordinator.plist
 ```
-
-set it to 0 if you want it off on linux

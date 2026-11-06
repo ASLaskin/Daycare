@@ -1,0 +1,16 @@
+{
+  "running": [
+    {
+      "id": "s-worker",
+      "name": "Bo",
+      "master": "Ada",
+      "since": 1762300000
+    }
+  ],
+  "runningCount": 1,
+  "approvals": 1,
+  "batteryPercent": 64,
+  "charging": false,
+  "keepAwake": true,
+  "updatedAt": 1762300060.5
+}
