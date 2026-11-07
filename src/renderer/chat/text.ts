@@ -36,9 +36,11 @@ const newTextBlock = (s: ChatSession, key: string): TextBlock => {
   return b
 }
 
-// Append in place unless a code fence may appear
+const MARKUP = /[`*[\]()|\n]/
+
+// Append in place unless the text may change markup
 const appendText = (b: TextBlock, add: string) => {
-  const tail = !b.fenced && !`${b.raw.slice(-2)}${add}`.includes("```") ? b.tail : null
+  const tail = !b.fenced && !MARKUP.test(add) ? b.tail : null
   b.raw += add
   if (tail) {
     tail.appendData(add)

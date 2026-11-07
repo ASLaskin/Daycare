@@ -4,7 +4,7 @@ import { openPath, openUrl } from "../attachments/open.ts"
 import { resolvePaths } from "../attachments/resolve.ts"
 import { el } from "../dom.ts"
 
-const makeLink = (node: HTMLElement, title: string, open: () => void) => {
+export const makeLink = (node: HTMLElement, title: string, open: () => void) => {
   node.classList.add("chat-link")
   node.tabIndex = 0
   node.setAttribute("role", "link")
@@ -21,7 +21,7 @@ const makeLink = (node: HTMLElement, title: string, open: () => void) => {
 }
 
 // Path spans become links once main finds them on disk
-const linkPaths = (spans: ReadonlyArray<HTMLElement>, cwd: DirPath) => {
+export const linkPaths = (spans: ReadonlyArray<HTMLElement>, cwd: DirPath) => {
   if (!spans.length) {
     return
   }
@@ -37,7 +37,7 @@ const linkPaths = (spans: ReadonlyArray<HTMLElement>, cwd: DirPath) => {
 }
 
 // Text with urls and existing paths as clickable links
-export const appendLinked = (parent: HTMLElement, text: string, cwd: DirPath) => {
+export const appendLinked = (parent: ParentNode, text: string, cwd: DirPath) => {
   const parts = tokenize(text)
   const nodes = parts.map((part) => {
     switch (part.kind) {
