@@ -29,9 +29,9 @@ const DELIMITER_ROW = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/
 const UNESCAPED_PIPE = /(?<!\\)\|/
 const URL_SCHEME = /^[a-z][a-z0-9+.-]*:/i
 
-// Groups: code, link label, link href, bold, italic
+// Groups: code, link label, angle href, plain href, bold, italic
 const INLINE_TOKEN =
-  /`([^`\n]+)`|(?<!!)\[([^\]\n]+)\]\(([^()\s]*(?:\([^()\s]*\)[^()\s]*)*)\)|\*\*([^*\n]+?)\*\*|(?<![*\w])\*([^*\s](?:[^*\n]*[^*\s])?)\*(?![*\w])/g
+  /`([^`\n]+)`|(?<!!)\[([^\]\n]+)\]\((?:<([^<>\n]*)>|([^()\s]*(?:\([^()\s]*\)[^()\s]*)*))\)|\*\*([^*\n]+?)\*\*|(?<![*\w])\*([^*\s](?:[^*\n]*[^*\s])?)\*(?![*\w])/g
 
 const splitRow = (line: string): ReadonlyArray<string> =>
   line
@@ -91,7 +91,8 @@ export const parseBlocks = (prose: string): ReadonlyArray<MdBlock> => blocksFrom
 const textSpan = (text: string): ReadonlyArray<Inline> => (text ? [{ kind: "text", text }] : [])
 
 const inlineOf = (m: RegExpMatchArray): Inline => {
-  const [, code, label, href, bold, em] = m
+  const [, code, label, angleHref, plainHref, bold, em] = m
+  const href = angleHref ?? plainHref
   if (code !== undefined) {
     return { kind: "code", text: code }
   }
@@ -136,7 +137,8 @@ const filePath = (href: string): LinkTarget | null => {
 }
 
 // What a markdown link opens; null when it must not be a link
-export const linkTarget = (href: string): LinkTarget | null => {
+export const linkTarget = (raw: string): LinkTarget | null => {
+  const href = raw.replace(/^<(.*)>$/, "$1")
   if (/^file:/i.test(href)) {
     return filePath(href)
   }
