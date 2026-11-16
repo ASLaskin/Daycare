@@ -168,6 +168,7 @@ export const makeService = (core: Core, lifecycle: Lifecycle): SessionsShape => 
         }
         lifecycle.sendText(s, text, images, files)
         core.setStatus(s, "working", "thinking")
+        core.interruptWaiters(s.id)
         core.persist()
       }),
     chatInterrupt: (id) => chat.interrupt(id),

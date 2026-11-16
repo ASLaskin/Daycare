@@ -122,6 +122,20 @@ test("wait times out, and an abandoned wait never answers", async () => {
   expect(answered).toBe(false)
 })
 
+test("a user message to the master ends its pending wait early", async () => {
+  const { hub, tool } = setup()
+  await tool("spawn_subagent", { name: "a", task: "go" })
+  const answer: { result: Record<string, Json> | null } = { result: null }
+  void tool("wait_for_subagents", {}).then((r) => {
+    answer.result = r
+  })
+  await Bun.sleep(10)
+  expect(answer.result).toBeNull()
+  hub.command({ method: "send", session: master, text: "change plan" })
+  await Bun.sleep(10)
+  expect([answer.result?.["interrupted"], answer.result?.["timedOut"]]).toEqual([true, false])
+})
+
 test("archived workers leave list and wait, refuse messages, and can still be read", async () => {
   const { hub, tool, updates } = setup()
   const a = asSessionId(str((await tool("spawn_subagent", { name: "research", task: "go" }))["id"]) ?? "")
