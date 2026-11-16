@@ -44,6 +44,8 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
   let stopping: Promise<void> | null = null
   // Re-checks orchestration waits
   let settleWaits = () => {}
+  // Ends a master's pending waits
+  let interruptWaits = (_master: SessionId) => {}
   let workerModels = store.loadWorkerModels(db)
   let workerEfforts = store.loadWorkerEfforts(db)
 
@@ -276,6 +278,7 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
     ackMs,
   )
   settleWaits = orchestration.settle
+  interruptWaits = orchestration.interrupt
 
   // Turns lost to an unclean stop
   recovered.filter((id) => sessions.has(id)).forEach((id) => chat(id, { kind: "interrupted", reason: "the coordinator restarted" }))
@@ -418,6 +421,7 @@ export const makeHub = (db: Database, launch: Launch, ackMs = ACK_MS) => {
       }
       case "send":
         sendAccepted(command.session, command.text)
+        interruptWaits(command.session)
         return { accepted: "coordinator" }
       case "interrupt": {
         const running = providers.get(command.session)

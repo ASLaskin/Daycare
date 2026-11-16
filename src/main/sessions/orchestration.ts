@@ -31,16 +31,16 @@ export const makeToolHandler = (core: Core, lifecycle: Lifecycle) => {
     return Effect.fail(new ToolError({ message: `No worker "${ref}". Known workers: ${kids.map((k) => k.name).join(", ") || "none"}` }))
   }
 
-  const waitFor = (ids: ReadonlyArray<SessionId>, timeout: Duration.Duration) =>
+  const waitFor = (owner: SessionId, ids: ReadonlyArray<SessionId>, timeout: Duration.Duration) =>
     Effect.gen(function* () {
-      const waiter = { ids, done: yield* Deferred.make<void>() }
+      const waiter = { owner, ids, done: yield* Deferred.make<boolean>() }
       core.waiters.add(waiter)
       core.flushWaiters()
       const settled = yield* Deferred.await(waiter.done).pipe(
         Effect.timeoutOption(timeout),
         Effect.ensuring(Effect.sync(() => core.waiters.delete(waiter))),
       )
-      return { timedOut: Option.isNone(settled) }
+      return { timedOut: Option.isNone(settled), interrupted: Option.getOrElse(settled, () => false) }
     })
 
   const spawn = (master: Session, input: ToolInput<"spawn_subagent">) => {
@@ -85,9 +85,10 @@ export const makeToolHandler = (core: Core, lifecycle: Lifecycle) => {
         ? yield* Effect.forEach(refs, (ref) => findWorker(master, ref).pipe(Effect.map((w) => w.id)))
         : activeWorkers(master).map((k) => k.id)
       const seconds = Math.min(input.timeout_seconds || DEFAULT_WAIT_SECONDS, MAX_WAIT_SECONDS)
-      const { timedOut } = yield* waitFor(ids, Duration.seconds(seconds))
+      const { timedOut, interrupted } = yield* waitFor(master.id, ids, Duration.seconds(seconds))
       return {
         timedOut,
+        interrupted,
         workers: ids.flatMap((id) => {
           const w = core.sessions.get(id)
           return w ? [{ ...workerSummary(w), summary: firstLine(w.lastMessage) }] : []

@@ -62,7 +62,7 @@ export const Tools = {
   wait_for_subagents: {
     input: WaitForSubagents,
     description:
-      "Block until the given workers (or all unarchived workers) stop working: finished their turn, need the user, or stopped. Returns each worker's state and the first line of its final message.",
+      "Block until the given workers (or all unarchived workers) stop working: finished their turn, need the user, or stopped. Returns each worker's state and the first line of its final message. Also returns early with interrupted: true when the user sends you a message: act on it, then wait again if workers are still running.",
   },
   read_subagent: {
     input: ReadSubagent,

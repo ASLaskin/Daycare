@@ -52,9 +52,12 @@ export interface OrchestrationCore {
   readonly history: (id: SessionId) => SessionHistory
 }
 
+type WaitOutcome = "settled" | "timedOut" | "interrupted"
+
 interface Waiter {
+  readonly master: SessionId
   readonly ids: ReadonlyArray<SessionId>
-  readonly finish: (timedOut: boolean) => void
+  readonly finish: (outcome: WaitOutcome) => void
 }
 
 // Provider confirmation, or uncertain
@@ -163,20 +166,21 @@ export const makeOrchestration = (core: OrchestrationCore, ackMs = ACK_MS) => {
     const ids = refs.length ? refs.map((r) => worker(master.id, r).id) : activeWorkers(master.id).map((w) => w.id)
     const seconds = Math.min(Math.max(input.timeout_seconds ?? DEFAULT_WAIT_SECONDS, 0), MAX_WAIT_SECONDS)
     return new Promise<Json>((resolve) => {
-      const finish = (timedOut: boolean) => {
+      const finish = (outcome: WaitOutcome) => {
         waiters.delete(waiter)
         clearTimeout(timer)
         signal.removeEventListener("abort", abandon)
         resolve({
-          timedOut,
+          timedOut: outcome === "timedOut",
+          interrupted: outcome === "interrupted",
           workers: ids.map((id) => {
             const s = find(id)
             return s ? { ...summary(s), summary: lastReply(id).reply.split("\n")[0] ?? "" } : { id, removed: true }
           }),
         })
       }
-      const waiter: Waiter = { ids, finish }
-      const timer = setTimeout(() => finish(true), seconds * 1000)
+      const waiter: Waiter = { master: master.id, ids, finish }
+      const timer = setTimeout(() => finish("timedOut"), seconds * 1000)
       const abandon = () => {
         waiters.delete(waiter)
         clearTimeout(timer)
@@ -188,7 +192,10 @@ export const makeOrchestration = (core: OrchestrationCore, ackMs = ACK_MS) => {
   }
 
   // Answers waits whose workers have all settled
-  const settle = () => [...waiters].filter((w) => w.ids.every(settled)).forEach((w) => w.finish(false))
+  const settle = () => [...waiters].filter((w) => w.ids.every(settled)).forEach((w) => w.finish("settled"))
+
+  // Ends a master's waits so it can read the user's new message
+  const interrupt = (master: SessionId) => [...waiters].filter((w) => w.master === master).forEach((w) => w.finish("interrupted"))
 
   const run = async (masterId: SessionId, name: string, raw: Json, signal: AbortSignal): Promise<Json> => {
     const master = core.session(masterId)
@@ -228,5 +235,5 @@ export const makeOrchestration = (core: OrchestrationCore, ackMs = ACK_MS) => {
     }
   }
 
-  return { run, settle }
+  return { run, settle, interrupt }
 }

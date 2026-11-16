@@ -27,8 +27,9 @@ export interface SessionDeps {
 }
 
 export interface Waiter {
+  readonly owner: SessionId
   readonly ids: ReadonlyArray<SessionId>
-  readonly done: Deferred.Deferred<void>
+  readonly done: Deferred.Deferred<boolean>
 }
 
 export interface Core {
@@ -48,6 +49,7 @@ export interface Core {
   readonly notify: (s: Session, what: string, body: string) => void
   readonly syncPower: () => void
   readonly flushWaiters: () => void
+  readonly interruptWaiters: (owner: SessionId) => void
   readonly update: (s: Session) => void
   readonly setStatus: (s: Session, status: SessionStatus, activity?: string) => void
 }
@@ -106,8 +108,12 @@ export const makeCore = (deps: SessionDeps): Core => {
   const flushWaiters = () => {
     ;[...waiters]
       .filter((w) => w.ids.map((id) => sessions.get(id)).filter((s) => s !== undefined).every(isSettled))
-      .forEach((w) => run(Deferred.succeed(w.done, undefined)))
+      .forEach((w) => run(Deferred.succeed(w.done, false)))
   }
+
+  // Release a master's waits so it can read the user's message
+  const interruptWaiters = (owner: SessionId) =>
+    [...waiters].filter((w) => w.owner === owner).forEach((w) => run(Deferred.succeed(w.done, true)))
 
   const update = (s: Session) => ui.send("session:update", view(s))
 
@@ -142,6 +148,7 @@ export const makeCore = (deps: SessionDeps): Core => {
     notify,
     syncPower,
     flushWaiters,
+    interruptWaiters,
     update,
     setStatus,
   }
