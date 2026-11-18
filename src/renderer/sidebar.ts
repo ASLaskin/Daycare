@@ -1,6 +1,7 @@
 // Sidebar list of masters and their workers, patched in place.
 
 import type { SessionView } from "../shared/session.ts"
+import { api } from "./api.ts"
 import { $, el } from "./dom.ts"
 import { getActiveMaster } from "./focus.ts"
 import { syncChildren } from "./keyed.ts"
@@ -14,7 +15,11 @@ import { fireSessionsChanged } from "./store.ts"
 
 const newestFirst = (a: SessionView, b: SessionView) => b.createdAt - a.createdAt
 
-const closedHeading = el("div", "list-heading", "Closed")
+const closedHeading = el("div", "list-heading closed-heading")
+const deleteAll = el("button", "ghost delete-all", "Delete all")
+deleteAll.title = "Remove every closed session for good"
+deleteAll.onclick = () => api.deleteClosedSessions()
+closedHeading.append(el("span", null, "Closed"), deleteAll)
 const closedDivider = el("div", "strip-divider")
 
 export const renderSidebar = () => {

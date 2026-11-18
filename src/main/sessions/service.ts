@@ -13,6 +13,7 @@ import type { AccountInUse } from "../accounts/actions.ts"
 import { makeSessionAccountActions } from "./accounts.ts"
 import { makeArchive } from "./archive.ts"
 import type { Core } from "./core.ts"
+import { deleteClosedPrompt } from "./deleteClosed.ts"
 import type { Lifecycle } from "./lifecycle.ts"
 import { type CreateOptions, decodeRecords, type Session, view } from "./model.ts"
 
@@ -28,6 +29,8 @@ export interface SessionsShape {
   readonly archive: (id: SessionId) => Effect.Effect<void>
   readonly unarchive: (id: SessionId) => Effect.Effect<void>
   readonly remove: (id: SessionId) => Effect.Effect<void>
+  // Asks once, then removes every closed master and its workers
+  readonly removeClosed: Effect.Effect<void>
   readonly chatSend: (id: SessionId, text: string, images: ReadonlyArray<ChatImage>, files: ReadonlyArray<FilePath>) => Effect.Effect<void>
   readonly chatInterrupt: (id: SessionId) => Effect.Effect<void>
   readonly setModel: (id: SessionId, model: string) => Effect.Effect<void>
@@ -160,6 +163,16 @@ export const makeService = (core: Core, lifecycle: Lifecycle): SessionsShape => 
         lifecycle.removeSession(s)
         lifecycle.killSession(s)
       }),
+    removeClosed: Effect.gen(function* () {
+      const closed = [...sessions.values()].filter((s) => s.role === "master" && s.status === "closed")
+      if (!closed.length || !(yield* ui.confirm(deleteClosedPrompt(closed.length)))) {
+        return
+      }
+      closed.forEach((s) => {
+        lifecycle.removeSession(s)
+        lifecycle.killSession(s)
+      })
+    }),
     chatSend: (id, text, images, files) =>
       Effect.sync(() => {
         const s = sessions.get(id)

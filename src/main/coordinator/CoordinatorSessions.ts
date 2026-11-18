@@ -12,6 +12,7 @@ import { ControlHandlers } from "../control/ControlHandlers.ts"
 import { ToolError } from "../control/mcp.ts"
 import { Sessions, type SessionsShape } from "../sessions/Sessions.ts"
 import { defaultMasterName, nextIcon } from "../sessions/naming.ts"
+import { deleteClosedPrompt } from "../sessions/deleteClosed.ts"
 import { deleteDetail } from "../sessions/service.ts"
 import { SettingsStore } from "../settings/SettingsStore.ts"
 import { Ui } from "../Ui.ts"
@@ -210,6 +211,13 @@ const make = (version: string) =>
             yield* request({ method: "remove", session: id })
           }
         }),
+      removeClosed: Effect.gen(function* () {
+        const closed = [...sessions.values()].filter((s) => s.role === "master" && s.status === "closed")
+        if (!closed.length || !(yield* ui.confirm(deleteClosedPrompt(closed.length)))) {
+          return
+        }
+        yield* Effect.forEach(closed, (s) => request({ method: "remove", session: s.id }), { discard: true })
+      }),
       // Resolves on coordinator acceptance, not provider delivery
       // Files ride along as path lines in the text
       chatSend: (id, text, _images, files) =>

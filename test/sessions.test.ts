@@ -413,6 +413,22 @@ describe("lifecycle", () => {
     expect(await get(m.id)).toBeNull()
   })
 
+  test("delete all removes closed masters after one confirm, keeps open ones", async () => {
+    const closedA = await newMaster()
+    const closedB = await newMaster()
+    const open = await newMaster()
+    await sessions((s) => s.close(closedA.id))
+    await sessions((s) => s.close(closedB.id))
+    confirmAnswer = false
+    await sessions((s) => s.removeClosed)
+    expect(await get(closedA.id)).not.toBeNull()
+    confirmAnswer = true
+    await sessions((s) => s.removeClosed)
+    expect(await get(closedA.id)).toBeNull()
+    expect(await get(closedB.id)).toBeNull()
+    expect(await get(open.id)).not.toBeNull()
+  })
+
   test("a master started with a task counts as messaged", async () => {
     const m = await newMaster("do the thing")
     expect((await get(m.id)).hadTurn).toBe(true)
