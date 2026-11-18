@@ -58,6 +58,7 @@ export const Invoke = {
   "session:archive": Id,
   "session:unarchive": Id,
   "session:delete": Id,
+  "session:delete-closed": None,
   "session:menu": Id,
   "coordinator:restart": None,
   "window:fullscreen": None,
@@ -132,6 +133,7 @@ export interface InvokeResult {
   "session:archive": void
   "session:unarchive": void
   "session:delete": void
+  "session:delete-closed": void
   "session:menu": void
   "coordinator:restart": void
   "window:fullscreen": void
