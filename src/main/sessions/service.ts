@@ -16,6 +16,7 @@ import type { Core } from "./core.ts"
 import { deleteClosedPrompt } from "./deleteClosed.ts"
 import type { Lifecycle } from "./lifecycle.ts"
 import { type CreateOptions, decodeRecords, type Session, view } from "./model.ts"
+import type { SpawnApproval } from "./spawnApproval.ts"
 
 export interface SessionsShape {
   readonly list: Effect.Effect<ReadonlyArray<SessionView>>
@@ -59,7 +60,7 @@ const readSaved = (file: string): Array<SessionRecord> => {
   }
 }
 
-export const makeService = (core: Core, lifecycle: Lifecycle): SessionsShape => {
+export const makeService = (core: Core, lifecycle: Lifecycle, approval: SpawnApproval): SessionsShape => {
   const { sessions, deps, run } = core
   const { chat, ui, settings } = deps
 
@@ -209,7 +210,9 @@ export const makeService = (core: Core, lifecycle: Lifecycle): SessionsShape => 
         core.update(s)
         core.persist()
       }),
-    chatRespond: (id, requestId, decision) => chat.respond(id, requestId, decision),
+    // Daycare's own approvals first, then claude's
+    chatRespond: (id, requestId, decision) =>
+      approval.answer(id, requestId, decision) ? Effect.succeed(true) : chat.respond(id, requestId, decision),
     chatHistory: (id) => chat.history(id),
     // Masters first, then workers whose master survived
     restore: Effect.sync(() => {

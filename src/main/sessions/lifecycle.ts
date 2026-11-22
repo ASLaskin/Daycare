@@ -9,7 +9,7 @@ import { asClaudeSessionId, asDirPath, asSessionId, type FilePath } from "../../
 import type { ChatImage } from "../../shared/images.ts"
 import type { SessionRecord } from "../../shared/session.ts"
 import type { Core } from "./core.ts"
-import { cleanEnv } from "./env.ts"
+import { cleanEnv, codeModeEnv } from "./env.ts"
 import { claudeArgs, MCP_TIMEOUT_MS } from "./launch.ts"
 import { canResume, type CreateOptions, type Session, view } from "./model.ts"
 import { makeMover } from "./move.ts"
@@ -26,7 +26,6 @@ export interface Lifecycle {
   readonly sessionExited: (s: Session) => void
   readonly removeSession: (s: Session) => void
   readonly submitText: (s: Session, text: string) => boolean
-  // User turn, with the live ooga booga setting
   readonly sendText: (s: Session, text: string, images?: ReadonlyArray<ChatImage>, files?: ReadonlyArray<FilePath>) => void
 }
 
@@ -39,6 +38,7 @@ export const makeLifecycle = (core: Core): Lifecycle => {
     run(
       accounts.childEnv(s.accountId, {
         ...cleanEnv(process.env),
+        ...codeModeEnv(run(settings.get).codeMode),
         DAYCARE_TOKEN: endpoint.token,
         MCP_TOOL_TIMEOUT: String(MCP_TIMEOUT_MS),
       }),
@@ -46,11 +46,11 @@ export const makeLifecycle = (core: Core): Lifecycle => {
 
   const sendText = (s: Session, text: string, images: ReadonlyArray<ChatImage> = [], files: ReadonlyArray<FilePath> = []) => {
     s.hadTurn = true
-    run(chat.send(s.id, text, images, files, run(settings.get).oogaBooga))
+    run(chat.send(s.id, text, images, files))
   }
 
   const startSession = (s: Session, resume: boolean) => {
-    const args = claudeArgs(s, resume, core.mcpDir, endpoint, { oogaBooga: run(settings.get).oogaBooga })
+    const args = claudeArgs(s, resume, core.mcpDir, endpoint, { allowSubagents: run(settings.get).allowSubagents })
     const dir = fs.existsSync(s.cwd) ? s.cwd : asDirPath(os.homedir())
     run(chat.start({ id: s.id, cwd: dir, env: childEnv(s), args, transcriptPath: resume && canResume(s) ? s.transcriptPath : null }))
     if (s.task && !resume) {

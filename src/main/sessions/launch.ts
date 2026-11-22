@@ -6,7 +6,6 @@ import type { SessionId } from "../../shared/ids.ts"
 import type { ControlEndpoint } from "../control/ControlServer.ts"
 import { TOKEN_HEADER } from "../control/hook.ts"
 import { canResume, type Session } from "./model.ts"
-import { withOogaBooga } from "./oogaBooga.ts"
 import { MASTER_PROMPT, WORKER_PROMPT } from "./prompts.ts"
 
 type Endpoint = ControlEndpoint["Service"]
@@ -59,24 +58,26 @@ export const writeMcpConfig = (mcpDir: string, endpoint: Endpoint, id: SessionId
 
 // Launch options read from settings
 export interface LaunchOptions {
-  readonly oogaBooga: boolean
+  readonly allowSubagents: boolean
 }
+
+// Without subagents a master keeps its tools for existing workers
+const delegationArgs = (allowSubagents: boolean) =>
+  allowSubagents
+    ? ["--disallowedTools", "Agent", "Task", "--append-system-prompt", MASTER_PROMPT]
+    : ["--disallowedTools", "Agent", "Task", "mcp__daycare__spawn_subagent"]
 
 const roleArgs = (s: Session, mcpDir: string, endpoint: Endpoint, options: LaunchOptions) => {
   if (s.role !== "master") {
-    return ["--append-system-prompt", withOogaBooga(WORKER_PROMPT, options.oogaBooga)]
+    return ["--append-system-prompt", WORKER_PROMPT]
   }
   return [
     "--mcp-config",
     writeMcpConfig(mcpDir, endpoint, s.id),
     "--allowedTools",
     "mcp__daycare__*",
-    // Built in subagents are off for masters
-    "--disallowedTools",
-    "Agent",
-    "Task",
-    "--append-system-prompt",
-    withOogaBooga(MASTER_PROMPT, options.oogaBooga),
+    // Built in subagents are always off for masters
+    ...delegationArgs(options.allowSubagents),
   ]
 }
 

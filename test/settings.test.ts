@@ -19,6 +19,14 @@ describe("mergeSettings", () => {
     expect(merged.splits).toEqual({ stack: 40 })
   })
 
+  test("subagents are allowed without confirming, and Code Mode is off, by default", () => {
+    expect([defaults.allowSubagents, defaults.confirmSubagents, defaults.codeMode]).toEqual([true, false, false])
+  })
+
+  test("drops the removed ooga booga setting from older files", () => {
+    expect(mergeSettings(defaults, { oogaBooga: true, masterModel: "haiku" })).toEqual({ ...defaults, masterModel: "haiku" })
+  })
+
   test("ignores unknown keys and non-objects", () => {
     expect(mergeSettings(defaults, { nope: true })).toEqual(defaults)
     expect(mergeSettings(defaults, "garbage")).toEqual(defaults)
