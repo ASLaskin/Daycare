@@ -1,8 +1,7 @@
 // Phone gateway over real wss: handshake, auth, resume, requests, idempotency and media ranges.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test"
-import { execFileSync } from "node:child_process"
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs"
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import { configFile } from "../src/coordinator/gateway/config.ts"
@@ -28,8 +27,10 @@ const media = realpathSync(mkdtempSync(path.join(tmpdir(), "daycare-media-")))
 const mp4 = path.join(media, "clip.mp4")
 const session = asSessionId("s")
 
+// Checked in so CI needs no ffmpeg. Made with:
+// ffmpeg -f lavfi -i testsrc=duration=1:size=64x64:rate=10 -pix_fmt yuv420p clip.mp4
 beforeAll(() => {
-  execFileSync("ffmpeg", ["-v", "error", "-f", "lavfi", "-i", "testsrc=duration=1:size=64x64:rate=10", "-pix_fmt", "yuv420p", "-y", mp4])
+  copyFileSync(path.join(import.meta.dir, "fixtures", "clip.mp4"), mp4)
 })
 
 afterAll(() => {

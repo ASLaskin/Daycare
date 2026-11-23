@@ -12,7 +12,9 @@ export const selfSigned = () => {
   const cert = path.join(dir, "c.pem")
   const key = path.join(dir, "k.pem")
   execFileSync("openssl", [
-    "req", "-x509", "-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:prime256v1", "-nodes", "-days", "1",
+    "req", "-x509", "-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:prime256v1",
+    // LibreSSL (macOS /usr/bin/openssl) defaults to explicit curve params, which BoringSSL rejects
+    "-pkeyopt", "ec_param_enc:named_curve", "-nodes", "-days", "1",
     "-subj", "/CN=localhost", "-addext", "subjectAltName=DNS:localhost,IP:127.0.0.1", "-keyout", key, "-out", cert,
   ], { stdio: "ignore" })
   const files = { cert: readFileSync(cert, "utf8"), key: readFileSync(key, "utf8"), expiresAt: Date.now() + 86_400_000 }
