@@ -21,3 +21,6 @@
 .chat-perm-actions .ghost:hover:not(:disabled) { border-color: var(--line-strong); background: var(--panel-3); }
 .chat-perm-actions button:disabled { opacity: 0.4; cursor: default; }
 .chat-perm-actions .chat-deny:hover:not(:disabled) { color: var(--exited); border-color: color-mix(in srgb, var(--exited) 40%, var(--line)); }
+.chat-spawn-task { color: var(--text); font-size: 12.5px; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; max-height: 180px; overflow-y: auto; }
+.chat-spawn-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.chat-spawn-field { display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 12px; font-weight: 500; min-width: 0; }

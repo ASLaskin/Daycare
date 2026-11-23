@@ -9,13 +9,12 @@ import { type ChatImage, imageDataUrl } from "../shared/images.ts"
 import { at, type Json, type JsonObject, obj, parseJson, str } from "../shared/json.ts"
 import { lineSplitter } from "../shared/lines.ts"
 import type { PermissionMode } from "../shared/session.ts"
-import { withOogaBooga } from "../main/sessions/oogaBooga.ts"
-import { MASTER_PROMPT, WORKER_PROMPT } from "../main/sessions/prompts.ts"
+import { rolePrompt } from "../main/sessions/prompts.ts"
 import { codexEvents } from "./codexEvents.ts"
 import { codexRequest } from "./codexRequests.ts"
 import { bridge, TOOL_TIMEOUT_SECONDS } from "./orchestration.ts"
 import { spawnGroup, stopGroup } from "./process.ts"
-import { type Answer, type ProviderHandle, type ProviderUpdate, Refused } from "./provider.ts"
+import { type Answer, DEFAULT_LAUNCH, type LaunchOptions, type ProviderHandle, type ProviderUpdate, Refused } from "./provider.ts"
 
 // Codex version whose protocol Daycare was tested against
 export const TESTED_CODEX = "0.160.1"
@@ -47,7 +46,7 @@ export const startCodex = (
   codexPath: FilePath,
   update: (u: ProviderUpdate) => void,
   spawn: Spawn = spawnGroup,
-  options: { readonly oogaBooga?: boolean } = {},
+  options: LaunchOptions = DEFAULT_LAUNCH,
 ): ProviderHandle => {
   if (!session.nativeId && session.state !== "creating") {
     throw new Error("codex session has no thread: its creation is incomplete")
@@ -207,11 +206,12 @@ export const startCodex = (
       throw new Error("Codex is not logged in. Run `codex login`, then start a new session.")
     }
     const master = session.role === "master"
+    const prompt = rolePrompt(master, options.allowSubagents)
     const params = {
       cwd: session.cwd,
       approvalPolicy: approvalPolicy(),
       sandbox: POLICY[session.permissionMode].sandbox,
-      developerInstructions: withOogaBooga(master ? MASTER_PROMPT : WORKER_PROMPT, options.oogaBooga === true),
+      ...(prompt ? { developerInstructions: prompt } : {}),
       ...(session.model ? { model: session.model } : {}),
       ...(master ? { config: { mcp_servers: { daycare: { ...bridge(session.id), tool_timeout_sec: TOOL_TIMEOUT_SECONDS } } } } : {}),
     }

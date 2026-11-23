@@ -45,7 +45,12 @@ export const Settings = Schema.Struct({
   workerEffort: Schema.String,
   autoWorkerEffort: Schema.Boolean,
   permissionMode: PermissionMode,
-  oogaBooga: Schema.Boolean,
+  // Masters may start workers with spawn_subagent
+  allowSubagents: Schema.Boolean,
+  // Each spawn waits for the user's approval
+  confirmSubagents: Schema.Boolean,
+  // Sets CLAUDE_CODE_EXPERIMENTAL_CODE_MODE for claude children
+  codeMode: Schema.Boolean,
   // Coordinator only
   provider: Provider,
   // Desktop only; the keep awake mode lives in the coordinator
@@ -98,7 +103,9 @@ export const baseSettings: Omit<Settings, "locations"> = {
   workerEffort: SAME_AS_MASTER.id,
   autoWorkerEffort: false,
   permissionMode: "default",
-  oogaBooga: false,
+  allowSubagents: true,
+  confirmSubagents: false,
+  codeMode: false,
   provider: "claude",
   keepAwakeLidClosed: false,
   appIcon: "random",

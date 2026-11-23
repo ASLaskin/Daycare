@@ -57,6 +57,9 @@
   text-transform: uppercase;
   padding: 16px 10px 6px;
 }
+.closed-heading { display: flex; align-items: center; justify-content: space-between; padding-right: 4px; }
+.closed-heading .delete-all { padding: 2px 7px; font-size: 11px; letter-spacing: 0; text-transform: none; }
+.closed-heading .delete-all:hover { color: var(--exited); }
 @keyframes rise { from { opacity: 0; transform: translateY(4px); } }
 
 .progress { height: 3px; background: var(--line); border-radius: 2px; margin-top: 8px; overflow: hidden; }

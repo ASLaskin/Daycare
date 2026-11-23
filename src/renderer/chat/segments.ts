@@ -1,8 +1,9 @@
-// Prose and code segments, rendered as plain text
+// Prose and code segments, rendered as markdown
 
 import type { DirPath } from "../../shared/ids.ts"
 import { el } from "../dom.ts"
-import { appendLinked } from "./links.ts"
+import { parseBlocks, parseInline } from "../../shared/markdown.ts"
+import { appendInline, tableNode } from "./markdown.ts"
 
 export interface Segment {
   readonly code: boolean
@@ -65,21 +66,26 @@ const codeBlock = (seg: Segment) => {
   return wrap
 }
 
-const proseBlock = (text: string, linkCwd: DirPath | null) => {
-  if (!linkCwd) {
-    return el("div", "chat-prose", text)
-  }
+const paragraphNode = (text: string, linkCwd: DirPath | null) => {
   const p = el("div", "chat-prose")
-  appendLinked(p, text, linkCwd)
+  appendInline(p, parseInline(text), linkCwd)
   return p
 }
 
-// Links urls and paths when given the session cwd
+const proseNodes = (text: string, linkCwd: DirPath | null): ReadonlyArray<HTMLElement> =>
+  parseBlocks(text).map((block) => (block.kind === "table" ? tableNode(block, linkCwd) : paragraphNode(block.text, linkCwd)))
+
+// Last text node of the final paragraph, if one ends the prose
+const tailOf = (node: HTMLElement | undefined): Text | null => {
+  const last = node?.classList.contains("chat-prose") ? node.lastChild : null
+  return last instanceof Text ? last : null
+}
+
+// Renders markdown prose; links paths when given the session cwd
 export const appendProse = (parent: HTMLElement, raw: string, linkCwd: DirPath | null = null) => {
   const segs = parseSegments(raw)
-  const nodes = segs.map((seg) => (seg.code ? codeBlock(seg) : proseBlock(seg.text, linkCwd)))
+  const nodes = segs.flatMap((seg) => (seg.code ? [codeBlock(seg)] : proseNodes(seg.text, linkCwd)))
   parent.append(...nodes)
-  const lastProse = nodes.filter((_, i) => !segs[i]!.code).pop()
-  const tail = (lastProse?.firstChild as Text | null | undefined) ?? null
-  return { segs, tail }
+  const last = segs[segs.length - 1]
+  return { segs, tail: last?.code ? null : tailOf(nodes[nodes.length - 1]) }
 }

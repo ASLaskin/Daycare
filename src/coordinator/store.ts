@@ -3,7 +3,7 @@
 import { Database } from "bun:sqlite"
 import { Result, Schema } from "effect"
 import { DesktopCatalog } from "../shared/catalog.ts"
-import { type SessionState, StoredSession, WorkerEfforts, WorkerModels } from "../shared/coordinator.ts"
+import { AgentOptions, type SessionState, StoredSession, WorkerEfforts, WorkerModels } from "../shared/coordinator.ts"
 import type { FilePath, SessionId } from "../shared/ids.ts"
 import { type Json, parseJson } from "../shared/json.ts"
 import { baseSettings, KeepAwake } from "../shared/settings.ts"
@@ -259,12 +259,18 @@ export const loadWorkerEfforts = (db: Database): WorkerEfforts => {
 
 export const saveWorkerEfforts = (db: Database, efforts: WorkerEfforts) => writeConfig(db, WORKER_EFFORTS, efforts)
 
-const OOGA_BOOGA = "ooga_booga"
+const AGENT_OPTIONS = "agent_options"
 
-// Caveman prompt for providers launched from now on
-export const loadOogaBooga = (db: Database): boolean => readConfig(db, OOGA_BOOGA) === true
+const decodeAgentOptions = Schema.decodeUnknownResult(AgentOptions)
 
-export const saveOogaBooga = (db: Database, on: boolean) => writeConfig(db, OOGA_BOOGA, on)
+// Last pushed by the app, else the app's defaults
+export const loadAgentOptions = (db: Database): AgentOptions => {
+  const decoded = decodeAgentOptions(readConfig(db, AGENT_OPTIONS))
+  const { allowSubagents, confirmSubagents, codeMode } = baseSettings
+  return Result.isSuccess(decoded) ? decoded.success : { allowSubagents, confirmSubagents, codeMode }
+}
+
+export const saveAgentOptions = (db: Database, options: AgentOptions) => writeConfig(db, AGENT_OPTIONS, options)
 
 const KEEP_AWAKE = "keep_awake"
 

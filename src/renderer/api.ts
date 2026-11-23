@@ -65,6 +65,7 @@ export const api = {
   archiveSession: call("session:archive"),
   unarchiveSession: call("session:unarchive"),
   deleteSession: call("session:delete"),
+  deleteClosedSessions: ask("session:delete-closed"),
   sessionMenu: call("session:menu"),
   onCreated: on("session:created"),
   onUpdate: on("session:update"),

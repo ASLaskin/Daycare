@@ -12,6 +12,7 @@ import { defaultPowerConfig } from "../power/config.ts"
 import { makePower, Power } from "../power/Power.ts"
 import { Sessions, type SessionsShape } from "../sessions/Sessions.ts"
 import { defaultMasterName, nextIcon } from "../sessions/naming.ts"
+import { deleteClosedPrompt } from "../sessions/deleteClosed.ts"
 import { SettingsStore } from "../settings/SettingsStore.ts"
 import { Ui } from "../Ui.ts"
 import { Usage } from "../usage/Usage.ts"
@@ -242,6 +243,13 @@ const make = (version: string) =>
             yield* request({ method: "remove", session: id })
           }
         }),
+      removeClosed: Effect.gen(function* () {
+        const closed = [...sessions.values()].filter((s) => s.role === "master" && s.status === "closed")
+        if (!closed.length || !(yield* ui.confirm(deleteClosedPrompt(closed.length)))) {
+          return
+        }
+        yield* Effect.forEach(closed, (s) => request({ method: "remove", session: s.id }), { discard: true })
+      }),
       // Resolves on coordinator acceptance, not provider delivery
       chatSend: (id, text, images, files) =>
         request({ method: "send", session: id, text, images, files }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Accepted)), Effect.orDie, Effect.asVoid),

@@ -18,6 +18,14 @@ export type ProviderUpdate =
   | { readonly type: "error"; readonly message: string }
   | { readonly type: "exited" }
 
+// Settings a provider reads at launch
+export interface LaunchOptions {
+  readonly allowSubagents: boolean
+  readonly codeMode: boolean
+}
+
+export const DEFAULT_LAUNCH: LaunchOptions = { allowSubagents: true, codeMode: false }
+
 export interface Answer {
   readonly choice: string
   readonly message?: string

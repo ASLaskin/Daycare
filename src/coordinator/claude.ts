@@ -11,11 +11,11 @@ import type { StoredSession } from "../shared/coordinator.ts"
 import { isEffortLevel } from "../shared/efforts.ts"
 import { asRequestId, asToolUseId, type FilePath, type RequestId } from "../shared/ids.ts"
 import { obj, parseJson, str } from "../shared/json.ts"
-import { withOogaBooga } from "../main/sessions/oogaBooga.ts"
-import { MASTER_PROMPT, WORKER_PROMPT } from "../main/sessions/prompts.ts"
+import { codeModeEnv } from "../main/sessions/env.ts"
+import { rolePrompt } from "../main/sessions/prompts.ts"
 import { bridge, DAYCARE_TOOLS, TOOL_TIMEOUT_SECONDS } from "./orchestration.ts"
 import { spawnGroup, stopGroup } from "./process.ts"
-import { type Answer, type ProviderHandle, type ProviderUpdate, Refused } from "./provider.ts"
+import { type Answer, DEFAULT_LAUNCH, type LaunchOptions, type ProviderHandle, type ProviderUpdate, Refused } from "./provider.ts"
 
 export type QueryFn = (params: { prompt: AsyncIterable<SDKUserMessage>; options: Options }) => AsyncIterable<object> & Pick<Query, "interrupt" | "close" | "setModel" | "applyFlagSettings">
 
@@ -48,13 +48,16 @@ export const startClaude = (
   claudePath: FilePath,
   update: (u: ProviderUpdate) => void,
   run: QueryFn = query,
-  options: { readonly oogaBooga?: boolean } = {},
+  options: LaunchOptions = DEFAULT_LAUNCH,
 ): ProviderHandle => {
   const nativeId = session.nativeId
   if (!nativeId) {
     throw new Error("claude session has no native id")
   }
   const master = session.role === "master"
+  const prompt = rolePrompt(master, options.allowSubagents)
+  // Without subagents a master keeps its tools for existing workers
+  const tools = DAYCARE_TOOLS.filter((name) => options.allowSubagents || name !== "spawn_subagent").map((name) => `mcp__daycare__${name}`)
   interface Pending {
     readonly message: SDKUserMessage
     readonly confirm: () => void
@@ -131,13 +134,13 @@ export const startClaude = (
     prompt: prompts(),
     options: {
       pathToClaudeCodeExecutable: claudePath,
-      systemPrompt: { type: "preset", preset: "claude_code", append: withOogaBooga(master ? MASTER_PROMPT : WORKER_PROMPT, options.oogaBooga === true) },
+      systemPrompt: { type: "preset", preset: "claude_code", ...(prompt ? { append: prompt } : {}) },
       // Workers replace Claude's own subagents
-      disallowedTools: ["Task", "Agent"],
+      disallowedTools: ["Task", "Agent", ...(options.allowSubagents ? [] : ["mcp__daycare__spawn_subagent"])],
       ...(master
         ? {
             mcpServers: { daycare: { ...bridge(session.id), alwaysLoad: true, timeout: TOOL_TIMEOUT_SECONDS * 1000 } },
-            allowedTools: DAYCARE_TOOLS.map((name) => `mcp__daycare__${name}`),
+            allowedTools: tools,
           }
         : {}),
       // Own process group
@@ -150,7 +153,7 @@ export const startClaude = (
       includePartialMessages: true,
       canUseTool,
       permissionMode: session.permissionMode,
-      env: { ...withConfigDir(process.env, session.configDir), CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS: "1" },
+      env: { ...withConfigDir(process.env, session.configDir), ...codeModeEnv(options.codeMode), CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS: "1" },
       ...(session.model ? { model: session.model } : {}),
       ...(session.effort && isEffortLevel(session.effort) ? { effort: session.effort } : {}),
       ...(session.state === "creating" ? { sessionId: nativeId } : { resume: nativeId }),

@@ -4,7 +4,6 @@ import { afterEach, expect, test } from "bun:test"
 import fs from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
-import { OOGA_BOOGA_REMINDER } from "../src/main/sessions/oogaBooga.ts"
 import { loadHistory, record } from "../src/coordinator/history.ts"
 import { type Launch, makeHub, type Subscriber } from "../src/coordinator/hub.ts"
 import type { Answer, ProviderUpdate } from "../src/coordinator/provider.ts"
@@ -102,15 +101,6 @@ test("send launches once, hands over input and answers with coordinator acceptan
   hub.command({ method: "send", session: id, text: "again", images: [], files: [] })
   expect(fake.launches.length).toBe(1)
   expect(provider.inputs).toEqual(["go", "again"])
-})
-
-test("ooga booga mode adds a reminder to every turn, including on running providers", () => {
-  const { hub, provider } = running()
-  hub.command({ method: "configure", workerModels: { workerModel: "inherit", autoWorkerModel: true }, workerEfforts: { workerEffort: "inherit", autoWorkerEffort: true }, oogaBooga: true })
-  hub.command({ method: "send", session: id, text: "again", images: [], files: [] })
-  expect(provider.inputs[0]).toBe("go")
-  expect(provider.inputs[1]).toStartWith("again")
-  expect(provider.inputs[1]).toContain(OOGA_BOOGA_REMINDER)
 })
 
 test("the first valid answer wins", () => {

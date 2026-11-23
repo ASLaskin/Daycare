@@ -1,6 +1,5 @@
 // Single owner of sessions, approvals, persistence and event order.
 
-import { withOogaBoogaReminder } from "../main/sessions/oogaBooga.ts"
 import type { Database } from "bun:sqlite"
 import { randomUUID } from "node:crypto"
 import type { DesktopCatalog } from "../shared/catalog.ts"
@@ -21,7 +20,7 @@ import type {
 } from "../shared/coordinator.ts"
 import { asEpoch, asNativeId } from "../shared/coordinator.ts"
 import { fileRefText } from "../shared/files.ts"
-import { type AccountId, asSessionId, type DirPath, type FilePath, type SessionId } from "../shared/ids.ts"
+import { type AccountId, asSessionId, type DirPath, type FilePath, type RequestId, type SessionId } from "../shared/ids.ts"
 import type { ChatImage } from "../shared/images.ts"
 import { isEffortLevel } from "../shared/efforts.ts"
 import type { Json } from "../shared/json.ts"
@@ -32,14 +31,10 @@ import { makeMediaIndex } from "./media.ts"
 import { ACK_MS, makeOrchestration, type WorkerSpec } from "./orchestration.ts"
 import { type Assertion, noAssertion } from "./power/assertion.ts"
 import { makePower } from "./power/power.ts"
-import type { ProviderHandle, ProviderUpdate } from "./provider.ts"
+import type { LaunchOptions, ProviderHandle, ProviderUpdate } from "./provider.ts"
+import { makeSpawnApprovals } from "./spawnApproval.ts"
 import * as store from "./store.ts"
 import { carryTranscript } from "./transcript.ts"
-
-export interface LaunchOptions {
-  // Append the caveman style prompt
-  readonly oogaBooga: boolean
-}
 
 export type Launch = (session: StoredSession, update: (u: ProviderUpdate) => void, options: LaunchOptions) => ProviderHandle
 
@@ -106,9 +101,11 @@ export const makeHub = (db: Database, launch: Launch, options: HubOptions = {}) 
   let stopping: Promise<void> | null = null
   // Re-checks orchestration waits
   let settleWaits = () => {}
+  // Ends a master's pending waits
+  let interruptWaits = (_master: SessionId) => {}
   let workerModels = store.loadWorkerModels(db)
   let workerEfforts = store.loadWorkerEfforts(db)
-  let oogaBooga = store.loadOogaBooga(db)
+  let agentOptions = store.loadAgentOptions(db)
   let catalog = store.loadCatalog(db)
 
   const session = (id: SessionId) => {
@@ -176,12 +173,28 @@ export const makeHub = (db: Database, launch: Launch, options: HubOptions = {}) 
     store.interrupt(db, id)
   }
 
+  // Withdrawn without an answer
+  const withdraw = (id: SessionId, request: RequestId) => {
+    if (approvals.delete(approvalKey(id, request))) {
+      chat(id, { kind: "permission-resolved", requestId: request, allowed: false, reason: "cancelled" })
+    }
+  }
+
+  const spawnApprovals = makeSpawnApprovals({
+    raise: (approval) => {
+      approvals.set(approvalKey(approval.session, approval.request), approval)
+      broadcast({ kind: "approval", approval })
+      chat(approval.session, approval.event)
+    },
+    withdraw,
+  })
+
   const cancelApprovals = (id: SessionId) =>
     [...approvals.values()]
       .filter((a) => a.session === id)
       .forEach((a) => {
-        approvals.delete(approvalKey(id, a.request))
-        chat(id, { kind: "permission-resolved", requestId: a.request, allowed: false, reason: "cancelled" })
+        withdraw(id, a.request)
+        spawnApprovals.cancel(id, a.request)
       })
 
   // Output from a dead run: stored, never changes state
@@ -245,9 +258,7 @@ export const makeHub = (db: Database, launch: Launch, options: HubOptions = {}) 
         return
       }
       case "approval-gone":
-        if (approvals.delete(approvalKey(id, u.request))) {
-          chat(id, { kind: "permission-resolved", requestId: u.request, allowed: false, reason: "cancelled" })
-        }
+        withdraw(id, u.request)
         return
       case "error":
         store.patch(db, id, { error: u.message })
@@ -279,7 +290,8 @@ export const makeHub = (db: Database, launch: Launch, options: HubOptions = {}) 
     refresh(id)
     launching.set(id, run)
     try {
-      const handle = launch(session(id), (u) => update(id, run, u), { oogaBooga })
+      const options: LaunchOptions = { allowSubagents: agentOptions.allowSubagents, codeMode: agentOptions.codeMode }
+      const handle = launch(session(id), (u) => update(id, run, u), options)
       providers.set(id, { handle, run })
       return handle
     } catch (e) {
@@ -300,17 +312,18 @@ export const makeHub = (db: Database, launch: Launch, options: HubOptions = {}) 
     const handle = provider(id)
     store.startTurn(db, id)
     const entry = chat(id, { kind: "user", text: message.text, images: [...message.images], omittedImages: 0, files: [...message.files] })
-    const delivered = handle.input(withOogaBoogaReminder(providerText(message), oogaBooga), message.images)
+    const delivered = handle.input(providerText(message), message.images)
     refresh(id)
     return { entry, delivered }
   }
 
   const textOnly = (text: string): UserMessage => ({ text, images: [], files: [] })
 
-  // Answers on coordinator acceptance
+  // Answers on coordinator acceptance; a user message ends the session's waits
   const sendAccepted = (id: SessionId, message: UserMessage): Accepted => {
     const { entry, delivered } = deliver(id, message)
     delivered.catch(() => {})
+    interruptWaits(id)
     return { accepted: "coordinator", entry }
   }
 
@@ -343,6 +356,8 @@ export const makeHub = (db: Database, launch: Launch, options: HubOptions = {}) 
       needsUser,
       workerModels: () => workerModels,
       workerEfforts: () => workerEfforts,
+      agentOptions: () => agentOptions,
+      approveSpawn: spawnApprovals.ask,
       createWorker: (w: WorkerSpec) =>
         createSession({
           provider: w.provider,
@@ -364,6 +379,7 @@ export const makeHub = (db: Database, launch: Launch, options: HubOptions = {}) 
     options.ackMs ?? ACK_MS,
   )
   settleWaits = orchestration.settle
+  interruptWaits = orchestration.interrupt
 
   // Turns lost to an unclean stop
   recovered.filter((id) => sessions.has(id)).forEach((id) => chat(id, { kind: "interrupted", reason: "the coordinator restarted" }))
@@ -516,17 +532,19 @@ export const makeHub = (db: Database, launch: Launch, options: HubOptions = {}) 
       }
       case "answer": {
         const key = approvalKey(command.session, command.request)
-        const running = providers.get(command.session)
-        if (!approvals.has(key) || !running) {
+        const { session: id, request, choice } = command
+        const own = spawnApprovals.has(id, request)
+        const running = providers.get(id)
+        if (!approvals.has(key) || (!own && !running)) {
           throw new Error("approval is not pending")
         }
-        const { session: id, request, choice } = command
         const answer = {
           choice,
           ...(command.message === undefined ? {} : { message: command.message }),
           ...(command.updatedInput === undefined ? {} : { updatedInput: command.updatedInput }),
         }
-        if (!running.handle.answer(request, answer)) {
+        const taken = own ? spawnApprovals.answer(id, request, answer) : (running?.handle.answer(request, answer) ?? false)
+        if (!taken) {
           throw new Error(`${choice} is not an offered choice`)
         }
         approvals.delete(key)
@@ -596,9 +614,9 @@ export const makeHub = (db: Database, launch: Launch, options: HubOptions = {}) 
         store.saveWorkerEfforts(db, command.workerEfforts)
         workerModels = command.workerModels
         workerEfforts = command.workerEfforts
-        if (command.oogaBooga !== undefined) {
-          store.saveOogaBooga(db, command.oogaBooga)
-          oogaBooga = command.oogaBooga
+        if (command.agentOptions !== undefined) {
+          store.saveAgentOptions(db, command.agentOptions)
+          agentOptions = command.agentOptions
         }
         return {}
       case "power":

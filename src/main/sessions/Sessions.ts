@@ -20,6 +20,8 @@ export interface SessionsShape {
   readonly archive: (id: SessionId) => Effect.Effect<void>
   readonly unarchive: (id: SessionId) => Effect.Effect<void>
   readonly remove: (id: SessionId) => Effect.Effect<void>
+  // Asks once, then removes every closed master and its workers
+  readonly removeClosed: Effect.Effect<void>
   readonly chatSend: (id: SessionId, text: string, images: ReadonlyArray<ChatImage>, files: ReadonlyArray<FilePath>) => Effect.Effect<void>
   readonly chatInterrupt: (id: SessionId) => Effect.Effect<void>
   readonly setModel: (id: SessionId, model: string) => Effect.Effect<void>

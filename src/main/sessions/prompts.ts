@@ -27,3 +27,11 @@ export const WORKER_PROMPT = [
   "When you finish, end with a concise summary of what you did and where any",
   "output lives; the master reads only that summary.",
 ].join(" ")
+
+// Appended system prompt; none for a master without subagents
+export const rolePrompt = (master: boolean, allowSubagents: boolean): string | null => {
+  if (!master) {
+    return WORKER_PROMPT
+  }
+  return allowSubagents ? MASTER_PROMPT : null
+}

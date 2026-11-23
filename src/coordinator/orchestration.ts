@@ -2,10 +2,11 @@
 
 import { Result, Schema } from "effect"
 import path from "node:path"
-import type { SessionHistory, StoredSession, WorkerEfforts, WorkerModels } from "../shared/coordinator.ts"
+import type { AgentOptions, SessionHistory, StoredSession, WorkerEfforts, WorkerModels } from "../shared/coordinator.ts"
 import type { Provider } from "../shared/session.ts"
 import type { SessionId } from "../shared/ids.ts"
 import type { Json } from "../shared/json.ts"
+import type { SpawnApprovalInput, SpawnChoice } from "../shared/spawnApproval.ts"
 import { isToolName, type ToolInput, Tools } from "../main/control/tools.ts"
 import { workerEffort } from "../main/sessions/workerEffort.ts"
 import { workerModel } from "../main/sessions/workerModel.ts"
@@ -46,15 +47,21 @@ export interface OrchestrationCore {
   readonly needsUser: (id: SessionId) => boolean
   readonly workerModels: () => WorkerModels
   readonly workerEfforts: () => WorkerEfforts
+  readonly agentOptions: () => AgentOptions
+  // The user's model and effort, or null when denied
+  readonly approveSpawn: (master: SessionId, input: SpawnApprovalInput, signal: AbortSignal) => Promise<SpawnChoice | null>
   readonly createWorker: (spec: WorkerSpec) => SessionId
   readonly send: (id: SessionId, text: string) => Promise<void>
   readonly archive: (id: SessionId) => void
   readonly history: (id: SessionId) => SessionHistory
 }
 
+type WaitOutcome = "settled" | "timedOut" | "interrupted"
+
 interface Waiter {
+  readonly master: SessionId
   readonly ids: ReadonlyArray<SessionId>
-  readonly finish: (timedOut: boolean) => void
+  readonly finish: (outcome: WaitOutcome) => void
 }
 
 // Provider confirmation, or uncertain
@@ -148,10 +155,34 @@ export const makeOrchestration = (core: OrchestrationCore, ackMs = ACK_MS) => {
     return workerEffort(core.workerEfforts(), masterEffort, requested) || null
   }
 
-  const spawn = async (master: StoredSession, input: ToolInput<"spawn_subagent">) => {
+  // Proposed launch values, or the user's pick when confirming
+  const launchChoice = async (master: StoredSession, provider: Provider, input: ToolInput<"spawn_subagent">, signal: AbortSignal) => {
+    const proposed = { model: modelFor(master, provider, input.model), effort: effortFor(master, provider, input.effort) }
+    if (!core.agentOptions().confirmSubagents) {
+      return proposed
+    }
+    const approval: SpawnApprovalInput = {
+      name: input.name,
+      task: input.task,
+      model: proposed.model ?? "",
+      effort: proposed.effort ?? "",
+      requestedModel: input.model ?? null,
+      requestedEffort: input.effort ?? null,
+    }
+    const choice = await core.approveSpawn(master.id, approval, signal)
+    if (!choice) {
+      throw new Error(`The user declined to start ${input.name}. Do not spawn it again unless they ask; carry on without it or ask them how to proceed.`)
+    }
+    // The pickers offer Claude models and efforts only
+    return provider === "claude" ? { model: choice.model || null, effort: choice.effort || null } : proposed
+  }
+
+  const spawn = async (master: StoredSession, input: ToolInput<"spawn_subagent">, signal: AbortSignal) => {
+    if (!core.agentOptions().allowSubagents) {
+      throw new Error("The user turned off subagents for masters. Do the work yourself instead.")
+    }
     const provider = input.provider ?? master.provider
-    const model = modelFor(master, provider, input.model)
-    const effort = effortFor(master, provider, input.effort)
+    const { model, effort } = await launchChoice(master, provider, input, signal)
     const id = core.createWorker({ master, name: input.name, provider, model, effort, cwd: input.cwd ?? master.cwd })
     const w = core.session(id)
     const delivered = await sendTo(w, input.task)
@@ -163,20 +194,21 @@ export const makeOrchestration = (core: OrchestrationCore, ackMs = ACK_MS) => {
     const ids = refs.length ? refs.map((r) => worker(master.id, r).id) : activeWorkers(master.id).map((w) => w.id)
     const seconds = Math.min(Math.max(input.timeout_seconds ?? DEFAULT_WAIT_SECONDS, 0), MAX_WAIT_SECONDS)
     return new Promise<Json>((resolve) => {
-      const finish = (timedOut: boolean) => {
+      const finish = (outcome: WaitOutcome) => {
         waiters.delete(waiter)
         clearTimeout(timer)
         signal.removeEventListener("abort", abandon)
         resolve({
-          timedOut,
+          timedOut: outcome === "timedOut",
+          interrupted: outcome === "interrupted",
           workers: ids.map((id) => {
             const s = find(id)
             return s ? { ...summary(s), summary: lastReply(id).reply.split("\n")[0] ?? "" } : { id, removed: true }
           }),
         })
       }
-      const waiter: Waiter = { ids, finish }
-      const timer = setTimeout(() => finish(true), seconds * 1000)
+      const waiter: Waiter = { master: master.id, ids, finish }
+      const timer = setTimeout(() => finish("timedOut"), seconds * 1000)
       const abandon = () => {
         waiters.delete(waiter)
         clearTimeout(timer)
@@ -188,7 +220,10 @@ export const makeOrchestration = (core: OrchestrationCore, ackMs = ACK_MS) => {
   }
 
   // Answers waits whose workers have all settled
-  const settle = () => [...waiters].filter((w) => w.ids.every(settled)).forEach((w) => w.finish(false))
+  const settle = () => [...waiters].filter((w) => w.ids.every(settled)).forEach((w) => w.finish("settled"))
+
+  // Ends a master's waits so it can read the user's new message
+  const interrupt = (master: SessionId) => [...waiters].filter((w) => w.master === master).forEach((w) => w.finish("interrupted"))
 
   const run = async (masterId: SessionId, name: string, raw: Json, signal: AbortSignal): Promise<Json> => {
     const master = core.session(masterId)
@@ -205,7 +240,7 @@ export const makeOrchestration = (core: OrchestrationCore, ackMs = ACK_MS) => {
     const input = decoded.success
     switch (name) {
       case "spawn_subagent":
-        return spawn(master, input as ToolInput<"spawn_subagent">)
+        return spawn(master, input as ToolInput<"spawn_subagent">, signal)
       case "list_subagents":
         return activeWorkers(master.id).map(summary)
       case "read_subagent": {
@@ -228,5 +263,5 @@ export const makeOrchestration = (core: OrchestrationCore, ackMs = ACK_MS) => {
     }
   }
 
-  return { run, settle }
+  return { run, settle, interrupt }
 }

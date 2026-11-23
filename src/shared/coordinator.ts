@@ -63,6 +63,9 @@ export type WorkerModels = typeof WorkerModels.Type
 // Subagent effort settings applied when a master spawns a worker
 export const WorkerEfforts = Schema.Struct({ workerEffort: Schema.String, autoWorkerEffort: Schema.Boolean })
 export type WorkerEfforts = typeof WorkerEfforts.Type
+// Subagent and Code Mode settings the app pushes
+export const AgentOptions = Schema.Struct({ allowSubagents: Schema.Boolean, confirmSubagents: Schema.Boolean, codeMode: Schema.Boolean })
+export type AgentOptions = typeof AgentOptions.Type
 
 export const Approval = Schema.Struct({
   session: SessionId,
@@ -124,12 +127,12 @@ export const MoveCommand = Schema.Struct({ method: Schema.Literal("move"), sessi
 export const ModelCommand = Schema.Struct({ method: Schema.Literal("model"), session: SessionId, model: Schema.String })
 // Switches a Claude session's effort, live when running
 export const EffortCommand = Schema.Struct({ method: Schema.Literal("effort"), session: SessionId, effort: Schema.String })
-// Absent oogaBooga keeps the stored value
+// Absent agentOptions keeps the stored value
 export const ConfigureCommand = Schema.Struct({
   method: Schema.Literal("configure"),
   workerModels: WorkerModels,
   workerEfforts: WorkerEfforts,
-  oogaBooga: Schema.optionalKey(Schema.Boolean),
+  agentOptions: Schema.optionalKey(AgentOptions),
 })
 // Keep awake mode; initial applies only when none stored
 export const PowerCommand = Schema.Struct({ method: Schema.Literal("power"), mode: KeepAwake, initial: Schema.optionalKey(Schema.Boolean) })
