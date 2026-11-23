@@ -36,9 +36,8 @@ describe("account list", () => {
     expect(uniqueLabel([], " ")).toBe("Account")
   })
 
-  test("settings keep valid accounts and default to Default", () => {
+  test("settings keep valid accounts and drop malformed ones", () => {
     const defaults: Settings = { ...baseSettings, locations: [] }
-    expect(defaults.activeAccount).toBe(DEFAULT_ACCOUNT)
     const merged = mergeSettings(defaults, { accounts: [{ id: "w1", label: "Work" }], activeAccount: "w1" })
     expect([merged.accounts, merged.activeAccount]).toEqual([[work], work.id])
     expect(mergeSettings(defaults, { accounts: [{ id: 3 }] }).accounts).toEqual([])

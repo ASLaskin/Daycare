@@ -1,6 +1,6 @@
 // Sessions service with fakes at its edges.
 
-import { afterAll, beforeEach, describe, expect, test } from "bun:test"
+import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { Effect, Layer, ManagedRuntime, PubSub, Result, Stream } from "effect"
 import fs from "node:fs"
 import os from "node:os"
@@ -16,7 +16,7 @@ import type { ToolCall } from "../src/main/control/tools.ts"
 import { Power } from "../src/main/power/Power.ts"
 import { PowerBlocker } from "../src/main/power/PowerBlocker.ts"
 import { ClaudeBinary } from "../src/main/sessions/Claude.ts"
-import { OOGA_BOOGA_REMINDER, withOogaBoogaReminder } from "../src/main/sessions/oogaBooga.ts"
+import { MASTER_PROMPT, WORKER_PROMPT } from "../src/main/sessions/prompts.ts"
 import { Sessions } from "../src/main/sessions/Sessions.ts"
 import { SettingsStore } from "../src/main/settings/SettingsStore.ts"
 import { Usage } from "../src/main/usage/Usage.ts"
@@ -34,6 +34,8 @@ interface FakeChat {
   readonly sent: Array<string>
   readonly models: Array<string>
   readonly efforts: Array<string>
+  // Events Daycare emitted itself
+  readonly emitted: Array<ChatEvent>
   stopped: boolean
 }
 const chats: Array<FakeChat> = []
@@ -65,8 +67,17 @@ const FakeChatLayer = Layer.effect(
         Effect.tap(() => Effect.sync(() => ready.resolve())),
         Effect.map(Stream.fromSubscription),
       ),
-      start: (opts) => Effect.sync(() => void chats.push({ opts, sent: [], models: [], efforts: [], stopped: false })),
-      send: (id, text, _images, _files, oogaBooga = false) => Effect.sync(() => void liveChat(id)?.sent.push(withOogaBoogaReminder(text, oogaBooga))),
+      start: (opts) => Effect.sync(() => void chats.push({ opts, sent: [], models: [], efforts: [], emitted: [], stopped: false })),
+      send: (id, text) => Effect.sync(() => void liveChat(id)?.sent.push(text)),
+      emit: (id, events) =>
+        Effect.sync(() => {
+          const c = liveChat(id)
+          if (!c) {
+            return
+          }
+          c.emitted.push(...events)
+          events.forEach((event) => publish(id, event))
+        }),
       interrupt: () => Effect.void,
       setModel: (id, model) => Effect.sync(() => void liveChat(id)?.models.push(model)),
       setEffort: (id, effort) => Effect.sync(() => void liveChat(id)?.efforts.push(effort)),
@@ -270,21 +281,93 @@ describe("chat events drive status", () => {
     expect(sent.some((e) => e.channel === "chat:event" && payloadId(e.payload) === m.id)).toBe(true)
   })
 
-  test("turning ooga booga on mid session reminds the next turns", async () => {
-    const m = await newMaster()
-    await sessions((s) => s.chatSend(m.id, "before", [], []))
-    await setSettings({ oogaBooga: true })
-    await sessions((s) => s.chatSend(m.id, "after", [], []))
-    const w = await spawnWorker(m.id, "w1", "work")
-    await setSettings({ oogaBooga: false })
-    expect(chatOf(m.id).sent).toEqual(["before", `after\n\n${OOGA_BOOGA_REMINDER}`])
-    expect(chatOf(w.id).sent).toEqual([`work\n\n${OOGA_BOOGA_REMINDER}`])
-  })
-
   test("a hook's transcript path is remembered", async () => {
     const m = await newMaster()
     await hook(m.id, { hook_event_name: "SessionStart", transcript_path: asFilePath("/t/x.jsonl"), session_id: asClaudeSessionId("claude-1") })
     expect(savedRecord(m.id)).toMatchObject({ transcriptPath: "/t/x.jsonl", claudeSessionId: "claude-1" })
+  })
+})
+
+// Pending spawn approval in a master's chat
+const spawnApproval = async (masterId: SessionId) => {
+  await tick()
+  const ev = chatOf(masterId).emitted.findLast((e) => e.kind === "permission")
+  if (ev?.kind !== "permission") {
+    throw new Error("Expected a spawn approval")
+  }
+  return ev
+}
+
+describe("master subagent settings", () => {
+  const argAfter = (args: ReadonlyArray<string>, flag: string) => args[args.indexOf(flag) + 1]
+
+  afterEach(() => setSettings({ allowSubagents: true, confirmSubagents: false, codeMode: false }))
+
+  test("masters get the delegation prompt and spawn tool by default", async () => {
+    const m = await newMaster()
+    const args = chatOf(m.id).opts.args ?? []
+    expect(argAfter(args, "--append-system-prompt")).toBe(MASTER_PROMPT)
+    expect(args).not.toContain("mcp__daycare__spawn_subagent")
+  })
+
+  test("with subagents off a master loses the prompt and spawn_subagent", async () => {
+    await setSettings({ allowSubagents: false })
+    const m = await newMaster()
+    const args = chatOf(m.id).opts.args ?? []
+    expect(args).not.toContain("--append-system-prompt")
+    expect(args.slice(args.indexOf("--disallowedTools"))).toEqual(["--disallowedTools", "Agent", "Task", "mcp__daycare__spawn_subagent"])
+    expect(await failure(tool(m.id, { name: "spawn_subagent", input: { name: "w", task: "t" } }))).toBe(
+      "The user turned off subagents for masters. Do the work yourself instead.",
+    )
+  })
+
+  test("confirming waits for approval and starts the worker with the user's model and effort", async () => {
+    await setSettings({ confirmSubagents: true, autoWorkerModel: true, autoWorkerEffort: true })
+    const m = await newMaster()
+    const spawning = tool(m.id, { name: "spawn_subagent", input: { name: "w1", task: "do it", model: "haiku", effort: "low" } })
+    const ev = await spawnApproval(m.id)
+    expect(ev.input).toEqual({ name: "w1", task: "do it", model: "haiku", effort: "low", requestedModel: "haiku", requestedEffort: "low" })
+    expect((await get(m.id)).status).toBe("needs_you")
+    expect(chats.some((c) => c.opts.args?.includes(WORKER_PROMPT) && c.sent.includes("do it"))).toBe(false)
+    const decision = { allow: true, updatedInput: { model: "opus", effort: "high" } }
+    expect(await sessions((s) => s.chatRespond(m.id, ev.requestId, decision))).toBe(true)
+    const w = obj(await ok(spawning)) ?? {}
+    expect([w["model"], w["effort"]]).toEqual(["opus", "high"])
+    const wc = chatOf(asSessionId(String(w["id"])))
+    expect([argAfter(wc.opts.args ?? [], "--model"), argAfter(wc.opts.args ?? [], "--effort")]).toEqual(["opus", "high"])
+    expect(chatOf(m.id).emitted.at(-1)).toEqual({ kind: "permission-resolved", requestId: ev.requestId, allowed: true })
+    await setSettings({ autoWorkerModel: false, autoWorkerEffort: false })
+  })
+
+  test("an unknown model or effort keeps the proposal", async () => {
+    await setSettings({ confirmSubagents: true })
+    const m = await newMaster()
+    const spawning = tool(m.id, { name: "spawn_subagent", input: { name: "w1", task: "t" } })
+    const ev = await spawnApproval(m.id)
+    await sessions((s) => s.chatRespond(m.id, ev.requestId, { allow: true, updatedInput: { model: "gpt", effort: "ultra" } }))
+    const w = obj(await ok(spawning)) ?? {}
+    expect([w["model"], w["effort"]]).toEqual(["sonnet", "high"])
+  })
+
+  test("denying tells the master and starts nothing", async () => {
+    await setSettings({ confirmSubagents: true })
+    const m = await newMaster()
+    const before = chats.length
+    const spawning = tool(m.id, { name: "spawn_subagent", input: { name: "w1", task: "t" } })
+    const ev = await spawnApproval(m.id)
+    expect(await sessions((s) => s.chatRespond(asSessionId("someone-else"), ev.requestId, { allow: true }))).toBe(false)
+    await sessions((s) => s.chatRespond(m.id, ev.requestId, { allow: false, message: "Denied by the user" }))
+    expect(await failure(spawning)).toBe("The user declined to start w1. Do not spawn it again unless they ask; carry on without it or ask them how to proceed.")
+    expect(chats.length).toBe(before)
+    expect(chatOf(m.id).emitted.at(-1)).toEqual({ kind: "permission-resolved", requestId: ev.requestId, allowed: false })
+  })
+
+  test("Code Mode sets its env var only when on", async () => {
+    const off = await newMaster()
+    expect(chatOf(off.id).opts.env["CLAUDE_CODE_EXPERIMENTAL_CODE_MODE"]).toBeUndefined()
+    await setSettings({ codeMode: true })
+    const on = await newMaster()
+    expect(chatOf(on.id).opts.env["CLAUDE_CODE_EXPERIMENTAL_CODE_MODE"]).toBe("1")
   })
 })
 

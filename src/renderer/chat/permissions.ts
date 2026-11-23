@@ -1,4 +1,6 @@
+import { Option, Schema } from "effect"
 import type { RequestId } from "../../shared/ids.ts"
+import { SPAWN_APPROVAL_TOOL, SpawnApprovalInput } from "../../shared/spawnApproval.ts"
 import { api } from "../api.ts"
 import { el } from "../dom.ts"
 import { askQuestions } from "./ask-questions.ts"
@@ -8,6 +10,7 @@ import { toolLabel } from "./labels.ts"
 import { buildAsk } from "./perm-ask.ts"
 import { buildGeneric } from "./perm-generic.ts"
 import { buildPlan } from "./perm-plan.ts"
+import { buildSpawn } from "./perm-spawn.ts"
 import type { Answer, CardParts, PermissionEvent } from "./perm-types.ts"
 import { stick } from "./scroll.ts"
 import { settleThinking } from "./thinking.ts"
@@ -18,9 +21,14 @@ import type { ChatSession, Perm } from "./types.ts"
 const ASK_TOOL = "AskUserQuestion"
 const PLAN_TOOL = "ExitPlanMode"
 
-type CardKind = "ask" | "plan" | "generic"
+type CardKind = "ask" | "plan" | "spawn" | "generic"
 
-const CARD_CLASS: Record<CardKind, string> = { ask: " chat-ask", plan: " chat-plan", generic: "" }
+const CARD_CLASS: Record<CardKind, string> = { ask: " chat-ask", plan: " chat-plan", spawn: " chat-spawn", generic: "" }
+
+const decodeSpawn = Schema.decodeUnknownOption(SpawnApprovalInput)
+
+// Daycare's own worker approval, else null
+const spawnRequest = (ev: PermissionEvent) => (ev.name === SPAWN_APPROVAL_TOOL ? Option.getOrNull(decodeSpawn(ev.input)) : null)
 
 const cardLabel = (kind: CardKind, name: string) => {
   switch (kind) {
@@ -28,6 +36,8 @@ const cardLabel = (kind: CardKind, name: string) => {
       return "Questions for you"
     case "plan":
       return "A plan to review"
+    case "spawn":
+      return "A worker to approve"
     case "generic":
       return `Permission request: ${name}`
   }
@@ -41,7 +51,8 @@ export const permission = (s: ChatSession, ev: PermissionEvent) => {
   const turn = ensureTurn(s)
   const l = toolLabel(ev.name, ev.input, ev.title)
   const questions = ev.name === ASK_TOOL ? askQuestions(ev.input) : null
-  const kind: CardKind = questions ? "ask" : ev.name === PLAN_TOOL ? "plan" : "generic"
+  const spawn = spawnRequest(ev)
+  const kind: CardKind = questions ? "ask" : ev.name === PLAN_TOOL ? "plan" : spawn ? "spawn" : "generic"
   const card = el("div", `chat-perm${CARD_CLASS[kind]}`)
   card.setAttribute("role", "group")
   card.setAttribute("aria-label", cardLabel(kind, l.name))
@@ -66,6 +77,9 @@ export const permission = (s: ChatSession, ev: PermissionEvent) => {
   }
   if (kind === "plan") {
     buildPlan(parts, p)
+  }
+  if (spawn) {
+    buildSpawn(parts, p, spawn)
   }
   if (kind === "generic") {
     buildGeneric(parts, l)

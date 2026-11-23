@@ -8,7 +8,6 @@ import type { ClaudeSessionId, FilePath, RequestId, SessionId } from "../../shar
 import type { PermissionDecision } from "../../shared/ipc.ts"
 import { ChatProcess, type ChatStart } from "./ChatProcess.ts"
 import type { StreamNormalizer } from "./normalize.ts"
-import { withOogaBoogaReminder } from "../sessions/oogaBooga.ts"
 import { HISTORY_MAX } from "./transcript.ts"
 import { userContent } from "./userContent.ts"
 
@@ -33,14 +32,9 @@ export interface ChatShape {
   // Stream of every chat's events.
   readonly subscribe: Effect.Effect<Stream.Stream<ChatMessage>, never, Scope.Scope>
   readonly start: (opts: ChatStart) => Effect.Effect<void>
-  // Ooga booga adds the reminder to claude's copy only
-  readonly send: (
-    id: SessionId,
-    text: string,
-    images?: ReadonlyArray<ChatImage>,
-    files?: ReadonlyArray<FilePath>,
-    oogaBooga?: boolean,
-  ) => Effect.Effect<void>
+  readonly send: (id: SessionId, text: string, images?: ReadonlyArray<ChatImage>, files?: ReadonlyArray<FilePath>) => Effect.Effect<void>
+  // Daycare's own events, such as approvals it asks for
+  readonly emit: (id: SessionId, events: ReadonlyArray<ChatEvent>) => Effect.Effect<void>
   readonly interrupt: (id: SessionId) => Effect.Effect<void>
   readonly setModel: (id: SessionId, model: string) => Effect.Effect<void>
   readonly setEffort: (id: SessionId, effort: string) => Effect.Effect<void>
@@ -82,20 +76,14 @@ const make = (claudePath: FilePath) =>
         chats.set(opts.id, c)
       })
 
-    const send = (
-      id: SessionId,
-      text: string,
-      images: ReadonlyArray<ChatImage> = [],
-      files: ReadonlyArray<FilePath> = [],
-      oogaBooga = false,
-    ) =>
+    const send = (id: SessionId, text: string, images: ReadonlyArray<ChatImage> = [], files: ReadonlyArray<FilePath> = []) =>
       Effect.sync(() => {
         const c = live(id)
         if (!c) {
           return
         }
         c.emitAll([{ kind: "user", text, images, omittedImages: 0, files }])
-        c.write({ type: "user", message: { role: "user", content: userContent(withOogaBoogaReminder(text, oogaBooga), images, files) }, parent_tool_use_id: null })
+        c.write({ type: "user", message: { role: "user", content: userContent(text, images, files) }, parent_tool_use_id: null })
       })
 
     const interrupt = (id: SessionId) =>
@@ -140,6 +128,7 @@ const make = (claudePath: FilePath) =>
       subscribe: PubSub.subscribe(pubsub).pipe(Effect.map(Stream.fromSubscription)),
       start,
       send,
+      emit: (id, events) => Effect.sync(() => live(id)?.emitAll(events)),
       interrupt,
       setModel,
       setEffort,

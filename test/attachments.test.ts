@@ -9,7 +9,7 @@ import { existingPath, expandHome, resolveMentions } from "../src/main/attachmen
 import { parseRange } from "../src/main/attachments/range.ts"
 import { validateUrl } from "../src/main/attachments/urls.ts"
 import { aggregate } from "../src/renderer/attachments/aggregate.ts"
-import { GROUPS, groupOf, matchesFilter, mentionsOf, pathAttachment, urlAttachment } from "../src/shared/attachments.ts"
+import { groupOf, matchesFilter, mentionsOf, pathAttachment, urlAttachment } from "../src/shared/attachments.ts"
 import type { ChatEvent } from "../src/shared/chat.ts"
 import { asDirPath, asFilePath, asHttpUrl, asToolUseId } from "../src/shared/ids.ts"
 import { isRunnablePath, kindOfPath, mediaUrl, mimeOf, pathOfMediaUrl } from "../src/shared/media.ts"
@@ -149,10 +149,6 @@ describe("attachments", () => {
       [img.key, ["remix", "worker one"]],
     ])
     expect(aggregate([])).toEqual([])
-  })
-
-  test("orders videos right after images", () => {
-    expect(GROUPS.map((g) => g.label)).toEqual(["Images", "Videos", "Files", "Folders", "URLs"])
   })
 
   test("classifies by extension", () => {

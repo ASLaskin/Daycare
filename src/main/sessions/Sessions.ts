@@ -16,6 +16,7 @@ import { makeHookHandler } from "./hooks.ts"
 import { makeLifecycle } from "./lifecycle.ts"
 import { makeToolHandler } from "./orchestration.ts"
 import { makeService, type SessionsShape } from "./service.ts"
+import { makeSpawnApproval } from "./spawnApproval.ts"
 
 export type { SessionsShape }
 
@@ -33,6 +34,7 @@ const make = Effect.gen(function* () {
   const lifecycle = makeLifecycle(core)
   const onChatEvent = makeChatEventHandler(core, lifecycle)
   const onHook = makeHookHandler(core)
+  const approval = makeSpawnApproval(core)
   const { chat, settings } = core.deps
 
   yield* chat.subscribe.pipe(
@@ -55,10 +57,10 @@ const make = Effect.gen(function* () {
 
   const handlers = ControlHandlers.of({
     hook: (id, payload) => Effect.sync(() => onHook(id, payload)),
-    tool: makeToolHandler(core, lifecycle),
+    tool: makeToolHandler(core, lifecycle, approval),
   })
 
-  return { service: makeService(core, lifecycle), handlers }
+  return { service: makeService(core, lifecycle, approval), handlers }
 })
 
 export class Sessions extends Context.Service<Sessions, SessionsShape>()("daycare/Sessions") {

@@ -5,10 +5,12 @@ import type { SessionId } from "../../shared/ids.ts"
 import type { Json } from "../../shared/json.ts"
 import { ToolError } from "../control/mcp.ts"
 import type { ToolCall, ToolInput } from "../control/tools.ts"
+import type { SpawnChoice } from "../../shared/spawnApproval.ts"
 import { makeArchive } from "./archive.ts"
 import type { Core } from "./core.ts"
 import type { Lifecycle } from "./lifecycle.ts"
 import type { Session } from "./model.ts"
+import type { SpawnApproval } from "./spawnApproval.ts"
 import { firstLine, lastAssistantText } from "./transcripts.ts"
 import { workerEffort } from "./workerEffort.ts"
 import { workerModel } from "./workerModel.ts"
@@ -18,7 +20,7 @@ const MAX_WAIT_SECONDS = 1700
 
 const workerSummary = (w: Session) => ({ id: w.id, name: w.name, status: w.status, activity: w.activity, task: w.task })
 
-export const makeToolHandler = (core: Core, lifecycle: Lifecycle) => {
+export const makeToolHandler = (core: Core, lifecycle: Lifecycle, approval: SpawnApproval) => {
   const archiver = makeArchive(core, lifecycle)
   const activeWorkers = (master: Session) => core.childrenOf(master.id).filter((k) => !k.archived)
 
@@ -43,10 +45,7 @@ export const makeToolHandler = (core: Core, lifecycle: Lifecycle) => {
       return { timedOut: Option.isNone(settled), interrupted: Option.getOrElse(settled, () => false) }
     })
 
-  const spawn = (master: Session, input: ToolInput<"spawn_subagent">) => {
-    const settings = core.run(core.deps.settings.get)
-    const model = workerModel(settings, master.model, input.model)
-    const effort = workerEffort(settings, master.effort, input.effort)
+  const startWorker = (master: Session, input: ToolInput<"spawn_subagent">, { model, effort }: SpawnChoice) => {
     const w = lifecycle.createSession({
       role: "worker",
       name: input.name,
@@ -59,6 +58,37 @@ export const makeToolHandler = (core: Core, lifecycle: Lifecycle) => {
     })
     return { id: w.id, name: w.name, model: model || "Claude default", effort: effort || "default", note: "Worker started in its own pane." }
   }
+
+  // Proposed launch values, then the user's pick when confirming
+  const launchChoice = (master: Session, input: ToolInput<"spawn_subagent">) =>
+    Effect.gen(function* () {
+      const settings = yield* core.deps.settings.get
+      const proposed = { model: workerModel(settings, master.model, input.model), effort: workerEffort(settings, master.effort, input.effort) }
+      if (!settings.confirmSubagents) {
+        return proposed
+      }
+      return yield* approval.ask(master, {
+        name: input.name,
+        task: input.task,
+        ...proposed,
+        requestedModel: input.model ?? null,
+        requestedEffort: input.effort ?? null,
+      })
+    })
+
+  const spawn = (master: Session, input: ToolInput<"spawn_subagent">) =>
+    Effect.gen(function* () {
+      if (!(yield* core.deps.settings.get).allowSubagents) {
+        return yield* new ToolError({ message: "The user turned off subagents for masters. Do the work yourself instead." })
+      }
+      const choice = yield* launchChoice(master, input)
+      if (!choice) {
+        return yield* new ToolError({
+          message: `The user declined to start ${input.name}. Do not spawn it again unless they ask; carry on without it or ask them how to proceed.`,
+        })
+      }
+      return startWorker(master, input, choice)
+    })
 
   const read = (master: Session, input: ToolInput<"read_subagent">) =>
     findWorker(master, input.worker).pipe(
@@ -110,7 +140,7 @@ export const makeToolHandler = (core: Core, lifecycle: Lifecycle) => {
     }
     switch (call.name) {
       case "spawn_subagent":
-        return Effect.sync(() => spawn(master, call.input))
+        return spawn(master, call.input)
       case "list_subagents":
         return Effect.sync(() => activeWorkers(master).map(workerSummary))
       case "read_subagent":
