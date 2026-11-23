@@ -1,0 +1,51 @@
+{
+  "type": "event",
+  "seq": 4189,
+  "event": {
+    "kind": "catalog",
+    "catalog": {
+      "locations": [
+        {
+          "label": "app",
+          "path": "/Users/me/code/app"
+        }
+      ],
+      "accounts": [
+        {
+          "id": "default",
+          "label": "Default"
+        },
+        {
+          "id": "work",
+          "label": "Work"
+        }
+      ],
+      "activeAccount": "default",
+      "defaultLocation": "/Users/me/code/app",
+      "provider": "claude",
+      "model": "opus",
+      "effort": "high",
+      "permissionMode": "acceptEdits",
+      "models": [
+        {
+          "id": "opus",
+          "label": "Opus"
+        },
+        {
+          "id": "sonnet",
+          "label": "Sonnet"
+        }
+      ],
+      "efforts": [
+        {
+          "id": "low",
+          "label": "Low"
+        },
+        {
+          "id": "high",
+          "label": "High"
+        }
+      ]
+    }
+  }
+}

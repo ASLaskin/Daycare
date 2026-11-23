@@ -22,7 +22,7 @@ test("reopening keeps records and schema", () => {
   const s = { ...sample("a", "claude", "creating"), nativeId: asNativeId("n") }
   createSession(db.open(), s)
   const conn = db.open()
-  expect(conn.query<{ user_version: number }, []>("PRAGMA user_version").get()?.user_version).toBe(5)
+  expect(conn.query<{ user_version: number }, []>("PRAGMA user_version").get()?.user_version).toBe(7)
   expect(getSession(conn, s.id)).toEqual({ session: s })
 })
 
@@ -32,7 +32,7 @@ test("sessions from before accounts open on Default", () => {
   const conn = db.open()
   createSession(conn, s)
   conn.run(
-    "ALTER TABLE sessions DROP COLUMN account_id; ALTER TABLE sessions DROP COLUMN config_dir; DROP TABLE config; ALTER TABLE sessions DROP COLUMN archived; ALTER TABLE sessions DROP COLUMN effort; PRAGMA user_version = 1",
+    "ALTER TABLE sessions DROP COLUMN account_id; ALTER TABLE sessions DROP COLUMN config_dir; DROP TABLE config; ALTER TABLE sessions DROP COLUMN archived; ALTER TABLE sessions DROP COLUMN effort; ALTER TABLE sessions DROP COLUMN last_entry; ALTER TABLE history DROP COLUMN at; DROP TABLE mobile_requests; DROP TABLE mobile_devices; DROP TABLE mobile_activities; PRAGMA user_version = 1",
   )
   conn.close()
   expect(getSession(db.open(), s.id)).toEqual({ session: s })
@@ -43,12 +43,23 @@ test("sessions from before archiving open unarchived, and archiving is saved", (
   const s = sample("a", "claude", "idle")
   const conn = db.open()
   createSession(conn, s)
-  conn.run("ALTER TABLE sessions DROP COLUMN archived; ALTER TABLE sessions DROP COLUMN effort; PRAGMA user_version = 3")
+  conn.run("ALTER TABLE sessions DROP COLUMN archived; ALTER TABLE sessions DROP COLUMN effort; ALTER TABLE sessions DROP COLUMN last_entry; ALTER TABLE history DROP COLUMN at; DROP TABLE mobile_requests; DROP TABLE mobile_devices; DROP TABLE mobile_activities; PRAGMA user_version = 3")
   conn.close()
   const reopened = db.open()
   expect(getSession(reopened, s.id)).toEqual({ session: s })
   patch(reopened, s.id, { archived: true, closed: true })
   expect(getSession(reopened, s.id)).toEqual({ session: { ...s, archived: true, closed: true } })
+})
+
+test("sessions from before entry counters continue after their newest row", () => {
+  const db = fresh()
+  const conn = db.open()
+  createSession(conn, sample("a", "claude", "idle"))
+  conn.run("INSERT INTO history (session_id, seq, scope, block, partial, bytes, body) VALUES ('a', 7, 1, NULL, 0, 2, '{}')")
+  conn.run("ALTER TABLE sessions DROP COLUMN last_entry; ALTER TABLE history DROP COLUMN at; DROP TABLE mobile_requests; DROP TABLE mobile_devices; DROP TABLE mobile_activities; PRAGMA user_version = 5")
+  conn.close()
+  const reopened = db.open()
+  expect(reopened.query<{ last_entry: number }, []>("SELECT last_entry FROM sessions WHERE id = 'a'").get()?.last_entry).toBe(7)
 })
 
 test("recovery marks lost execution without touching settled sessions", () => {

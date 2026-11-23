@@ -1,0 +1,32 @@
+{
+  "type": "event",
+  "seq": 4183,
+  "event": {
+    "kind": "session",
+    "session": {
+      "id": "s-master",
+      "provider": "claude",
+      "nativeId": "native-1",
+      "role": "master",
+      "parentId": null,
+      "name": "Ada",
+      "icon": "fox",
+      "cwd": "/Users/me/code/app",
+      "model": "opus",
+      "effort": "high",
+      "permissionMode": "default",
+      "state": "running",
+      "closed": false,
+      "archived": false,
+      "error": null,
+      "createdAt": 1762300000000,
+      "run": 2,
+      "accountId": "default",
+      "configDir": null,
+      "live": true,
+      "lastEntry": 41,
+      "lastEventAt": 1762300050000,
+      "preview": "Looking at the tests now"
+    }
+  }
+}

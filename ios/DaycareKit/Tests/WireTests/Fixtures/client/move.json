@@ -1,0 +1,10 @@
+{
+  "type": "request",
+  "id": 1,
+  "key": "k9",
+  "command": {
+    "method": "move",
+    "session": "s-master",
+    "accountId": "work"
+  }
+}

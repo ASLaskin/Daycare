@@ -40,6 +40,7 @@ const { MainWindow } = await import("../src/main/electron/Window.ts")
 const { SettingsStore } = await import("../src/main/settings/SettingsStore.ts")
 const { Sessions } = await import("../src/main/sessions/Sessions.ts")
 const { Power } = await import("../src/main/power/Power.ts")
+const { Phone } = await import("../src/main/coordinator/Phone.ts")
 const { Skills } = await import("../src/main/skills/Skills.ts")
 const { Usage } = await import("../src/main/usage/Usage.ts")
 const { ClaudeBinary } = await import("../src/main/sessions/Claude.ts")
@@ -82,6 +83,7 @@ describe("Ipc", () => {
     none(Usage),
     none(Accounts),
     none(Power),
+    none(Phone),
     none(Skills),
     none(Updater),
     Layer.succeed(ClaudeBinary, { path: asFilePath("/bin/claude") }),

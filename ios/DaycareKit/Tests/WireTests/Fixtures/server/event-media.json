@@ -1,0 +1,19 @@
+{
+  "type": "event",
+  "seq": 4190,
+  "event": {
+    "kind": "media",
+    "session": "s-master",
+    "items": [
+      {
+        "path": "/Users/me/code/app/out/demo.mp4",
+        "name": "demo.mp4",
+        "mimeType": "video/mp4",
+        "kind": "video",
+        "size": 4812000,
+        "modifiedAt": 1762300040000,
+        "entry": 40
+      }
+    ]
+  }
+}

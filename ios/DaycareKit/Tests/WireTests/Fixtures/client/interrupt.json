@@ -1,0 +1,9 @@
+{
+  "type": "request",
+  "id": 1,
+  "key": "k1",
+  "command": {
+    "method": "interrupt",
+    "session": "s-master"
+  }
+}

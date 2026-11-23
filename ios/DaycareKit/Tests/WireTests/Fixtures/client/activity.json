@@ -1,0 +1,9 @@
+{
+  "type": "request",
+  "id": 1,
+  "command": {
+    "method": "activity",
+    "activity": "act-1",
+    "token": "beef"
+  }
+}

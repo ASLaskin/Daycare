@@ -4,7 +4,6 @@ import { Effect, Layer, type Scope, Stream } from "effect"
 import path from "node:path"
 import { AppPaths } from "../AppPaths.ts"
 import { Power } from "../power/Power.ts"
-import { Sessions } from "../sessions/Sessions.ts"
 import { Ui } from "../Ui.ts"
 import { Usage } from "../usage/Usage.ts"
 import { resolveBindings } from "../../shared/shortcuts/bindings.ts"
@@ -34,7 +33,6 @@ export const Boot = Layer.effectDiscard(
     const { win } = yield* MainWindow
     const { appRoot } = yield* AppPaths
     const ui = yield* Ui
-    const sessions = yield* Sessions
     const usage = yield* Usage
     const power = yield* Power
 
@@ -51,7 +49,6 @@ export const Boot = Layer.effectDiscard(
     })
 
     yield* Effect.promise(() => win.loadFile(path.join(appRoot, "dist", "renderer", "index.html")))
-    yield* sessions.restore
     // Usage on launch
     yield* Effect.forkScoped(usage.refresh())
     yield* devHooks

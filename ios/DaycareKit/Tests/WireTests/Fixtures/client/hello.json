@@ -1,0 +1,17 @@
+{
+  "type": "hello",
+  "protocol": 1,
+  "app": "1.0 (1)",
+  "token": "tok",
+  "device": "dev",
+  "resume": {
+    "epoch": "ep-1",
+    "seq": 4182
+  },
+  "watch": {
+    "sessions": [
+      "s-master"
+    ],
+    "deltas": true
+  }
+}

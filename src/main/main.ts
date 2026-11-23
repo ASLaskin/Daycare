@@ -2,12 +2,8 @@
 
 import { app } from "electron"
 import { Effect, Fiber, Layer } from "effect"
-import path from "node:path"
 import { Accounts } from "./accounts/Accounts.ts"
-import { AppPaths } from "./AppPaths.ts"
 import { registerMediaScheme } from "./attachments/MediaProtocol.ts"
-import { Chat } from "./chat/Chat.ts"
-import { ControlEndpoint, ControlHttpServer, ControlRoutes } from "./control/ControlServer.ts"
 import { coordinatorSessions } from "./coordinator/CoordinatorSessions.ts"
 import { AppIcon } from "./electron/AppIcon.ts"
 import { Boot } from "./electron/Boot.ts"
@@ -15,11 +11,7 @@ import { ElectronPaths } from "./electron/ElectronPaths.ts"
 import { ElectronUi } from "./electron/ElectronUi.ts"
 import { Ipc } from "./electron/Ipc.ts"
 import { MainWindow } from "./electron/Window.ts"
-import { ElectronPowerBlocker } from "./power/ElectronPowerBlocker.ts"
-import { defaultPowerConfig } from "./power/config.ts"
-import { Power } from "./power/Power.ts"
 import { ClaudeBinary } from "./sessions/Claude.ts"
-import { Sessions } from "./sessions/Sessions.ts"
 import { SettingsStore } from "./settings/SettingsStore.ts"
 import { Skills } from "./skills/Skills.ts"
 import { Updater } from "./updater/Updater.ts"
@@ -33,26 +25,15 @@ const Platform = Layer.mergeAll(ElectronPaths, ClaudeBinary.layer, Skills.layer)
 
 const Window = ElectronUi.pipe(Layer.provideMerge(MainWindow.layer))
 
-const ChatLive = Layer.unwrap(ClaudeBinary.use((claude) => Effect.succeed(Chat.layer(claude.path))))
-
-const PowerLive = Layer.unwrap(
-  AppPaths.use(({ userData }) => Effect.succeed(Power.layer(defaultPowerConfig(path.join(userData, "lid-release"))))),
-).pipe(Layer.provide(ElectronPowerBlocker))
-
-const Control = ControlEndpoint.layer.pipe(Layer.provideMerge(ControlHttpServer))
-
-const Services = Layer.mergeAll(Accounts.layer, Usage.layer.pipe(Layer.provide(UsageSource.layer)), ChatLive, PowerLive, Updater.layer).pipe(
+const Services = Layer.mergeAll(Accounts.layer, Usage.layer.pipe(Layer.provide(UsageSource.layer)), Updater.layer).pipe(
   Layer.provideMerge(Window),
   Layer.provideMerge(SettingsStore.layer),
-  Layer.provideMerge(Control),
 )
 
-// Sessions and ControlHandlers; coordinator default on Linux only
-const onCoordinator = process.env["DAYCARE_COORDINATOR"] ? process.env["DAYCARE_COORDINATOR"] === "1" : process.platform === "linux"
-const SessionsLive = onCoordinator ? coordinatorSessions(app.getVersion()) : Sessions.layer
-const Core = SessionsLive.pipe(Layer.provideMerge(Services))
+// Sessions and Power, both served by the coordinator
+const Core = coordinatorSessions(app.getVersion()).pipe(Layer.provideMerge(Services))
 
-const App = Layer.mergeAll(ControlRoutes, Ipc, AppIcon).pipe(
+const App = Layer.mergeAll(Ipc, AppIcon).pipe(
   Layer.provideMerge(Core),
   Layer.provideMerge(Platform),
 )

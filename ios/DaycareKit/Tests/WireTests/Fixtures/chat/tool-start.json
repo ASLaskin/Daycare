@@ -1,0 +1,10 @@
+{
+  "kind": "tool-start",
+  "toolUseId": "tool-1",
+  "name": "Bash",
+  "title": "npm test",
+  "input": {
+    "command": "npm test"
+  },
+  "parentToolUseId": null
+}

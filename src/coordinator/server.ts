@@ -3,10 +3,10 @@
 import { Exit, Schema } from "effect"
 import { chmodSync, lstatSync, mkdirSync, rmSync } from "node:fs"
 import net from "node:net"
-import { ClientMessage, type ServerMessage } from "../shared/coordinator.ts"
+import { ClientMessage, type Command, type ServerMessage } from "../shared/coordinator.ts"
 import { lineSplitter } from "../shared/lines.ts"
 import { lockPath, socketPath } from "../shared/runtime.ts"
-import type { Hub, Subscriber } from "./hub.ts"
+import type { CommandResult, Hub, Subscriber } from "./hub.ts"
 import { takeLock } from "./lock.ts"
 
 // Queued bytes allowed beyond the snapshot
@@ -18,6 +18,11 @@ const LINE_LIMIT = 16 * 1024 * 1024
 const SOCKET_PATH_MAX = 103
 
 export class AlreadyRunning extends Error {}
+
+// Commands served outside the hub, such as pairing; null passes to the hub
+export type Route = (command: Command) => Promise<CommandResult> | null
+
+const noRoute: Route = () => null
 
 const decodeClient = Schema.decodeUnknownExit(Schema.fromJsonString(ClientMessage))
 
@@ -39,12 +44,14 @@ const onLines = (socket: net.Socket, handle: (line: string) => void) => {
   socket.on("data", lineSplitter(LINE_LIMIT, handle, () => socket.destroy()))
 }
 
-const connection = (socket: net.Socket, hub: Hub, version: string, stallMs: number) => {
+const connection = (socket: net.Socket, hub: Hub, version: string, stallMs: number, route: Route) => {
   let subscriber: Subscriber | null = null
   let greeted = false
   let allowance = OUTBOX_LIMIT
   // Pending tool calls, aborted when the connection closes
   const calls = new Set<AbortController>()
+  // This connection reported the desktop's lid state
+  let reportsLid = false
   let stall: ReturnType<typeof setInterval> | null = null
   let delivered = 0
 
@@ -126,6 +133,11 @@ const connection = (socket: net.Socket, hub: Hub, version: string, stallMs: numb
       return
     }
     const { id, command } = msg
+    const routed = route(command)
+    if (routed) {
+      void routed.then((r) => write({ type: "response", id, ...r }))
+      return
+    }
     if (command.method === "tool") {
       const call = new AbortController()
       calls.add(call)
@@ -147,6 +159,9 @@ const connection = (socket: net.Socket, hub: Hub, version: string, stallMs: numb
       void hub.setEffort(command.session, command.effort).then((r) => write({ type: "response", id, ...r }))
       return
     }
+    if (command.method === "lid") {
+      reportsLid = command.lid !== null
+    }
     // Command events are written before its response
     write({ type: "response", id, ...hub.command(command) })
   })
@@ -154,6 +169,10 @@ const connection = (socket: net.Socket, hub: Hub, version: string, stallMs: numb
   socket.on("close", () => {
     clearInterval(stall ?? undefined)
     calls.forEach((c) => c.abort())
+    // Its watchdog restores sleep once that app is gone
+    if (reportsLid) {
+      hub.command({ method: "lid", lid: null })
+    }
     if (subscriber) {
       hub.unsubscribe(subscriber)
     }
@@ -161,7 +180,7 @@ const connection = (socket: net.Socket, hub: Hub, version: string, stallMs: numb
 }
 
 // Takes single-instance ownership, then builds the hub and serves clients
-export const listen = async (dir: string, makeHub: () => Hub, version: string, stallMs = STALL_MS) => {
+export const listen = async (dir: string, makeHub: () => Hub, version: string, stallMs = STALL_MS, route: Route = noRoute) => {
   const file = socketPath(dir)
   if (Buffer.byteLength(file) > SOCKET_PATH_MAX) {
     throw new Error(`socket path ${file} is longer than ${SOCKET_PATH_MAX} bytes; use a shorter runtime directory`)
@@ -177,7 +196,7 @@ export const listen = async (dir: string, makeHub: () => Hub, version: string, s
   const server = net.createServer((socket) => {
     sockets.add(socket)
     socket.on("close", () => sockets.delete(socket))
-    connection(socket, hub, version, stallMs)
+    connection(socket, hub, version, stallMs, route)
   })
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject)

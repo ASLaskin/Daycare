@@ -1,0 +1,7 @@
+{
+  "type": "welcome",
+  "protocol": 1,
+  "coordinator": "0.2.0",
+  "epoch": "ep-1",
+  "resumed": false
+}

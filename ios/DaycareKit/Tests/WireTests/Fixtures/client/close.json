@@ -1,0 +1,9 @@
+{
+  "type": "request",
+  "id": 1,
+  "key": "k3",
+  "command": {
+    "method": "close",
+    "session": "s-master"
+  }
+}

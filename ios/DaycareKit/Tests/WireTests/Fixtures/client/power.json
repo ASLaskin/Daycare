@@ -1,0 +1,9 @@
+{
+  "type": "request",
+  "id": 1,
+  "key": "k13",
+  "command": {
+    "method": "power",
+    "mode": "always"
+  }
+}

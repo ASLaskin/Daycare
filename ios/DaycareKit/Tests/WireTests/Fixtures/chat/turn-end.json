@@ -1,0 +1,10 @@
+{
+  "kind": "turn-end",
+  "isError": false,
+  "stopReason": "end_turn",
+  "costUsd": 0.42,
+  "contextTokens": 51000,
+  "numTurns": 3,
+  "durationMs": 9100,
+  "text": "Done"
+}

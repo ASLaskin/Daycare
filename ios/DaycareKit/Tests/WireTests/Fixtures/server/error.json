@@ -1,0 +1,7 @@
+{
+  "type": "error",
+  "error": {
+    "code": "unauthorized",
+    "message": "Wrong token"
+  }
+}

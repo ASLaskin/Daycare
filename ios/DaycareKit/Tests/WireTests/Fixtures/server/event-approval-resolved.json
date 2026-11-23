@@ -1,0 +1,11 @@
+{
+  "type": "event",
+  "seq": 4186,
+  "event": {
+    "kind": "approval-resolved",
+    "session": "s-master",
+    "request": "req-1",
+    "allowed": true,
+    "cancelled": false
+  }
+}

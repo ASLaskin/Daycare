@@ -1,0 +1,4 @@
+{
+  "kind": "rate-limit",
+  "percent": 80
+}

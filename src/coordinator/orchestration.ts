@@ -2,10 +2,11 @@
 
 import { Result, Schema } from "effect"
 import path from "node:path"
-import type { SessionHistory, StoredSession, WorkerEfforts, WorkerModels } from "../shared/coordinator.ts"
+import type { AgentOptions, SessionHistory, StoredSession, WorkerEfforts, WorkerModels } from "../shared/coordinator.ts"
 import type { Provider } from "../shared/session.ts"
 import type { SessionId } from "../shared/ids.ts"
 import type { Json } from "../shared/json.ts"
+import type { SpawnApprovalInput, SpawnChoice } from "../shared/spawnApproval.ts"
 import { isToolName, type ToolInput, Tools } from "../main/control/tools.ts"
 import { workerEffort } from "../main/sessions/workerEffort.ts"
 import { workerModel } from "../main/sessions/workerModel.ts"
@@ -46,6 +47,9 @@ export interface OrchestrationCore {
   readonly needsUser: (id: SessionId) => boolean
   readonly workerModels: () => WorkerModels
   readonly workerEfforts: () => WorkerEfforts
+  readonly agentOptions: () => AgentOptions
+  // The user's model and effort, or null when denied
+  readonly approveSpawn: (master: SessionId, input: SpawnApprovalInput, signal: AbortSignal) => Promise<SpawnChoice | null>
   readonly createWorker: (spec: WorkerSpec) => SessionId
   readonly send: (id: SessionId, text: string) => Promise<void>
   readonly archive: (id: SessionId) => void
@@ -151,10 +155,34 @@ export const makeOrchestration = (core: OrchestrationCore, ackMs = ACK_MS) => {
     return workerEffort(core.workerEfforts(), masterEffort, requested) || null
   }
 
-  const spawn = async (master: StoredSession, input: ToolInput<"spawn_subagent">) => {
+  // Proposed launch values, or the user's pick when confirming
+  const launchChoice = async (master: StoredSession, provider: Provider, input: ToolInput<"spawn_subagent">, signal: AbortSignal) => {
+    const proposed = { model: modelFor(master, provider, input.model), effort: effortFor(master, provider, input.effort) }
+    if (!core.agentOptions().confirmSubagents) {
+      return proposed
+    }
+    const approval: SpawnApprovalInput = {
+      name: input.name,
+      task: input.task,
+      model: proposed.model ?? "",
+      effort: proposed.effort ?? "",
+      requestedModel: input.model ?? null,
+      requestedEffort: input.effort ?? null,
+    }
+    const choice = await core.approveSpawn(master.id, approval, signal)
+    if (!choice) {
+      throw new Error(`The user declined to start ${input.name}. Do not spawn it again unless they ask; carry on without it or ask them how to proceed.`)
+    }
+    // The pickers offer Claude models and efforts only
+    return provider === "claude" ? { model: choice.model || null, effort: choice.effort || null } : proposed
+  }
+
+  const spawn = async (master: StoredSession, input: ToolInput<"spawn_subagent">, signal: AbortSignal) => {
+    if (!core.agentOptions().allowSubagents) {
+      throw new Error("The user turned off subagents for masters. Do the work yourself instead.")
+    }
     const provider = input.provider ?? master.provider
-    const model = modelFor(master, provider, input.model)
-    const effort = effortFor(master, provider, input.effort)
+    const { model, effort } = await launchChoice(master, provider, input, signal)
     const id = core.createWorker({ master, name: input.name, provider, model, effort, cwd: input.cwd ?? master.cwd })
     const w = core.session(id)
     const delivered = await sendTo(w, input.task)
@@ -212,7 +240,7 @@ export const makeOrchestration = (core: OrchestrationCore, ackMs = ACK_MS) => {
     const input = decoded.success
     switch (name) {
       case "spawn_subagent":
-        return spawn(master, input as ToolInput<"spawn_subagent">)
+        return spawn(master, input as ToolInput<"spawn_subagent">, signal)
       case "list_subagents":
         return activeWorkers(master.id).map(summary)
       case "read_subagent": {

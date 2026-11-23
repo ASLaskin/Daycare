@@ -1,69 +1,12 @@
-// Starts the coordinator: a user service on Linux, a detached process on macOS.
+// Starts the coordinator under systemd on Linux, launchd on macOS.
 
-import { execFileSync, spawn } from "node:child_process"
-import { lstatSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
-import path from "node:path"
+import { execFileSync } from "node:child_process"
+import { readFileSync, statSync } from "node:fs"
 import type { DirPath } from "../../shared/ids.ts"
 import { lockPath, runtimeDir } from "../../shared/runtime.ts"
+import { reloadAgent, startAgent } from "./launchd.ts"
 import type { CoordinatorSetup } from "./paths.ts"
-
-export const UNIT = "daycare-coordinator.service"
-
-// Quotes paths for systemd
-const quote = (value: string) => `"${value.replace(/[\\"]/g, "\\$&").replace(/%/g, "%%")}"`
-
-export const unitFile = (setup: CoordinatorSetup) =>
-  [
-    "# Written by Daycare on each launch; edits are overwritten.",
-    "",
-    "[Unit]",
-    "Description=Daycare coordinator",
-    "",
-    "[Service]",
-    `ExecStart=${quote(setup.bun)} ${quote(setup.script)}`,
-    ...Object.entries(setup.env).map(([key, value]) => `Environment=${quote(`${key}=${value}`)}`),
-    "# Stop signals the coordinator alone, then kills whatever remains in the unit's cgroup",
-    "KillMode=mixed",
-    "TimeoutStopSec=15",
-    "Restart=on-failure",
-    "# Exit 3: another coordinator already owns the runtime directory",
-    "RestartPreventExitStatus=3",
-    "",
-  ].join("\n")
-
-const unitPath = (home: DirPath) => path.join(process.env["XDG_CONFIG_HOME"] || path.join(home, ".config"), "systemd", "user", UNIT)
-
-// Rewrites the unit only when changed
-const writeUnit = (file: string, text: string) => {
-  const link = lstatSync(file, { throwIfNoEntry: false })?.isSymbolicLink() ?? false
-  const current = link ? null : (() => {
-    try {
-      return readFileSync(file, "utf8")
-    } catch {
-      return null
-    }
-  })()
-  if (current === text) {
-    return false
-  }
-  mkdirSync(path.dirname(file), { recursive: true })
-  rmSync(file, { force: true })
-  writeFileSync(file, text)
-  return true
-}
-
-const systemctl = (...args: ReadonlyArray<string>) => execFileSync("systemctl", ["--user", ...args], { stdio: "pipe", timeout: 15_000 })
-
-export const startCoordinator = (setup: CoordinatorSetup, home: DirPath) => {
-  if (process.platform === "linux") {
-    if (writeUnit(unitPath(home), unitFile(setup))) {
-      systemctl("daemon-reload")
-    }
-    systemctl("start", UNIT)
-    return
-  }
-  spawn(setup.bun, [setup.script], { detached: true, stdio: "ignore", env: { ...process.env, ...setup.env } }).unref()
-}
+import { restartService, startService } from "./systemd.ts"
 
 const STOP_WAIT_MS = 20_000
 
@@ -91,22 +34,36 @@ const alive = (pid: number) => {
   }
 }
 
-// Restarts it, interrupting running work
-export const restartCoordinator = async (setup: CoordinatorSetup, home: DirPath) => {
+export const startCoordinator = (setup: CoordinatorSetup, home: DirPath) => {
   if (process.platform === "linux") {
-    systemctl("restart", UNIT)
+    startService(setup, home)
     return
   }
+  startAgent(setup, home, runningCoordinator() !== null)
+}
+
+// SIGTERM, then wait; exit 0 keeps launchd from restarting it
+const stopRunning = async () => {
   const pid = runningCoordinator()
-  if (pid) {
-    process.kill(pid, "SIGTERM")
-    const deadline = Date.now() + STOP_WAIT_MS
-    while (alive(pid) && Date.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, 100))
-    }
-    if (alive(pid)) {
-      throw new Error(`the coordinator did not stop within ${STOP_WAIT_MS / 1000} seconds; try again`)
-    }
+  if (!pid) {
+    return
   }
-  startCoordinator(setup, home)
+  process.kill(pid, "SIGTERM")
+  const deadline = Date.now() + STOP_WAIT_MS
+  while (alive(pid) && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+  if (alive(pid)) {
+    throw new Error(`the coordinator did not stop within ${STOP_WAIT_MS / 1000} seconds; try again`)
+  }
+}
+
+// Restarts it with the current config, interrupting running work
+export const restartCoordinator = async (setup: CoordinatorSetup, home: DirPath) => {
+  if (process.platform === "linux") {
+    restartService()
+    return
+  }
+  await stopRunning()
+  reloadAgent(setup, home)
 }

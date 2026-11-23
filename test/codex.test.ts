@@ -4,11 +4,12 @@ import { afterEach, expect, test } from "bun:test"
 import { mkdtempSync, readFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
-import { startCodex } from "../src/coordinator/codex.ts"
+import { startCodex, turnInput } from "../src/coordinator/codex.ts"
 import { spawnGroup } from "../src/coordinator/process.ts"
 import type { ProviderHandle, ProviderUpdate } from "../src/coordinator/provider.ts"
 import { asNativeId, type SessionState } from "../src/shared/coordinator.ts"
 import { asFilePath, asRequestId } from "../src/shared/ids.ts"
+import { asBase64 } from "../src/shared/images.ts"
 import type { PermissionMode } from "../src/shared/session.ts"
 import { sample } from "./fixtures/store.ts"
 
@@ -181,4 +182,12 @@ test("a master's thread carries the Daycare bridge; a worker's carries only its 
   const wParams = w.received().find((r) => r.method === "thread/start")?.params
   expect(wParams?.["config"]).toBeUndefined()
   expect(String(wParams?.["developerInstructions"])).toStartWith("You are a worker session")
+})
+
+test("turn input carries images as data urls after the text", () => {
+  const image = { mediaType: "image/png" as const, data: asBase64("iVBORw0KGgo=") }
+  expect(turnInput("look", [image])).toEqual([
+    { type: "text", text: "look" },
+    { type: "image", url: "data:image/png;base64,iVBORw0KGgo=" },
+  ])
 })
