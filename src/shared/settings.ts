@@ -23,8 +23,10 @@ export const AppIcon = Schema.Literals(["random", "block", "sleepybot", "house"]
 export const Motion = Schema.Literals(["off", "fast", "normal", "slow"])
 export const Font = Schema.Literals(["system", "inter"])
 export const MonoFont = Schema.Literals(["system", "jetbrains"])
-export const RailTab = Schema.Literals(["skills", "attachments", "archived"])
+export const RailTab = Schema.Literals(["skills", "attachments", "archived", "reels"])
 export type RailTab = typeof RailTab.Type
+export const FeedTab = Schema.Literals(["reels", "shorts"])
+export type FeedTab = typeof FeedTab.Type
 export const Layout = Schema.Literals(["stack", "side", "columns", "grid"])
 export type Layout = typeof Layout.Type
 
@@ -71,6 +73,8 @@ export const Settings = Schema.Struct({
   sidebarWidth: Schema.Finite,
   sidebarCollapsed: Schema.Boolean,
   railWidth: Schema.Finite,
+  // Page shown in the Reels rail page
+  feedTab: FeedTab,
   zoomDblClick: Schema.Boolean,
   maxCols: Schema.Int,
   stageGap: Schema.Finite,
@@ -123,6 +127,7 @@ export const baseSettings: Omit<Settings, "locations"> = {
   sidebarWidth: 288,
   sidebarCollapsed: false,
   railWidth: 252,
+  feedTab: "reels",
   zoomDblClick: true,
   maxCols: 4,
   stageGap: 10,

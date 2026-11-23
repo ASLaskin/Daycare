@@ -20,6 +20,7 @@ const apply = () => {
       b.setAttribute("aria-pressed", String(on))
       b.title = on ? "Hide panel" : ""
     })
+  PAGES.forEach((p) => p.visible?.(sideRail.open && p.id === sideRail.tab))
 }
 
 const show = (tab: RailTab, open: boolean) => {

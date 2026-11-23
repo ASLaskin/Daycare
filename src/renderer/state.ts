@@ -21,6 +21,8 @@ export const pendingFocus = { id: null as SessionId | null }
 
 const newestFirst = (a: SessionView, b: SessionView) => b.createdAt - a.createdAt
 
+export const openSessions = () => [...panes.values()].map((p) => p.info)
+
 // Open masters in sidebar order
 export const openMasters = () =>
   [...panes.values()]

@@ -10,7 +10,8 @@ import { AccountId, DirPath, type FilePath, type HttpUrl, RequestId, SessionId }
 import { OpenCommand } from "./topButtons.ts"
 import type { PowerStatus } from "./power.ts"
 import { NewMaster, type SessionView } from "./session.ts"
-import { type Settings, SettingsPatch } from "./settings.ts"
+import type { FeedAccount } from "./feed.ts"
+import { FeedTab, type Settings, SettingsPatch } from "./settings.ts"
 import { RestoreSkill, SetSkillPlugin, SetSkillState, type SkillsListing } from "./skills.ts"
 import type { Usage } from "./usage.ts"
 
@@ -62,6 +63,10 @@ export const Invoke = {
   "session:menu": Id,
   "coordinator:restart": None,
   "window:fullscreen": None,
+
+  "feed:accounts": None,
+  "feed:sign-in": FeedTab,
+  "feed:disconnect": FeedTab,
 
   "power:status": None,
   "power:restore": None,
@@ -138,6 +143,10 @@ export interface InvokeResult {
   "coordinator:restart": void
   "window:fullscreen": void
 
+  "feed:accounts": ReadonlyArray<FeedAccount>
+  "feed:sign-in": void
+  "feed:disconnect": ReadonlyArray<FeedAccount>
+
   "power:status": PowerStatus
   "power:restore": PowerStatus
   "power:dismiss-error": PowerStatus
@@ -180,6 +189,7 @@ export interface Events {
   "usage:update": Usage
   "account:login": LoginProgress
   "power:update": PowerStatus
+  "feed:accounts": ReadonlyArray<FeedAccount>
   "update:log": string
 }
 

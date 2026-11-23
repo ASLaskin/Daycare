@@ -73,6 +73,11 @@ export const api = {
   onBeginRename: on("session:begin-rename"),
   onCloseShortcut: on("shortcut:close"),
 
+  feedAccounts: ask("feed:accounts"),
+  feedSignIn: call("feed:sign-in"),
+  feedDisconnect: call("feed:disconnect"),
+  onFeedAccounts: on("feed:accounts"),
+
   powerStatus: ask("power:status"),
   powerRestore: ask("power:restore"),
   powerDismissError: ask("power:dismiss-error"),

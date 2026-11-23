@@ -27,6 +27,7 @@ const DEFINITIONS = [
   { id: "fullScreen", label: "Full screen window", keys: keys("Mod+Shift+F") },
   { id: "toggleAttachments", label: "Attachments panel", keys: keys("Mod+Shift+A") },
   { id: "toggleRail", label: "Side panel", keys: keys("Mod+/") },
+  { id: "toggleReels", label: "Reels panel", keys: keys("Mod+Shift+S") },
   { id: "toggleSidebar", label: "Sidebar", keys: keys("Mod+B") },
   { id: "toggleSettings", label: "Settings", keys: keys("Mod+,") },
 ] as const satisfies ReadonlyArray<ShortcutDef>

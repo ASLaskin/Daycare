@@ -15,6 +15,7 @@ import { validateUrl } from "../attachments/urls.ts"
 import { AppPaths } from "../AppPaths.ts"
 import { Ui } from "../Ui.ts"
 import { prepareFiles } from "../chat/files.ts"
+import { FeedAccounts } from "../feed/FeedAccounts.ts"
 import { prepareImages } from "../chat/images.ts"
 import { runCommand } from "../projects/command.ts"
 import { githubPage } from "../projects/github.ts"
@@ -38,6 +39,7 @@ export const Ipc = Layer.effectDiscard(
     const usage = yield* Usage
     const accounts = yield* Accounts
     const power = yield* Power
+    const feed = yield* FeedAccounts
     const skills = yield* Skills
     const updater = yield* Updater
     const ui = yield* Ui
@@ -105,6 +107,10 @@ export const Ipc = Layer.effectDiscard(
       "session:menu": sessionMenu,
       "coordinator:restart": () => sessions.restartCoordinator,
       "window:fullscreen": () => Effect.sync(() => win.setFullScreen(!win.isFullScreen())),
+
+      "feed:accounts": () => feed.list,
+      "feed:sign-in": (id) => feed.signIn(id),
+      "feed:disconnect": (id) => feed.disconnect(id),
 
       "power:status": () => power.status,
       "power:restore": () => power.restore,

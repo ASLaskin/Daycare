@@ -15,6 +15,7 @@ import { ElectronPaths } from "./electron/ElectronPaths.ts"
 import { ElectronUi } from "./electron/ElectronUi.ts"
 import { Ipc } from "./electron/Ipc.ts"
 import { MainWindow } from "./electron/Window.ts"
+import { ElectronFeedAccounts } from "./feed/ElectronFeedAccounts.ts"
 import { ElectronPowerBlocker } from "./power/ElectronPowerBlocker.ts"
 import { defaultPowerConfig } from "./power/config.ts"
 import { Power } from "./power/Power.ts"
@@ -41,7 +42,14 @@ const PowerLive = Layer.unwrap(
 
 const Control = ControlEndpoint.layer.pipe(Layer.provideMerge(ControlHttpServer))
 
-const Services = Layer.mergeAll(Accounts.layer, Usage.layer.pipe(Layer.provide(UsageSource.layer)), ChatLive, PowerLive, Updater.layer).pipe(
+const Services = Layer.mergeAll(
+  Accounts.layer,
+  Usage.layer.pipe(Layer.provide(UsageSource.layer)),
+  ChatLive,
+  PowerLive,
+  Updater.layer,
+  ElectronFeedAccounts,
+).pipe(
   Layer.provideMerge(Window),
   Layer.provideMerge(SettingsStore.layer),
   Layer.provideMerge(Control),
