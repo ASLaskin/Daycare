@@ -13,6 +13,8 @@ export const sideRail = {
   els: null as SideRailEls | null,
   open: false,
   tab: "skills" as RailTab,
+  // Panel fills the work area beside the left sidebar
+  wide: false,
   saving: 0,
 }
 

@@ -4,21 +4,24 @@ import { settings } from "../store.ts"
 import { RAIL_DEFAULT_WIDTH, saveRail } from "./state.ts"
 
 const MIN_WIDTH = 200
-const MAX_WIDTH = 480
+// Room left for the stage
+const STAGE_MIN = 320
+
+const maxWidth = (root: HTMLElement) => Math.max(MIN_WIDTH, (root.parentElement?.clientWidth ?? window.innerWidth) - STAGE_MIN)
 
 export const applyRailWidth = (root: HTMLElement) => {
   const w = settings().railWidth
-  const px = Number.isFinite(w) && w >= MIN_WIDTH ? Math.min(MAX_WIDTH, w) : RAIL_DEFAULT_WIDTH
+  const px = Number.isFinite(w) && w >= MIN_WIDTH ? w : RAIL_DEFAULT_WIDTH
   root.style.setProperty("--sr-panel", `${px}px`)
 }
 
 export const wireRailHandle = (handle: HTMLElement, root: HTMLElement) => {
-  let drag: { w: number | null; right: number } | null = null
+  let drag: { w: number | null; right: number; max: number } | null = null
   handle.addEventListener("pointerdown", (e) => {
     if (e.button !== 0) {
       return
     }
-    drag = { w: null, right: root.getBoundingClientRect().right }
+    drag = { w: null, right: root.getBoundingClientRect().right, max: maxWidth(root) }
     handle.setPointerCapture(e.pointerId)
     handle.classList.add("dragging")
     document.body.classList.add("resizing")
@@ -28,7 +31,7 @@ export const wireRailHandle = (handle: HTMLElement, root: HTMLElement) => {
     if (!drag) {
       return
     }
-    drag.w = Math.round(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, drag.right - e.clientX)))
+    drag.w = Math.round(Math.min(drag.max, Math.max(MIN_WIDTH, drag.right - e.clientX)))
     root.style.setProperty("--sr-panel", `${drag.w}px`)
   })
   const end = () => {

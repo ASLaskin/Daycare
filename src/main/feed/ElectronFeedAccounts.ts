@@ -8,6 +8,7 @@ import { MainWindow } from "../electron/Window.ts"
 import { Ui } from "../Ui.ts"
 import { FeedAccounts } from "./FeedAccounts.ts"
 import { openSignInWindow } from "./signInWindow.ts"
+import { guardFeedWebviews } from "./webviews.ts"
 
 const cookieUrl = (c: Cookie) => `${c.secure ? "https" : "http"}://${(c.domain ?? "").replace(/^\./, "")}${c.path ?? "/"}`
 
@@ -68,6 +69,8 @@ export const ElectronFeedAccounts = Layer.effect(
         yield* Effect.promise(() => Promise.all(pageOrigins(page).map((origin) => ses.clearStorageData({ origin }))))
         return yield* list
       })
+
+    guardFeedWebviews(main, () => Effect.runSync(signIn("shorts")))
 
     return FeedAccounts.of({ list, signIn, disconnect })
   }),

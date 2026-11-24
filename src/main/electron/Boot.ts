@@ -10,7 +10,6 @@ import { Usage } from "../usage/Usage.ts"
 import { resolveBindings } from "../../shared/shortcuts/bindings.ts"
 import { pressCombo } from "../../shared/shortcuts/combo.ts"
 import { devHooks } from "./devHooks.ts"
-import { guardFeedWebviews } from "../feed/webviews.ts"
 import { MainWindow } from "./Window.ts"
 
 const forward = <A>(changes: Effect.Effect<Stream.Stream<A>, never, Scope.Scope>, send: (a: A) => void) =>
@@ -51,7 +50,6 @@ export const Boot = Layer.effectDiscard(
       ui.send("shortcut:close", undefined)
     })
 
-    guardFeedWebviews(win)
     yield* Effect.promise(() => win.loadFile(path.join(appRoot, "dist", "renderer", "index.html")))
     yield* sessions.restore
     // Usage on launch

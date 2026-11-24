@@ -1,7 +1,7 @@
 import type { RailTab } from "../../shared/settings.ts"
 import { el } from "../dom.ts"
 import { onSettingsChanged, settings } from "../store.ts"
-import { PAGES } from "./pages.ts"
+import { PAGES, type RailControls } from "./pages.ts"
 import { applyRailWidth, wireRailHandle } from "./resize.ts"
 import { saveRail, sideRail } from "./state.ts"
 
@@ -12,6 +12,7 @@ const apply = () => {
   }
   applyRailWidth(els.root)
   els.root.classList.toggle("open", sideRail.open)
+  els.root.classList.toggle("wide", sideRail.open && sideRail.wide)
   els.bodies.forEach((body, id) => body.classList.toggle("on", id === sideRail.tab))
   ;[...els.tabs.children]
     .filter((node): node is HTMLElement => node instanceof HTMLElement)
@@ -25,12 +26,23 @@ const apply = () => {
 
 const show = (tab: RailTab, open: boolean) => {
   const revealed = open && (!sideRail.open || sideRail.tab !== tab)
+  if (!open || tab !== sideRail.tab) {
+    sideRail.wide = false
+  }
   sideRail.open = open
   sideRail.tab = tab
   apply()
   if (revealed) {
     PAGES.find((p) => p.id === tab)?.shown?.()
   }
+}
+
+const controls: RailControls = {
+  wide: () => sideRail.wide,
+  setWide: (wide) => {
+    sideRail.wide = wide
+    apply()
+  },
 }
 
 // Choosing the active tab closes the rail
@@ -69,7 +81,7 @@ export const mountSideRail = (root: HTMLElement) => {
   PAGES.forEach((p) => {
     const body = bodies.get(p.id)
     if (body) {
-      p.mount(body)
+      p.mount(body, controls)
     }
   })
   wireRailHandle(handle, root)

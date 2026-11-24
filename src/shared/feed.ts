@@ -16,6 +16,8 @@ export interface FeedPage {
   readonly hosts: ReadonlyArray<string>
   // Cookie present only while signed in
   readonly sessionCookie: { readonly host: string; readonly name: string }
+  // Mobile layout shows one full height video at a time
+  readonly mobile: boolean
 }
 
 const YOUTUBE_SIGN_IN = `https://accounts.google.com/ServiceLogin?service=youtube&continue=${encodeURIComponent("https://www.youtube.com/signin?action_handle_signin=true&next=/shorts")}`
@@ -29,6 +31,7 @@ export const FEED_PAGES: ReadonlyArray<FeedPage> = [
     signInUrl: asHttpUrl("https://www.instagram.com/accounts/login/"),
     hosts: ["instagram.com", "facebook.com"],
     sessionCookie: { host: "instagram.com", name: "sessionid" },
+    mobile: true,
   },
   {
     id: "shorts",
@@ -38,6 +41,7 @@ export const FEED_PAGES: ReadonlyArray<FeedPage> = [
     signInUrl: asHttpUrl(YOUTUBE_SIGN_IN),
     hosts: ["youtube.com", "google.com", "youtu.be"],
     sessionCookie: { host: "youtube.com", name: "LOGIN_INFO" },
+    mobile: false,
   },
 ]
 
@@ -79,3 +83,9 @@ export const pageCookies = <C extends CookieRef>(page: FeedPage, cookies: Readon
 export const pageOrigins = (page: FeedPage) => page.hosts.flatMap((h) => [`https://${h}`, `https://www.${h}`])
 
 export const feedPage = (id: FeedTab) => FEED_PAGES.find((p) => p.id === id)
+
+// Android Chrome user agent matching the engine's version
+export const mobileUserAgent = (desktop: string) => {
+  const chrome = /Chrome\/(\d+)/.exec(desktop)?.[1] ?? "140"
+  return `Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chrome}.0.0.0 Mobile Safari/537.36`
+}

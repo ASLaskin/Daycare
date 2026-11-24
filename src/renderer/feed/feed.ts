@@ -5,7 +5,8 @@ import type { SessionId } from "../../shared/ids.ts"
 import type { FeedTab } from "../../shared/settings.ts"
 import { type Activity, deriveActivity, isUnlocked } from "../agent-activity.ts"
 import { api } from "../api.ts"
-import { el } from "../dom.ts"
+import { el, setText } from "../dom.ts"
+import type { RailControls } from "../side-rail/pages.ts"
 import { openSessions, panes } from "../state.ts"
 import { onSessionsChanged, onSettingsChanged, saveSettings, settings } from "../store.ts"
 import { lockOverlay } from "./lock.ts"
@@ -16,6 +17,7 @@ const nameOf = (id: SessionId) => panes.get(id)?.info.name ?? "An agent"
 interface FeedEls {
   readonly tabs: ReadonlyMap<FeedTab, HTMLButtonElement>
   readonly stack: HTMLElement
+  readonly wide: HTMLButtonElement
   readonly lock: ReturnType<typeof lockOverlay>
 }
 
@@ -24,6 +26,7 @@ const connected = new Map<FeedTab, boolean>()
 let els: FeedEls | null = null
 let activity: Activity = { kind: "quiet" }
 let visible = false
+let rail: RailControls | null = null
 
 // Webviews load on first view
 const viewFor = (page: FeedPage, stack: HTMLElement) => {
@@ -54,6 +57,9 @@ const apply = () => {
     v.setHeld(!unlocked || !visible || id !== tab)
   })
   els.lock.paint(activity, nameOf)
+  const wide = visible && (rail?.wide() ?? false)
+  setText(els.wide, wide ? "Exit full screen" : "Full screen")
+  els.wide.setAttribute("aria-pressed", String(wide))
 }
 
 const refresh = () => {
@@ -81,17 +87,35 @@ const tabButton = (page: FeedPage) => {
   return b
 }
 
-export const mountFeedPage = (host: HTMLElement) => {
+const wideButton = () => {
+  const b = el("button", "ghost feed-wide", "Full screen")
+  b.type = "button"
+  b.onclick = () => rail?.setWide(!rail.wide())
+  return b
+}
+
+const exitWideOnEscape = (e: KeyboardEvent) => {
+  if (e.key === "Escape" && visible && rail?.wide()) {
+    rail.setWide(false)
+  }
+}
+
+export const mountFeedPage = (host: HTMLElement, controls: RailControls) => {
+  rail = controls
   const tabs = new Map(FEED_PAGES.map((p) => [p.id, tabButton(p)] as const))
   const seg = el("div", "seg feed-tabs")
   seg.setAttribute("role", "group")
   seg.setAttribute("aria-label", "Feed")
   seg.append(...tabs.values())
+  const wide = wideButton()
+  const head = el("div", "feed-head")
+  head.append(seg, wide)
   const stack = el("div", "feed-stack")
   const lock = lockOverlay()
   stack.append(lock.node)
-  host.append(seg, stack)
-  els = { tabs, stack, lock }
+  host.append(head, stack)
+  els = { tabs, stack, wide, lock }
+  document.addEventListener("keydown", exitWideOnEscape)
   onSettingsChanged(apply)
   onSessionsChanged(refresh)
   api.onFeedAccounts(onAccounts)

@@ -1,7 +1,7 @@
 // One feed page in a webview that can be held paused and muted.
 
 import type { WebviewTag } from "electron"
-import { FEED_PARTITION, type FeedPage } from "../../shared/feed.ts"
+import { FEED_PARTITION, type FeedPage, mobileUserAgent } from "../../shared/feed.ts"
 
 // Pauses media that starts while held
 const INSTALL = `(() => {
@@ -37,6 +37,9 @@ export const feedView = (page: FeedPage, held: boolean): FeedView => {
   const node = document.createElement("webview") as WebviewTag
   node.className = "feed-view"
   node.setAttribute("partition", FEED_PARTITION)
+  if (page.mobile) {
+    node.setAttribute("useragent", mobileUserAgent(navigator.userAgent))
+  }
   node.setAttribute("src", page.url)
   let ready = false
   let current = held
