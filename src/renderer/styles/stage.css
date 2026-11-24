@@ -28,6 +28,8 @@
   text-align: left;
   color: var(--text);
 }
+.loc-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.loc-path { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .loc-button:hover { background: var(--panel-2); border-color: var(--line-strong); }
 
 /* --split is the master's share. */

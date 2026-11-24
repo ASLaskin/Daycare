@@ -1,6 +1,7 @@
 // Settings list of new session locations.
 
 import type { Location } from "../shared/settings.ts"
+import { pickLocation } from "./add-location.ts"
 import { api } from "./api.ts"
 import { $, baseName, el, tildify } from "./dom.ts"
 import { saveSettings, settings } from "./store.ts"
@@ -48,10 +49,5 @@ export const renderLocationRows = () => {
 }
 
 export const wireLocations = () => {
-  $("#add-location").onclick = async () => {
-    const dir = await api.pickFolder()
-    if (dir) {
-      saveSettings({ locations: [...settings().locations, { label: baseName(dir), path: dir }] })
-    }
-  }
+  $("#add-location").onclick = pickLocation
 }
