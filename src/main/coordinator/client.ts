@@ -34,7 +34,7 @@ export const connect = (socket: string, version: string, on: CoordinatorHandlers
   const handle = (s: net.Socket, text: string) => {
     const decoded = decodeServer(text)
     if (Exit.isFailure(decoded)) {
-      on.status({ state: "unavailable", message: "coordinator sent a message this app cannot read" })
+      on.status({ state: "incompatible" })
       s.destroy()
       return
     }

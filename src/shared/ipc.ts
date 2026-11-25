@@ -176,6 +176,7 @@ export type CoordinatorStatus =
   | { readonly state: "connecting" }
   | { readonly state: "connected" }
   | { readonly state: "mismatch"; readonly coordinator: string; readonly app: string }
+  | { readonly state: "incompatible" }
   | { readonly state: "unavailable"; readonly message: string }
 
 export interface Events {
