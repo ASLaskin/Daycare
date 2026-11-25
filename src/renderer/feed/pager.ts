@@ -7,7 +7,7 @@ export const PAGER = `(() => {
   window.__daycarePager = true
 
   const style = document.createElement("style")
-  style.textContent = "[data-daycare-pager] { scroll-snap-type: y mandatory !important; overscroll-behavior: contain !important; }" +
+  style.textContent = "[data-daycare-pager] { scroll-snap-type: y mandatory !important; overscroll-behavior: contain !important; scrollbar-width: none !important; }" +
     "[data-daycare-pages] > * { scroll-snap-align: start !important; scroll-snap-stop: always !important; }"
   document.documentElement.append(style)
 
@@ -41,8 +41,18 @@ export const PAGER = `(() => {
     return spill ? listOf(spill) : scroller
   }
 
+  const watched = new WeakSet()
+
   const claim = (scroller) => {
+    if (claimed && claimed !== scroller) {
+      claimed.removeAttribute("data-daycare-pager")
+      document.querySelectorAll("[data-daycare-pages]").forEach((e) => e.removeAttribute("data-daycare-pages"))
+    }
     claimed = scroller
+    if (!watched.has(scroller)) {
+      watched.add(scroller)
+      scroller.addEventListener("scrollend", () => realign(scroller))
+    }
     scroller.setAttribute("data-daycare-pager", "")
     listOf(scroller).setAttribute("data-daycare-pages", "")
     return scroller
@@ -52,6 +62,15 @@ export const PAGER = `(() => {
 
   const nearest = (scroller, items) => items.reduce((best, item, i) =>
     Math.abs(offsetOf(scroller, item) - scroller.scrollTop) < Math.abs(offsetOf(scroller, items[best]) - scroller.scrollTop) ? i : best, 0)
+
+  // Items resized mid scroll can leave one partly shown
+  const realign = (scroller) => {
+    const items = [...listOf(scroller).children].filter((c) => c.offsetHeight > 0)
+    const item = items[nearest(scroller, items)]
+    if (item && Math.abs(offsetOf(scroller, item) - scroller.scrollTop) > 2) {
+      scroller.scrollTo({ top: offsetOf(scroller, item), behavior: "smooth" })
+    }
+  }
 
   const step = (scroller, dir) => {
     const items = [...listOf(scroller).children].filter((c) => c.offsetHeight > 0)
@@ -98,6 +117,22 @@ export const PAGER = `(() => {
     sum = 0
     lockedAt = now
   }, { capture: true, passive: false })
+
+  // Claim the feed as soon as it renders
+  let pending = false
+  new MutationObserver(() => {
+    if (pending || (claimed && claimed.isConnected && scrolls(claimed))) {
+      return
+    }
+    pending = true
+    setTimeout(() => {
+      pending = false
+      const scroller = tallest()
+      if (scroller) {
+        claim(scroller)
+      }
+    }, 300)
+  }).observe(document.documentElement, { childList: true, subtree: true })
 
   addEventListener("touchstart", (e) => {
     const scroller = scrollerOf(e.target)

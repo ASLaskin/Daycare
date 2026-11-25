@@ -2,6 +2,7 @@
 
 import type { WebviewTag } from "electron"
 import { FEED_PARTITION, type FeedPage, mobileUserAgent } from "../../shared/feed.ts"
+import { chromeCss, chromeScript } from "./chrome.ts"
 import { PAGER } from "./pager.ts"
 
 // Pauses media that starts while held
@@ -64,6 +65,8 @@ export const feedView = (page: FeedPage, held: boolean): FeedView => {
     ready = true
     run(INSTALL)
     run(PAGER)
+    node.insertCSS(chromeCss(page.id)).catch(() => {})
+    run(chromeScript(page.id))
     apply()
   })
 

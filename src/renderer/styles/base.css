@@ -21,7 +21,7 @@ html:not([data-theme]) body { visibility: hidden; }
 body { display: grid; grid-template-columns: var(--sidebar-w) 1fr; }
 body.resizing { cursor: col-resize; user-select: none; }
 body.resizing-row { cursor: row-resize; user-select: none; }
-body.resizing .pane, body.resizing-row .pane { pointer-events: none; }
+body.drag-shield .pane, body.drag-shield webview, body.drag-shield iframe { pointer-events: none; }
 
 ::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); }
 
