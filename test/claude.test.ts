@@ -176,6 +176,17 @@ test("masters get the Daycare bridge and prompt; every role loses Claude's own s
   expect(appended(wopts)).toStartWith("You are a worker session")
 })
 
+test("a plain session gets no Daycare bridge or prompt and keeps Claude's own subagents", () => {
+  const fake = fakeQuery()
+  startClaude({ ...sample("p", "claude", "idle"), masterMode: false, nativeId: asNativeId("np") }, asFilePath("/bin/claude"), () => {}, fake.run)
+  const opts = fake.options()
+  expect(opts?.mcpServers).toBeUndefined()
+  expect(opts?.allowedTools).toBeUndefined()
+  expect(opts?.disallowedTools).toBeUndefined()
+  expect(appended(opts)).toBe("")
+  fake.end()
+})
+
 test("claude runs on its account's config dir, or ~/.claude for Default", () => {
   const added = fakeQuery()
   startClaude({ ...sample("a", "claude", "idle"), nativeId: asNativeId("na"), configDir: asDirPath("/accounts/work") }, asFilePath("/bin/claude"), () => {}, added.run)

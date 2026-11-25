@@ -205,8 +205,8 @@ export const startCodex = (
     if (at(account, "account") == null && at(account, "requiresOpenaiAuth") === true) {
       throw new Error("Codex is not logged in. Run `codex login`, then start a new session.")
     }
-    const master = session.role === "master"
-    const prompt = rolePrompt(master, options.allowSubagents)
+    const master = session.role === "master" && session.masterMode
+    const prompt = rolePrompt(session, options.allowSubagents)
     const params = {
       cwd: session.cwd,
       approvalPolicy: approvalPolicy(),

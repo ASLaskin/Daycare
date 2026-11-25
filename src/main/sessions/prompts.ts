@@ -1,5 +1,7 @@
 // System prompts appended for masters and workers.
 
+import type { StoredSession } from "../../shared/coordinator.ts"
+
 export const MASTER_PROMPT = [
   "You are a master session running inside Daycare.",
   "Split the work into independent units and hand each one to a worker with the",
@@ -28,10 +30,10 @@ export const WORKER_PROMPT = [
   "output lives; the master reads only that summary.",
 ].join(" ")
 
-// Appended system prompt; none for a master without subagents
-export const rolePrompt = (master: boolean, allowSubagents: boolean): string | null => {
-  if (!master) {
+// Appended system prompt; none for a plain session or a master without subagents
+export const rolePrompt = (session: Pick<StoredSession, "role" | "masterMode">, allowSubagents: boolean): string | null => {
+  if (session.role === "worker") {
     return WORKER_PROMPT
   }
-  return allowSubagents ? MASTER_PROMPT : null
+  return session.masterMode && allowSubagents ? MASTER_PROMPT : null
 }

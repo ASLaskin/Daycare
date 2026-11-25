@@ -27,6 +27,7 @@ const session = {
   provider: "claude",
   nativeId: "native-1",
   role: "master",
+  masterMode: true,
   parentId: null,
   name: "Ada",
   icon: "fox",
@@ -48,7 +49,7 @@ const session = {
   preview: "Looking at the tests now",
 }
 
-const worker = { ...session, id: "s-worker", role: "worker", parentId: "s-master", name: "Bo", nativeId: null, icon: null, model: null, effort: null, state: "idle", live: false, lastEntry: null, lastEventAt: null, preview: null, configDir: "/Users/me/.claude-work" }
+const worker = { ...session, id: "s-worker", role: "worker", masterMode: false, parentId: "s-master", name: "Bo", nativeId: null, icon: null, model: null, effort: null, state: "idle", live: false, lastEntry: null, lastEventAt: null, preview: null, configDir: "/Users/me/.claude-work" }
 
 const permission = {
   kind: "permission",

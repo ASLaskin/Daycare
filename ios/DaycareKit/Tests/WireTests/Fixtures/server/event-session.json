@@ -8,6 +8,7 @@
       "provider": "claude",
       "nativeId": "native-1",
       "role": "master",
+      "masterMode": true,
       "parentId": null,
       "name": "Ada",
       "icon": "fox",

@@ -32,6 +32,7 @@ export const view = (s: LiveSession): SessionView => ({
   name: s.name,
   icon: s.icon,
   role: s.role,
+  masterMode: s.masterMode,
   parentId: s.parentId,
   status: status(s),
   activity: s.error ?? "",

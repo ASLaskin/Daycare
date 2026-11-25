@@ -22,6 +22,8 @@ export interface SessionView {
   readonly name: string
   readonly icon: string | null
   readonly role: SessionRole
+  // Master with Daycare tools; false is a plain session
+  readonly masterMode: boolean
   readonly parentId: SessionId | null
   readonly status: SessionStatus
   readonly activity: string
@@ -70,6 +72,7 @@ export const NewMaster = Schema.Struct({
   model: Schema.String,
   effort: Schema.String,
   permissionMode: PermissionMode,
+  masterMode: Schema.Boolean,
   name: Schema.optionalKey(Schema.String),
   // Coordinator only
   provider: Schema.optionalKey(Provider),

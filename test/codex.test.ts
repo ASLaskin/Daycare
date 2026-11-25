@@ -7,7 +7,7 @@ import path from "node:path"
 import { startCodex, turnInput } from "../src/coordinator/codex.ts"
 import { spawnGroup } from "../src/coordinator/process.ts"
 import type { ProviderHandle, ProviderUpdate } from "../src/coordinator/provider.ts"
-import { asNativeId, type SessionState } from "../src/shared/coordinator.ts"
+import { asNativeId, type SessionState, type StoredSession } from "../src/shared/coordinator.ts"
 import { asFilePath, asRequestId } from "../src/shared/ids.ts"
 import { asBase64 } from "../src/shared/images.ts"
 import type { PermissionMode } from "../src/shared/session.ts"
@@ -27,7 +27,7 @@ interface Received {
   readonly error?: { readonly message: string }
 }
 
-const start = (state: SessionState, nativeId: string | null = null, env: Record<string, string> = {}, permissionMode: PermissionMode = "default", role: "master" | "worker" = "master") => {
+const start = (state: SessionState, nativeId: string | null = null, env: Record<string, string> = {}, permissionMode: PermissionMode = "default", kind: Partial<Pick<StoredSession, "role" | "masterMode">> = {}) => {
   const dir = mkdtempSync(path.join(tmpdir(), "daycare-codex-"))
   const log = path.join(dir, "received.jsonl")
   const received = (): Array<Received> => {
@@ -40,7 +40,7 @@ const start = (state: SessionState, nativeId: string | null = null, env: Record<
   const updates: Array<ProviderUpdate> = []
   // Methods the fake had received when each update arrived
   const seenAt: Array<ReadonlyArray<string>> = []
-  const session = { ...sample("s", "codex", state), nativeId: nativeId ? asNativeId(nativeId) : null, permissionMode, role }
+  const session = { ...sample("s", "codex", state), nativeId: nativeId ? asNativeId(nativeId) : null, permissionMode, ...kind }
   const fakeSpawn: typeof spawnGroup = (_cmd, args, opts) => spawnGroup(process.execPath, [FAKE, ...args], { ...opts, env: { ...process.env, ...env, LOG: log } })
   const handle: ProviderHandle = startCodex(
     session,
@@ -177,11 +177,19 @@ test("a master's thread carries the Daycare bridge; a worker's carries only its 
   expect([daycare?.command, daycare?.args[1], daycare?.tool_timeout_sec]).toEqual([process.execPath, "s", 1800])
   expect(String(mParams?.["developerInstructions"])).toStartWith("You are a master session")
 
-  const w = start("creating", null, {}, "default", "worker")
+  const w = start("creating", null, {}, "default", { role: "worker", masterMode: false })
   await w.handle.input("hi")
   const wParams = w.received().find((r) => r.method === "thread/start")?.params
   expect(wParams?.["config"]).toBeUndefined()
   expect(String(wParams?.["developerInstructions"])).toStartWith("You are a worker session")
+})
+
+test("a plain session's thread carries neither the Daycare bridge nor a prompt", async () => {
+  const p = start("creating", null, {}, "default", { masterMode: false })
+  await p.handle.input("hi")
+  const params = p.received().find((r) => r.method === "thread/start")?.params
+  expect(params?.["config"]).toBeUndefined()
+  expect(params?.["developerInstructions"]).toBeUndefined()
 })
 
 test("turn input carries images as data urls after the text", () => {

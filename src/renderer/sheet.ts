@@ -22,6 +22,7 @@ const form = () => {
     effort: field<HTMLSelectElement>("effort"),
     permissionMode: field<HTMLSelectElement>("permissionMode"),
     provider: field<HTMLSelectElement>("provider"),
+    masterMode: field<HTMLInputElement>("masterMode"),
   }
 }
 
@@ -44,6 +45,7 @@ export const openSheet = (locIndex: number) => {
   f.effort.value = s.masterEffort
   f.permissionMode.value = s.permissionMode
   f.provider.value = s.provider
+  f.masterMode.checked = true
   sheet().classList.remove("hidden")
   f.task.focus()
 }
@@ -57,6 +59,7 @@ const readForm = (): NewMaster => {
     effort: f.effort.value,
     permissionMode: f.permissionMode.value as PermissionMode,
     provider: f.provider.value as Provider,
+    masterMode: f.masterMode.checked,
     cwd: asDirPath(f.cwd.value),
     ...(name ? { name } : {}),
   }

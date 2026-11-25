@@ -31,6 +31,8 @@ export const StoredSession = Schema.Struct({
   provider: Provider,
   nativeId: Schema.NullOr(NativeId),
   role: SessionRole,
+  // Master with Daycare tools and prompt; false is a plain session
+  masterMode: Schema.Boolean,
   parentId: Schema.NullOr(SessionId),
   name: Schema.String,
   icon: Schema.NullOr(Schema.String),
@@ -94,6 +96,8 @@ export const CreateCommand = Schema.Struct({
   permissionMode: PermissionMode,
   accountId: AccountId,
   configDir: Schema.NullOr(DirPath),
+  // Absent starts in master mode
+  masterMode: Schema.optionalKey(Schema.Boolean),
 })
 // Images go to the provider inline; files by path
 export const SendCommand = Schema.Struct({

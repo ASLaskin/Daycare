@@ -417,7 +417,14 @@
     <form id="master-form" class="sheet-card">
       <h2>New chat</h2>
       <label>Task <span class="optional">optional</span>
-        <textarea name="task" rows="5" placeholder="Leave empty to start with a blank chat, or describe work for the master to split into workers."></textarea>
+        <textarea name="task" rows="5" placeholder="Leave empty to start with a blank chat, or describe the work."></textarea>
+      </label>
+      <label class="toggle-row">
+        <div>
+          <div class="toggle-label">Master mode</div>
+          <div class="hint">Splits the work across workers you can see and talk to. Off starts a plain chat.</div>
+        </div>
+        <input type="checkbox" name="masterMode" class="switch" />
       </label>
       <div class="row">
         <label>Name

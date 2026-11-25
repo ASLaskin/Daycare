@@ -207,6 +207,7 @@ const make = (version: string) =>
           model: provider === "claude" ? options.model || null : null,
           effort: provider === "claude" ? options.effort || null : null,
           permissionMode: options.permissionMode,
+          masterMode: options.masterMode,
           accountId,
           configDir: yield* accounts.configDir(accountId),
         })

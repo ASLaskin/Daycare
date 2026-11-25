@@ -329,7 +329,7 @@ export const makeHub = (db: Database, launch: Launch, options: HubOptions = {}) 
 
   // Records a session before any provider process starts
   const createSession = (
-    s: Pick<StoredSession, "provider" | "role" | "parentId" | "name" | "icon" | "cwd" | "model" | "effort" | "permissionMode" | "accountId" | "configDir">,
+    s: Pick<StoredSession, "provider" | "role" | "masterMode" | "parentId" | "name" | "icon" | "cwd" | "model" | "effort" | "permissionMode" | "accountId" | "configDir">,
   ) => {
     const id = asSessionId(store.newId())
     store.createSession(db, {
@@ -362,6 +362,7 @@ export const makeHub = (db: Database, launch: Launch, options: HubOptions = {}) 
         createSession({
           provider: w.provider,
           role: "worker",
+          masterMode: false,
           parentId: w.master.id,
           name: w.name,
           icon: null,
@@ -505,6 +506,7 @@ export const makeHub = (db: Database, launch: Launch, options: HubOptions = {}) 
         const id = createSession({
           provider: command.provider,
           role: "master",
+          masterMode: command.masterMode ?? true,
           parentId: null,
           name: command.name || command.prompt.slice(0, 40) || "Master",
           icon: command.icon ?? null,
