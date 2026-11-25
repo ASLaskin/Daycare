@@ -2,6 +2,7 @@
 
 import type { WebviewTag } from "electron"
 import { FEED_PARTITION, type FeedPage, mobileUserAgent } from "../../shared/feed.ts"
+import { PAGER } from "./pager.ts"
 
 // Pauses media that starts while held
 const INSTALL = `(() => {
@@ -62,6 +63,7 @@ export const feedView = (page: FeedPage, held: boolean): FeedView => {
   node.addEventListener("dom-ready", () => {
     ready = true
     run(INSTALL)
+    run(PAGER)
     apply()
   })
 

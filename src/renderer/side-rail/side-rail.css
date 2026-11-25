@@ -53,7 +53,7 @@
 .side-rail.open .sr-panel { display: flex; }
 @keyframes rail-in { from { opacity: 0; transform: translateX(6px); } }
 
-.work { position: relative; }
+.work { position: relative; container-type: size; }
 .side-rail.wide { position: absolute; inset: 0; z-index: 5; }
 .side-rail.wide .sr-panel { flex: 1; width: auto; max-width: none; animation: none; }
 .side-rail.wide .sr-handle { display: none; }

@@ -113,7 +113,9 @@ export const mountFeedPage = (host: HTMLElement, controls: RailControls) => {
   const stack = el("div", "feed-stack")
   const lock = lockOverlay()
   stack.append(lock.node)
-  host.append(head, stack)
+  const area = el("div", "feed-area")
+  area.append(stack)
+  host.append(head, area)
   els = { tabs, stack, wide, lock }
   document.addEventListener("keydown", exitWideOnEscape)
   onSettingsChanged(apply)

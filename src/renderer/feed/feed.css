@@ -4,10 +4,14 @@
 .feed-head .feed-tabs { grid-column: 2; }
 .feed-wide { grid-column: 3; justify-self: end; font-size: 12px; white-space: nowrap; }
 
-/* Full screen keeps one centered portrait column */
-.side-rail.wide .feed-stack { align-self: center; aspect-ratio: 9 / 16; max-width: 100%; }
+/* Portrait feed sized to its panel, never overflowing it */
+.side-rail { --feed-ratio: 1074 / 1421; --feed-chrome: 58px; }
+.feed-area { flex: 1; min-height: 0; display: grid; place-items: center; container-type: size; }
+.feed-stack { position: relative; width: min(100cqw, 100cqh * var(--feed-ratio)); aspect-ratio: var(--feed-ratio); border-radius: var(--r); overflow: hidden; background: #000; }
 
-.feed-stack { position: relative; flex: 1; min-height: 0; border-radius: var(--r); overflow: hidden; background: #000; }
+/* Rail opens wide enough for a full height feed */
+.side-rail.open:not(.wide):has(.feed-rail.on) .sr-panel { width: max(var(--sr-panel, 252px), (100cqh - var(--feed-chrome)) * var(--feed-ratio) + 20px); }
+
 .feed-view { display: none; position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 .feed-view.on { display: flex; }
 .feed-stack.locked .feed-view { pointer-events: none; filter: blur(18px) brightness(0.5); }
