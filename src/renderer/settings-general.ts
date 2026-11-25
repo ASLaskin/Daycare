@@ -19,11 +19,13 @@ export const renderGeneral = () => {
   input("set-keep-awake-lid").checked = s.keepAwakeLidClosed
   locationOptions(select("set-default-location"), s.defaultLocation)
   select("set-provider").value = s.provider
+  select("set-chat-model").value = s.chatModel
   select("set-master-model").value = s.masterModel
   select("set-worker-model").value = s.workerModel
   select("set-worker-model").disabled = s.autoWorkerModel
   input("set-auto-worker-model").checked = s.autoWorkerModel
   $("#worker-model-field").classList.toggle("disabled", s.autoWorkerModel)
+  select("set-chat-effort").value = s.chatEffort
   select("set-master-effort").value = s.masterEffort
   select("set-worker-effort").value = s.workerEffort
   select("set-worker-effort").disabled = s.autoWorkerEffort
@@ -57,15 +59,19 @@ export const wireGeneral = () => {
     return saveSettings({ defaultLocation: Number(v) })
   })
   onSelect("set-provider", (v) => saveSettings({ provider: v as Settings["provider"] }))
+  fillModels(select("set-chat-model"), MASTER_CHOICES)
   fillModels(select("set-master-model"), MASTER_CHOICES)
   fillModels(select("set-worker-model"), WORKER_CHOICES)
   renderModelGuide($("#model-guide"))
+  onSelect("set-chat-model", (chatModel) => saveSettings({ chatModel }))
   onSelect("set-master-model", (masterModel) => saveSettings({ masterModel }))
   onSelect("set-worker-model", (workerModel) => saveSettings({ workerModel }))
   onToggle("set-auto-worker-model", (autoWorkerModel) => saveSettings({ autoWorkerModel }))
+  fillModels(select("set-chat-effort"), MASTER_EFFORT_CHOICES)
   fillModels(select("set-master-effort"), MASTER_EFFORT_CHOICES)
   fillModels(select("set-worker-effort"), WORKER_EFFORT_CHOICES)
   renderEffortGuide($("#effort-guide"))
+  onSelect("set-chat-effort", (chatEffort) => saveSettings({ chatEffort }))
   onSelect("set-master-effort", (masterEffort) => saveSettings({ masterEffort }))
   onSelect("set-worker-effort", (workerEffort) => saveSettings({ workerEffort }))
   onToggle("set-auto-worker-effort", (autoWorkerEffort) => saveSettings({ autoWorkerEffort }))
