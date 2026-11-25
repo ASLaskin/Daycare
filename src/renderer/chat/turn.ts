@@ -7,6 +7,7 @@ import type { ChatSession } from "./types.ts"
 export const clearEmpty = (s: ChatSession) => {
   s.emptyEl?.remove()
   s.emptyEl = null
+  s.mode.hidden = true
 }
 
 export const ensureTurn = (s: ChatSession) => {

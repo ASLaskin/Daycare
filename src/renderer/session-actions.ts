@@ -29,6 +29,16 @@ export const relocateMaster = async (id: SessionId, cwd: DirPath) => {
   api.deleteSession(id)
 }
 
+// Replaces a pristine master with one in the other mode.
+export const switchMasterMode = async (id: SessionId, masterMode: boolean) => {
+  const info = panes.get(id)?.info
+  if (!info || !isPristine(info) || info.masterMode === masterMode) {
+    return
+  }
+  await api.createMaster({ task: "", cwd: info.cwd, model: info.model, effort: info.effort, permissionMode: info.permissionMode, masterMode, provider: info.provider })
+  api.deleteSession(id)
+}
+
 const actionButton = (label: string, cls: string, title: string, action: () => void) => {
   const b = el("button", cls, label)
   b.title = title

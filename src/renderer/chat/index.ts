@@ -9,6 +9,7 @@ import { prune } from "./caps.ts"
 import { autosize, wireComposer } from "./composer.ts"
 import { apply } from "./events.ts"
 import { renderFoot } from "./foot.ts"
+import { wireModePicker } from "./mode-picker.ts"
 import { wireEffortPicker } from "./effort-picker.ts"
 import { wireModelPicker } from "./model-picker.ts"
 import { toBottom, updateJump } from "./scroll.ts"
@@ -87,6 +88,7 @@ export const mount = (info: SessionView, host: HTMLElement) => {
     input: v.input,
     send: v.send,
     stop: v.stop,
+    mode: v.mode,
     model: v.model,
     effort: v.effort,
     foot: v.foot,
@@ -95,6 +97,7 @@ export const mount = (info: SessionView, host: HTMLElement) => {
     taskSummary: v.taskSummary,
   }
   wireComposer(s)
+  wireModePicker(s, info)
   wireModelPicker(s, info)
   wireEffortPicker(s, info)
   ro.observe(v.scroll)

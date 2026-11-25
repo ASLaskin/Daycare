@@ -73,12 +73,14 @@ const composer = () => {
   model.setAttribute("aria-label", "Model")
   const effort = el("select", "chat-model")
   effort.setAttribute("aria-label", "Effort")
+  const mode = el("select", "chat-model")
+  mode.setAttribute("aria-label", "Mode")
   const pickers = el("div", "chat-pickers")
-  pickers.append(model, effort)
+  pickers.append(mode, model, effort)
   const under = el("div", "chat-under")
   under.append(el("div", "chat-hint", "Enter to send, Shift+Enter for a new line"), pickers)
   wrap.append(box, under)
-  return { composer: wrap, box, input, stop, send, model, effort, ...files }
+  return { composer: wrap, box, input, stop, send, mode, model, effort, ...files }
 }
 
 // Placeholder shown until the first real content
