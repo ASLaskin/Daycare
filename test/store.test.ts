@@ -22,7 +22,7 @@ test("reopening keeps records and schema", () => {
   const s = { ...sample("a", "claude", "creating"), nativeId: asNativeId("n") }
   createSession(db.open(), s)
   const conn = db.open()
-  expect(conn.query<{ user_version: number }, []>("PRAGMA user_version").get()?.user_version).toBe(7)
+  expect(conn.query<{ user_version: number }, []>("PRAGMA user_version").get()?.user_version).toBe(8)
   expect(getSession(conn, s.id)).toEqual({ session: s })
 })
 
@@ -32,7 +32,7 @@ test("sessions from before accounts open on Default", () => {
   const conn = db.open()
   createSession(conn, s)
   conn.run(
-    "ALTER TABLE sessions DROP COLUMN account_id; ALTER TABLE sessions DROP COLUMN config_dir; DROP TABLE config; ALTER TABLE sessions DROP COLUMN archived; ALTER TABLE sessions DROP COLUMN effort; ALTER TABLE sessions DROP COLUMN last_entry; ALTER TABLE history DROP COLUMN at; DROP TABLE mobile_requests; DROP TABLE mobile_devices; DROP TABLE mobile_activities; PRAGMA user_version = 1",
+    "ALTER TABLE sessions DROP COLUMN account_id; ALTER TABLE sessions DROP COLUMN config_dir; DROP TABLE config; ALTER TABLE sessions DROP COLUMN archived; ALTER TABLE sessions DROP COLUMN effort; ALTER TABLE sessions DROP COLUMN last_entry; ALTER TABLE history DROP COLUMN at; DROP TABLE mobile_requests; DROP TABLE mobile_devices; DROP TABLE mobile_activities; ALTER TABLE sessions DROP COLUMN master_mode; PRAGMA user_version = 1",
   )
   conn.close()
   expect(getSession(db.open(), s.id)).toEqual({ session: s })
@@ -43,7 +43,7 @@ test("sessions from before archiving open unarchived, and archiving is saved", (
   const s = sample("a", "claude", "idle")
   const conn = db.open()
   createSession(conn, s)
-  conn.run("ALTER TABLE sessions DROP COLUMN archived; ALTER TABLE sessions DROP COLUMN effort; ALTER TABLE sessions DROP COLUMN last_entry; ALTER TABLE history DROP COLUMN at; DROP TABLE mobile_requests; DROP TABLE mobile_devices; DROP TABLE mobile_activities; PRAGMA user_version = 3")
+  conn.run("ALTER TABLE sessions DROP COLUMN archived; ALTER TABLE sessions DROP COLUMN effort; ALTER TABLE sessions DROP COLUMN last_entry; ALTER TABLE history DROP COLUMN at; DROP TABLE mobile_requests; DROP TABLE mobile_devices; DROP TABLE mobile_activities; ALTER TABLE sessions DROP COLUMN master_mode; PRAGMA user_version = 3")
   conn.close()
   const reopened = db.open()
   expect(getSession(reopened, s.id)).toEqual({ session: s })
@@ -56,10 +56,31 @@ test("sessions from before entry counters continue after their newest row", () =
   const conn = db.open()
   createSession(conn, sample("a", "claude", "idle"))
   conn.run("INSERT INTO history (session_id, seq, scope, block, partial, bytes, body) VALUES ('a', 7, 1, NULL, 0, 2, '{}')")
-  conn.run("ALTER TABLE sessions DROP COLUMN last_entry; ALTER TABLE history DROP COLUMN at; DROP TABLE mobile_requests; DROP TABLE mobile_devices; DROP TABLE mobile_activities; PRAGMA user_version = 5")
+  conn.run("ALTER TABLE sessions DROP COLUMN last_entry; ALTER TABLE history DROP COLUMN at; DROP TABLE mobile_requests; DROP TABLE mobile_devices; DROP TABLE mobile_activities; ALTER TABLE sessions DROP COLUMN master_mode; PRAGMA user_version = 5")
   conn.close()
   const reopened = db.open()
   expect(reopened.query<{ last_entry: number }, []>("SELECT last_entry FROM sessions WHERE id = 'a'").get()?.last_entry).toBe(7)
+})
+
+test("sessions from before master mode keep it as masters and lack it as workers", () => {
+  const db = fresh()
+  const master = sample("m", "claude", "idle")
+  const worker = { ...sample("w", "claude", "idle"), role: "worker" as const, masterMode: false, parentId: master.id }
+  const conn = db.open()
+  createSession(conn, master)
+  createSession(conn, worker)
+  conn.run("ALTER TABLE sessions DROP COLUMN master_mode; PRAGMA user_version = 7")
+  conn.close()
+  const reopened = db.open()
+  expect(getSession(reopened, master.id)).toEqual({ session: master })
+  expect(getSession(reopened, worker.id)).toEqual({ session: worker })
+})
+
+test("a plain session is stored without master mode", () => {
+  const db = fresh()
+  const s = { ...sample("p", "claude", "idle"), masterMode: false }
+  createSession(db.open(), s)
+  expect(getSession(db.open(), s.id)).toEqual({ session: s })
 })
 
 test("recovery marks lost execution without touching settled sessions", () => {

@@ -54,8 +54,8 @@ export const startClaude = (
   if (!nativeId) {
     throw new Error("claude session has no native id")
   }
-  const master = session.role === "master"
-  const prompt = rolePrompt(master, options.allowSubagents)
+  const master = session.role === "master" && session.masterMode
+  const prompt = rolePrompt(session, options.allowSubagents)
   // Without subagents a master keeps its tools for existing workers
   const tools = DAYCARE_TOOLS.filter((name) => options.allowSubagents || name !== "spawn_subagent").map((name) => `mcp__daycare__${name}`)
   interface Pending {
@@ -135,8 +135,10 @@ export const startClaude = (
     options: {
       pathToClaudeCodeExecutable: claudePath,
       systemPrompt: { type: "preset", preset: "claude_code", ...(prompt ? { append: prompt } : {}) },
-      // Workers replace Claude's own subagents
-      disallowedTools: ["Task", "Agent", ...(options.allowSubagents ? [] : ["mcp__daycare__spawn_subagent"])],
+      // Workers replace Claude's own subagents; plain sessions keep them
+      ...(session.masterMode || session.role === "worker"
+        ? { disallowedTools: ["Task", "Agent", ...(options.allowSubagents ? [] : ["mcp__daycare__spawn_subagent"])] }
+        : {}),
       ...(master
         ? {
             mcpServers: { daycare: { ...bridge(session.id), alwaysLoad: true, timeout: TOOL_TIMEOUT_SECONDS * 1000 } },

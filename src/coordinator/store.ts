@@ -69,6 +69,8 @@ const MIGRATIONS = [
     token TEXT NOT NULL,
     updated_at INTEGER NOT NULL
   );`,
+  `ALTER TABLE sessions ADD COLUMN master_mode INTEGER NOT NULL DEFAULT 0;
+  UPDATE sessions SET master_mode = 1 WHERE role = 'master';`,
 ]
 
 // Active sessions become interrupted, attempted creations incomplete
@@ -78,7 +80,7 @@ const INTERRUPT = `UPDATE sessions
     OR (state = 'creating' AND EXISTS (SELECT 1 FROM history WHERE session_id = sessions.id)))`
 
 const COLUMNS = `id, provider, native_id, role, parent_id, name, icon, cwd, model, permission_mode,
-  state, closed, archived, error, created_at, run, account_id, config_dir, effort`
+  state, closed, archived, error, created_at, run, account_id, config_dir, effort, master_mode`
 
 interface Row {
   readonly id: string
@@ -100,6 +102,7 @@ interface Row {
   readonly account_id: string
   readonly config_dir: string | null
   readonly effort: string | null
+  readonly master_mode: number
 }
 
 export type Loaded = { readonly session: StoredSession } | { readonly error: string }
@@ -112,6 +115,7 @@ const decode = (r: Row): Loaded => {
     provider: r.provider,
     nativeId: r.native_id,
     role: r.role,
+    masterMode: r.master_mode === 1,
     parentId: r.parent_id,
     name: r.name,
     icon: r.icon,
@@ -152,8 +156,8 @@ export const openStore = (file: FilePath): Database => {
 export const createSession = (db: Database, s: StoredSession) => {
   db.query(
     `INSERT INTO sessions (${COLUMNS}) VALUES ($id, $provider, $nativeId, $role, $parentId, $name, $icon, $cwd,
-      $model, $permissionMode, $state, $closed, $archived, $error, $createdAt, $run, $accountId, $configDir, $effort)`,
-  ).run({ ...s, closed: s.closed ? 1 : 0, archived: s.archived ? 1 : 0 })
+      $model, $permissionMode, $state, $closed, $archived, $error, $createdAt, $run, $accountId, $configDir, $effort, $masterMode)`,
+  ).run({ ...s, closed: s.closed ? 1 : 0, archived: s.archived ? 1 : 0, masterMode: s.masterMode ? 1 : 0 })
 }
 
 const PATCH_COLUMNS = {

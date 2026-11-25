@@ -14,7 +14,7 @@ import type { ServerMessage, SessionState } from "../src/shared/coordinator.ts"
 import { asNativeId } from "../src/shared/coordinator.ts"
 import { asAccountId, asDirPath, asFilePath, asRequestId, asSessionId, asToolUseId } from "../src/shared/ids.ts"
 import { asBase64 } from "../src/shared/images.ts"
-import { obj } from "../src/shared/json.ts"
+import { obj, str } from "../src/shared/json.ts"
 import { sample, tempDb } from "./fixtures/store.ts"
 
 const id = asSessionId("s")
@@ -183,6 +183,19 @@ test("a codex session starts without a native id and stores the reported one bef
   expect(row()?.native_id).toBeNull()
   fake.launches.at(-1)?.update({ type: "native", nativeId: asNativeId("thread-1") })
   expect(row()?.native_id).toBe("thread-1")
+})
+
+test("create starts in master mode unless the client turns it off", () => {
+  const { hub } = setup()
+  const create = (masterMode?: boolean) => {
+    const created = hub.command({ method: "create", provider: "codex", cwd: sample("x", "codex", "idle").cwd, prompt: "", model: null, effort: null, permissionMode: "default", accountId: DEFAULT_ACCOUNT, configDir: null, ...(masterMode === undefined ? {} : { masterMode }) })
+    const id = "result" in created ? str(obj(created.result)?.["session"]) : null
+    return hub.subscribe(() => true).sessions.find((s) => s.id === id)
+  }
+  expect([create(), create(false)].map((s) => [s?.role, s?.masterMode])).toEqual([
+    ["master", true],
+    ["master", false],
+  ])
 })
 
 test("shutdown refuses new work at once, is idempotent, and survives a failing close", async () => {

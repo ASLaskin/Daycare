@@ -227,7 +227,7 @@ export const makeOrchestration = (core: OrchestrationCore, ackMs = ACK_MS) => {
 
   const run = async (masterId: SessionId, name: string, raw: Json, signal: AbortSignal): Promise<Json> => {
     const master = core.session(masterId)
-    if (master.role !== "master") {
+    if (master.role !== "master" || !master.masterMode) {
       throw new Error("only a master session can orchestrate workers")
     }
     if (!isToolName(name)) {

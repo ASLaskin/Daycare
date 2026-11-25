@@ -21,6 +21,7 @@ export const sample = (id: string, provider: Provider, state: SessionState): Sto
   provider,
   nativeId: null,
   role: "master",
+  masterMode: true,
   parentId: null,
   name: id,
   icon: null,

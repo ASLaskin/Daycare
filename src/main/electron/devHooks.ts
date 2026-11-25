@@ -40,6 +40,7 @@ export const devHooks = Effect.gen(function* () {
       model: "sonnet",
       effort: "",
       permissionMode: "default" as const,
+      masterMode: true,
       cwd: asDirPath(os.homedir()),
       name: "Master",
       ...auto,

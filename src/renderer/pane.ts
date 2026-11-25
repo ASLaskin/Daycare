@@ -36,10 +36,17 @@ const groupFor = (masterId: SessionId) => {
   return g
 }
 
+const roleLabel = (info: SessionView) => {
+  if (info.role === "worker") {
+    return "Worker"
+  }
+  return info.masterMode ? "Master" : "Chat"
+}
+
 const buildHead = (info: SessionView) => {
   const head = el("div", "pane-head")
   const title = el("span", "title", info.name)
-  const role = el("span", "role", info.role === "master" ? "Master" : "Worker")
+  const role = el("span", "role", roleLabel(info))
   const status = el("span", "status")
   const activity = el("span", "activity")
   const ctx = el("span", "ctx")
