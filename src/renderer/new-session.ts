@@ -1,15 +1,33 @@
 // Location pickers and starting sessions.
 
+import { pickLocation } from "./add-location.ts"
 import { api } from "./api.ts"
-import { $, el } from "./dom.ts"
-import { getActiveMaster } from "./focus.ts"
+import { $, el, tildify } from "./dom.ts"
+import { focusSession, getActiveMaster } from "./focus.ts"
 import { digitShortcutText } from "./keymap.ts"
-import { relocateMaster } from "./session-actions.ts"
+import { isPristine, relocateMaster } from "./session-actions.ts"
 import { closeSettings } from "./settings-view.ts"
 import { openSheet } from "./sheet.ts"
+import { openMasters, panes } from "./state.ts"
 import { settings } from "./store.ts"
 
+const NEW_LOCATION = "new"
+
 let currentLoc = 0
+// Create or relocate in flight; extra clicks are ignored.
+let starting = false
+
+const startOnce = async (start: () => Promise<void>) => {
+  if (starting) {
+    return
+  }
+  starting = true
+  try {
+    await start()
+  } finally {
+    starting = false
+  }
+}
 
 export const setCurrentLocation = (i: number) => {
   currentLoc = i
@@ -35,17 +53,35 @@ export const locationOptions = (select: HTMLSelectElement, selected: number) => 
   select.value = String(selected)
 }
 
+const toolbarOptions = (select: HTMLSelectElement) => {
+  const paths = settings().locations.map((l, i) => {
+    const o = el("option", null, tildify(l.path))
+    o.value = String(i)
+    o.title = l.path
+    return o
+  })
+  const add = el("option", null, "New...")
+  add.value = NEW_LOCATION
+  select.replaceChildren(...paths, add)
+  select.value = String(currentLoc)
+}
+
+const locationButton = (label: string, path: string, hint: string, onClick: () => void) => {
+  const b = el("button", "loc-button")
+  const text = el("span", "loc-text")
+  text.append(el("span", null, label), el("span", "loc-path", path))
+  b.append(text, el("span", "kbd", hint))
+  b.title = path
+  b.onclick = onClick
+  return b
+}
+
 export const renderLocationPickers = () => {
-  locationOptions($<HTMLSelectElement>("#location"), currentLoc)
-  $("#empty-locations").replaceChildren(
-    ...settings().locations.map((l, i) => {
-      const b = el("button", "loc-button")
-      b.append(el("span", null, l.label), el("span", "kbd", i < 9 ? digitShortcutText("newSessionAt", i + 1) : ""))
-      b.title = l.path
-      b.onclick = () => newSession(i)
-      return b
-    }),
+  toolbarOptions($<HTMLSelectElement>("#location"))
+  const buttons = settings().locations.map((l, i) =>
+    locationButton(l.label, tildify(l.path), i < 9 ? digitShortcutText("newSessionAt", i + 1) : "", () => newSession(i)),
   )
+  $("#empty-locations").replaceChildren(...buttons, locationButton("New...", "Choose another folder", "", openNewLocation))
 }
 
 export const newSession = (locIndex = currentLoc) => {
@@ -61,22 +97,51 @@ export const newSession = (locIndex = currentLoc) => {
     openSheet(locIndex)
     return
   }
-  api.createMaster({ task: "", cwd: loc.path, model: s.masterModel, effort: s.masterEffort, permissionMode: s.permissionMode, provider: s.provider })
+  // Reuse an untouched chat instead of stacking blank ones
+  const blank = openMasters().find(isPristine)
+  if (blank?.cwd === loc.path) {
+    focusSession(blank.id)
+    return
+  }
+  if (blank) {
+    startOnce(() => relocateMaster(blank.id, loc.path))
+    return
+  }
+  startOnce(async () => {
+    await api.createMaster({ task: "", cwd: loc.path, model: s.masterModel, effort: s.masterEffort, permissionMode: s.permissionMode, masterMode: true, provider: s.provider })
+  })
 }
 
-// Moves an untouched active master to the picked location.
-const relocateActive = () => {
+// Moves an untouched active master there, else opens a new one.
+const openAt = (i: number) => {
   const id = getActiveMaster()
-  const loc = settings().locations[currentLoc]
-  if (id && loc) {
-    relocateMaster(id, loc.path)
+  const info = id ? panes.get(id)?.info : undefined
+  const loc = settings().locations[i]
+  if (!id || !info || !loc || !isPristine(info)) {
+    newSession(i)
+    return
   }
+  currentLoc = i
+  relocateMaster(id, loc.path)
+}
+
+const openNewLocation = async () => {
+  const i = await pickLocation()
+  if (i === null) {
+    $<HTMLSelectElement>("#location").value = String(currentLoc)
+    return
+  }
+  openAt(i)
 }
 
 export const initNewSession = () => {
   $<HTMLSelectElement>("#location").onchange = (e) => {
-    currentLoc = Number((e.target as HTMLSelectElement).value)
-    relocateActive()
+    const value = (e.target as HTMLSelectElement).value
+    if (value === NEW_LOCATION) {
+      openNewLocation()
+      return
+    }
+    openAt(Number(value))
   }
   $("#new-master").onclick = () => newSession()
 }

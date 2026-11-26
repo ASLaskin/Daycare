@@ -4,6 +4,7 @@ import type { ChatEvent } from "../shared/chat.ts"
 import type { NativeId } from "../shared/coordinator.ts"
 import type { EffortLevel } from "../shared/efforts.ts"
 import type { RequestId } from "../shared/ids.ts"
+import type { ChatImage } from "../shared/images.ts"
 import type { Json } from "../shared/json.ts"
 
 export type ProviderUpdate =
@@ -17,6 +18,13 @@ export type ProviderUpdate =
   | { readonly type: "error"; readonly message: string }
   | { readonly type: "exited" }
 
+// Settings a provider reads at launch
+export interface LaunchOptions {
+  readonly codeMode: boolean
+}
+
+export const DEFAULT_LAUNCH: LaunchOptions = { codeMode: false }
+
 export interface Answer {
   readonly choice: string
   readonly message?: string
@@ -24,8 +32,8 @@ export interface Answer {
 }
 
 export interface ProviderHandle {
-  // Resolves when taken; rejects when refused
-  readonly input: (text: string) => Promise<void>
+  // Resolves when taken; rejects when refused; images ride inline
+  readonly input: (text: string, images?: ReadonlyArray<ChatImage>) => Promise<void>
   readonly interrupt: () => void
   // Switches the model mid-session; Claude only
   readonly setModel?: (model: string) => Promise<void>

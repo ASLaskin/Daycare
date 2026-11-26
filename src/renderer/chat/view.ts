@@ -81,10 +81,23 @@ const composer = () => {
   return { composer: wrap, box, input, stop, send, model, effort, ...files }
 }
 
+// Chat or Master switch with a line about the picked mode
+const modeSwitch = () => {
+  const mode = el("div", "mode-pick")
+  const track = el("div", "mode-switch")
+  track.setAttribute("role", "radiogroup")
+  track.setAttribute("aria-label", "Mode")
+  track.append(el("span", "mode-thumb"), el("button", "mode-option", "Chat"), el("button", "mode-option", "Master"))
+  mode.append(track, el("div", "mode-hint"))
+  return mode
+}
+
 // Placeholder shown until the first real content
-const emptyState = (info: SessionView) => {
+const emptyState = (info: SessionView, mode: HTMLElement) => {
   const empty = el("div", "chat-empty")
-  empty.append(el("div", "chat-empty-title", "New chat"), el("div", "chat-empty-sub", tildify(info.cwd)))
+  const cwd = button("chat-empty-sub", tildify(info.cwd))
+  cwd.setAttribute("aria-label", "Folder")
+  empty.append(el("div", "chat-empty-title", "New chat"), cwd, mode)
   return empty
 }
 
@@ -100,7 +113,8 @@ export const buildView = (info: SessionView, host: HTMLElement) => {
   wrap.append(log.scroll, log.jump)
   root.append(tasks.taskbar, wrap, comp.composer, foot)
   host.replaceChildren(root)
-  const empty = emptyState(info)
+  const mode = modeSwitch()
+  const empty = emptyState(info, mode)
   log.thread.prepend(empty)
-  return { ...tasks, ...log, ...comp, foot, root, empty }
+  return { ...tasks, ...log, ...comp, foot, root, empty, mode }
 }

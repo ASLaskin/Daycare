@@ -1,0 +1,8 @@
+{
+  "type": "response",
+  "id": 8,
+  "error": {
+    "code": "rejected",
+    "message": "Session closed"
+  }
+}

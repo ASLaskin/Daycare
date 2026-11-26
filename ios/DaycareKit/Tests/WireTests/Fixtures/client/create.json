@@ -1,0 +1,17 @@
+{
+  "type": "request",
+  "id": 1,
+  "key": "k-create",
+  "command": {
+    "method": "create",
+    "provider": "claude",
+    "cwd": "/Users/me/code/app",
+    "prompt": "Fix it",
+    "model": null,
+    "effort": "high",
+    "permissionMode": "default",
+    "files": [
+      "/a.jpg"
+    ]
+  }
+}

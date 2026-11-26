@@ -1,0 +1,8 @@
+{
+  "type": "request",
+  "id": 1,
+  "command": {
+    "method": "media",
+    "session": "s-master"
+  }
+}

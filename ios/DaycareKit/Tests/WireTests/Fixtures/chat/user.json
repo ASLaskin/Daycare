@@ -1,0 +1,14 @@
+{
+  "kind": "user",
+  "text": "Attached file: /tmp/a.png\nLook at this",
+  "images": [
+    {
+      "mediaType": "image/png",
+      "data": "iVBORw0KGgo="
+    }
+  ],
+  "omittedImages": 0,
+  "files": [
+    "/tmp/a.png"
+  ]
+}

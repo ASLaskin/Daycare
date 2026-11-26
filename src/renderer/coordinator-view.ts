@@ -12,6 +12,11 @@ const message = (s: CoordinatorStatus): { readonly title: string; readonly body:
         title: "Daycare and its coordinator are different versions",
         body: `Daycare ${s.app}, coordinator ${s.coordinator}. Running sessions continue until you restart the coordinator. Restarting interrupts any work in progress; you can continue each session afterwards.`,
       }
+    case "incompatible":
+      return {
+        title: "Coordinator is running an older build",
+        body: "It sends data this app cannot read. Restart it to load the current build; sessions are kept, but work in progress is interrupted.",
+      }
     case "unavailable":
       return { title: "Coordinator not reachable", body: `${s.message}. Daycare reconnects on its own once it is running.` }
     case "connecting":
@@ -52,6 +57,6 @@ export const initCoordinatorView = () => {
     screen.hidden = shown === null
     title.textContent = shown?.title ?? ""
     body.textContent = shown?.body ?? ""
-    restart.hidden = status.state !== "mismatch"
+    restart.hidden = status.state === "connected"
   })
 }

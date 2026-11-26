@@ -6,16 +6,26 @@ import { withConfigDir } from "../main/accounts/paths.ts"
 import { StreamNormalizer } from "../main/chat/normalize.ts"
 import { toolTitle } from "../main/chat/content.ts"
 import type { ChatEvent } from "../shared/chat.ts"
+import type { ChatImage } from "../shared/images.ts"
 import type { StoredSession } from "../shared/coordinator.ts"
 import { isEffortLevel } from "../shared/efforts.ts"
 import { asRequestId, asToolUseId, type FilePath, type RequestId } from "../shared/ids.ts"
 import { obj, parseJson, str } from "../shared/json.ts"
-import { MASTER_PROMPT, WORKER_PROMPT } from "../main/sessions/prompts.ts"
+import { codeModeEnv } from "../main/sessions/env.ts"
+import { rolePrompt } from "../main/sessions/prompts.ts"
 import { bridge, DAYCARE_TOOLS, TOOL_TIMEOUT_SECONDS } from "./orchestration.ts"
 import { spawnGroup, stopGroup } from "./process.ts"
-import { type Answer, type ProviderHandle, type ProviderUpdate, Refused } from "./provider.ts"
+import { type Answer, DEFAULT_LAUNCH, type LaunchOptions, type ProviderHandle, type ProviderUpdate, Refused } from "./provider.ts"
 
 export type QueryFn = (params: { prompt: AsyncIterable<SDKUserMessage>; options: Options }) => AsyncIterable<object> & Pick<Query, "interrupt" | "close" | "setModel" | "applyFlagSettings">
+
+type ContentBlock = Exclude<SDKUserMessage["message"]["content"], string>[number]
+
+const imageParam = (image: ChatImage): ContentBlock => ({ type: "image", source: { type: "base64", media_type: image.mediaType, data: image.data } })
+
+// Plain text, or images followed by the text
+const userContent = (text: string, images: ReadonlyArray<ChatImage>): SDKUserMessage["message"]["content"] =>
+  images.length ? [...images.map(imageParam), ...(text ? [{ type: "text" as const, text }] : [])] : text
 
 // SDK values as plain JSON
 const toJson = (value: object) => parseJson(JSON.stringify(value))
@@ -38,12 +48,15 @@ export const startClaude = (
   claudePath: FilePath,
   update: (u: ProviderUpdate) => void,
   run: QueryFn = query,
+  options: LaunchOptions = DEFAULT_LAUNCH,
 ): ProviderHandle => {
   const nativeId = session.nativeId
   if (!nativeId) {
     throw new Error("claude session has no native id")
   }
-  const master = session.role === "master"
+  const master = session.role === "master" && session.masterMode
+  const prompt = rolePrompt(session)
+  const tools = DAYCARE_TOOLS.map((name) => `mcp__daycare__${name}`)
   interface Pending {
     readonly message: SDKUserMessage
     readonly confirm: () => void
@@ -120,13 +133,15 @@ export const startClaude = (
     prompt: prompts(),
     options: {
       pathToClaudeCodeExecutable: claudePath,
-      systemPrompt: { type: "preset", preset: "claude_code", append: master ? MASTER_PROMPT : WORKER_PROMPT },
-      // Workers replace Claude's own subagents
-      disallowedTools: ["Task", "Agent"],
+      systemPrompt: { type: "preset", preset: "claude_code", ...(prompt ? { append: prompt } : {}) },
+      // Workers replace Claude's own subagents; plain sessions keep them
+      ...(session.masterMode || session.role === "worker"
+        ? { disallowedTools: ["Task", "Agent"] }
+        : {}),
       ...(master
         ? {
             mcpServers: { daycare: { ...bridge(session.id), alwaysLoad: true, timeout: TOOL_TIMEOUT_SECONDS * 1000 } },
-            allowedTools: DAYCARE_TOOLS.map((name) => `mcp__daycare__${name}`),
+            allowedTools: tools,
           }
         : {}),
       // Own process group
@@ -139,7 +154,7 @@ export const startClaude = (
       includePartialMessages: true,
       canUseTool,
       permissionMode: session.permissionMode,
-      env: { ...withConfigDir(process.env, session.configDir), CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS: "1" },
+      env: { ...withConfigDir(process.env, session.configDir), ...codeModeEnv(options.codeMode), CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS: "1" },
       ...(session.model ? { model: session.model } : {}),
       ...(session.effort && isEffortLevel(session.effort) ? { effort: session.effort } : {}),
       ...(session.state === "creating" ? { sessionId: nativeId } : { resume: nativeId }),
@@ -181,12 +196,12 @@ export const startClaude = (
   })()
 
   return {
-    input: (text) => {
+    input: (text, images = []) => {
       if (closed) {
         return Promise.reject(new Refused("claude has stopped"))
       }
       return new Promise<void>((confirm, refuse) => {
-        const message: SDKUserMessage = { type: "user", message: { role: "user", content: text }, parent_tool_use_id: null, uuid: crypto.randomUUID() }
+        const message: SDKUserMessage = { type: "user", message: { role: "user", content: userContent(text, images) }, parent_tool_use_id: null, uuid: crypto.randomUUID() }
         inputs.push({ message, confirm, refuse })
         wake()
       })

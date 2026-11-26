@@ -1,0 +1,10 @@
+{
+  "type": "request",
+  "id": 1,
+  "command": {
+    "method": "history",
+    "session": "s-master",
+    "before": 10,
+    "limit": 50
+  }
+}

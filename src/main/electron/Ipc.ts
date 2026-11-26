@@ -19,6 +19,7 @@ import { FeedAccounts } from "../feed/FeedAccounts.ts"
 import { prepareImages } from "../chat/images.ts"
 import { runCommand } from "../projects/command.ts"
 import { githubPage } from "../projects/github.ts"
+import { Phone } from "../coordinator/Phone.ts"
 import { Power } from "../power/Power.ts"
 import { ClaudeBinary } from "../sessions/Claude.ts"
 import { Sessions } from "../sessions/Sessions.ts"
@@ -28,6 +29,7 @@ import { Updater } from "../updater/Updater.ts"
 import { Usage } from "../usage/Usage.ts"
 import { downscale } from "./downscale.ts"
 import { MainWindow } from "./Window.ts"
+import { showLocationMenu } from "./locationMenu.ts"
 import { showSessionMenu } from "./sessionMenu.ts"
 
 type Handlers = { readonly [C in InvokeChannel]: (payload: InvokePayload<C>) => Effect.Effect<InvokeResult[C], { readonly message: string }> }
@@ -40,6 +42,7 @@ export const Ipc = Layer.effectDiscard(
     const accounts = yield* Accounts
     const power = yield* Power
     const feed = yield* FeedAccounts
+    const phone = yield* Phone
     const skills = yield* Skills
     const updater = yield* Updater
     const ui = yield* Ui
@@ -50,6 +53,7 @@ export const Ipc = Layer.effectDiscard(
     const withProjectDirs = <A, E>(f: (dirs: ReadonlyArray<DirPath>) => Effect.Effect<A, E>) => Effect.flatMap(sessions.projectDirs, f)
 
     const sessionMenu = showSessionMenu(sessions, ui, win)
+    const locationMenu = showLocationMenu(win, settings.get)
 
     const media = new MediaAllowlist()
     handleMedia(media)
@@ -65,6 +69,7 @@ export const Ipc = Layer.effectDiscard(
             return picked ? asDirPath(picked) : null
           }),
         ),
+      "dialog:pick-location": locationMenu,
       "open:finder": (dir) => Effect.promise(() => shell.openPath(dir)).pipe(Effect.asVoid),
       // VS Code CLI on the login PATH, else the app
       "open:vscode": (dir) =>
@@ -105,6 +110,8 @@ export const Ipc = Layer.effectDiscard(
       "session:delete": (id) => sessions.remove(id),
       "session:delete-closed": () => sessions.removeClosed,
       "session:menu": sessionMenu,
+      "groups:list": () => sessions.groups,
+      "groups:set": (groups) => sessions.setGroups(groups),
       "coordinator:restart": () => sessions.restartCoordinator,
       "window:fullscreen": () => Effect.sync(() => win.setFullScreen(!win.isFullScreen())),
 
@@ -113,8 +120,13 @@ export const Ipc = Layer.effectDiscard(
       "feed:disconnect": (id) => feed.disconnect(id),
 
       "power:status": () => power.status,
+      "power:mode": (mode) => power.setMode(mode),
       "power:restore": () => power.restore,
       "power:dismiss-error": () => power.dismissError,
+
+      "phone:pairing": () => phone.pairing,
+      "phone:rotate": () => phone.rotate,
+      "phone:setup": () => phone.setup,
 
       "skills:list": () => withProjectDirs((dirs) => skills.list(dirs)),
       "skills:set": (input) => withProjectDirs((dirs) => skills.setState(input, dirs)),

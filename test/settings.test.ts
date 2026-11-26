@@ -20,7 +20,7 @@ describe("mergeSettings", () => {
   })
 
   test("subagents are allowed without confirming, and Code Mode is off, by default", () => {
-    expect([defaults.allowSubagents, defaults.confirmSubagents, defaults.codeMode]).toEqual([true, false, false])
+    expect([defaults.confirmSubagents, defaults.codeMode]).toEqual([false, false])
   })
 
   test("drops the removed ooga booga setting from older files", () => {

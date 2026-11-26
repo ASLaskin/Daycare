@@ -1,0 +1,10 @@
+{
+  "type": "request",
+  "id": 1,
+  "key": "k-send:0",
+  "command": {
+    "method": "upload",
+    "name": "photo.jpg",
+    "data": "aGk="
+  }
+}

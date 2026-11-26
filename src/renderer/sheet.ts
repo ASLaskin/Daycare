@@ -5,6 +5,7 @@ import type { NewMaster, PermissionMode, Provider } from "../shared/session.ts"
 import { api } from "./api.ts"
 import { $, baseName, el, tildify } from "./dom.ts"
 import { MASTER_EFFORT_CHOICES } from "./effort-options.ts"
+import { modeDefaults } from "./mode-defaults.ts"
 import { fillModels, MASTER_CHOICES } from "./model-options.ts"
 import { settings } from "./store.ts"
 
@@ -22,6 +23,7 @@ const form = () => {
     effort: field<HTMLSelectElement>("effort"),
     permissionMode: field<HTMLSelectElement>("permissionMode"),
     provider: field<HTMLSelectElement>("provider"),
+    masterMode: field<HTMLInputElement>("masterMode"),
   }
 }
 
@@ -35,13 +37,20 @@ const folderOption = (label: string, path: string) => {
   return o
 }
 
+const applyModeDefaults = () => {
+  const f = form()
+  const d = modeDefaults(f.masterMode.checked)
+  f.model.value = d.model
+  f.effort.value = d.effort
+}
+
 export const openSheet = (locIndex: number) => {
   const s = settings()
   const f = form()
   f.cwd.replaceChildren(...s.locations.map((l, i) => folderOption(`${i + 1}   ${l.label}`, l.path)))
   f.cwd.value = s.locations[locIndex]?.path ?? ""
-  f.model.value = s.masterModel
-  f.effort.value = s.masterEffort
+  f.masterMode.checked = true
+  applyModeDefaults()
   f.permissionMode.value = s.permissionMode
   f.provider.value = s.provider
   sheet().classList.remove("hidden")
@@ -57,6 +66,7 @@ const readForm = (): NewMaster => {
     effort: f.effort.value,
     permissionMode: f.permissionMode.value as PermissionMode,
     provider: f.provider.value as Provider,
+    masterMode: f.masterMode.checked,
     cwd: asDirPath(f.cwd.value),
     ...(name ? { name } : {}),
   }
@@ -66,6 +76,7 @@ export const initSheet = () => {
   const f = form()
   fillModels(f.model, MASTER_CHOICES)
   fillModels(f.effort, MASTER_EFFORT_CHOICES)
+  f.masterMode.addEventListener("change", applyModeDefaults)
   $("#cancel").onclick = closeSheet
   $("#pick-cwd").onclick = async () => {
     const dir = await api.pickFolder()

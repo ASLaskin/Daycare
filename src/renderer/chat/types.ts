@@ -106,6 +106,7 @@ export interface ChatSession {
   readonly input: HTMLTextAreaElement
   readonly send: HTMLButtonElement
   readonly stop: HTMLButtonElement
+  readonly mode: HTMLElement
   readonly model: HTMLSelectElement
   readonly effort: HTMLSelectElement
   readonly foot: HTMLElement

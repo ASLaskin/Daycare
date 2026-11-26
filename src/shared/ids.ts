@@ -35,6 +35,9 @@ export type HttpUrl = typeof HttpUrl.Type
 export const ThemeId = Schema.String.pipe(Schema.brand("ThemeId"))
 export type ThemeId = typeof ThemeId.Type
 
+export const GroupId = Schema.String.pipe(Schema.brand("GroupId"))
+export type GroupId = typeof GroupId.Type
+
 // Brand constructors for values minted or trusted locally
 export const asSessionId = (s: string) => s as SessionId
 export const asClaudeSessionId = (s: string) => s as ClaudeSessionId
@@ -47,3 +50,4 @@ export const asDirPath = (s: string) => s as DirPath
 export const asFilePath = (s: string) => s as FilePath
 export const asHttpUrl = (s: string) => s as HttpUrl
 export const asThemeId = (s: string) => s as ThemeId
+export const asGroupId = (s: string) => s as GroupId

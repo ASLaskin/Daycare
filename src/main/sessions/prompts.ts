@@ -1,5 +1,7 @@
 // System prompts appended for masters and workers.
 
+import type { StoredSession } from "../../shared/coordinator.ts"
+
 export const MASTER_PROMPT = [
   "You are a master session running inside Daycare.",
   "Split the work into independent units and hand each one to a worker with the",
@@ -27,3 +29,11 @@ export const WORKER_PROMPT = [
   "When you finish, end with a concise summary of what you did and where any",
   "output lives; the master reads only that summary.",
 ].join(" ")
+
+// Appended system prompt; none for a plain session
+export const rolePrompt = (session: Pick<StoredSession, "role" | "masterMode">): string | null => {
+  if (session.role === "worker") {
+    return WORKER_PROMPT
+  }
+  return session.masterMode ? MASTER_PROMPT : null
+}

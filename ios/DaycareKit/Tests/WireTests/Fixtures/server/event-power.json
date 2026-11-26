@@ -1,0 +1,24 @@
+{
+  "type": "event",
+  "seq": 4188,
+  "event": {
+    "kind": "power",
+    "power": {
+      "mode": "while-running",
+      "holding": true,
+      "busyCount": 2,
+      "battery": {
+        "percent": 64,
+        "pluggedIn": false,
+        "charging": false,
+        "minutesRemaining": 185,
+        "readAt": 1762300000000
+      },
+      "lidClosed": {
+        "enabled": false,
+        "active": false
+      },
+      "error": null
+    }
+  }
+}

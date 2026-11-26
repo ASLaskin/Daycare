@@ -1,0 +1,109 @@
+/* Sidebar groups, mode tags, and drag targets. */
+
+.session-group[data-color="blue"] { --group: #7aa2ff; }
+.session-group[data-color="green"] { --group: #5fd39a; }
+.session-group[data-color="amber"] { --group: #f2b84b; }
+.session-group[data-color="rose"] { --group: #f07a9a; }
+.session-group[data-color="violet"] { --group: #b48cff; }
+.session-group[data-color="teal"] { --group: #4fc8d0; }
+
+.session-group {
+  position: relative;
+  margin: 4px 0;
+  padding: 2px 0 4px 6px;
+  border-radius: var(--r);
+  background: color-mix(in srgb, var(--group) 5%, transparent);
+  animation: rise var(--t-slow) var(--ease-out) both;
+  transition: background var(--t) var(--ease), box-shadow var(--t-fast) var(--ease);
+}
+.session-group::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--group);
+}
+.session-group.group-folded { padding-bottom: 8px; }
+
+.group-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 6px 4px 6px;
+  cursor: pointer;
+  user-select: none;
+  border-radius: var(--r-sm);
+}
+.group-head:hover .group-name { color: var(--text); }
+.group-chevron {
+  flex: none;
+  width: 0;
+  height: 0;
+  border-left: 4px solid var(--faint);
+  border-top: 3.5px solid transparent;
+  border-bottom: 3.5px solid transparent;
+  transform: rotate(90deg);
+  transition: transform var(--t) var(--ease);
+}
+.session-group.group-folded .group-chevron { transform: none; }
+.group-name {
+  color: var(--group);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 0 1 auto;
+  max-width: 65%;
+}
+.group-name .rename-input { text-transform: none; letter-spacing: 0; }
+.group-count { color: var(--faint); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 1 auto; }
+.group-actions { margin-left: auto; display: none; flex: none; }
+.group-head:hover .group-actions, .group-head:focus-within .group-actions { display: flex; }
+.group-action { padding: 1px 6px; font-size: 11px; }
+
+.group-body { display: flex; flex-direction: column; gap: 2px; }
+.group-body .master-item:hover { background: color-mix(in srgb, var(--group) 9%, var(--panel-2)); }
+.group-body .master-item.active { background: color-mix(in srgb, var(--group) 12%, var(--panel-3)); }
+
+.group-chips { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 6px 0 6px; }
+.group-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 3px 8px;
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--group) 10%, var(--panel-2));
+  border: 1px solid color-mix(in srgb, var(--group) 22%, transparent);
+  color: var(--muted);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+.group-chip:hover, .group-chip.active { color: var(--text); background: color-mix(in srgb, var(--group) 18%, var(--panel-2)); }
+.group-chip .chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; font-weight: 550; }
+.group-chip .chip-kind { color: var(--faint); font-size: 10px; flex: none; }
+
+.mode-tag {
+  flex: none;
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 15px;
+}
+.mode-tag.mode-master { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.mode-tag.mode-chat { color: var(--muted); background: color-mix(in srgb, var(--text) 7%, transparent); }
+.master-item.closed .mode-tag { opacity: 0.6; }
+
+.master-item.dragging { opacity: 0.4; }
+.master-item.drop-target { box-shadow: inset 0 0 0 1.5px var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--panel-2)); }
+.session-group.drop-target { box-shadow: inset 0 0 0 1.5px var(--group); background: color-mix(in srgb, var(--group) 12%, transparent); }
+.master-list.drop-target { box-shadow: inset 0 0 0 1px var(--line-strong); border-radius: var(--r); }

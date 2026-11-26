@@ -3,6 +3,7 @@
 import { execFileSync } from "node:child_process"
 import path from "node:path"
 import { asFilePath, type DirPath, type FilePath } from "../../shared/ids.ts"
+import { runtimeDir } from "../../shared/runtime.ts"
 
 export interface CoordinatorSetup {
   readonly bun: FilePath
@@ -54,7 +55,8 @@ export const coordinatorSetup = (appRoot: DirPath, home: DirPath): CoordinatorSe
   }
   const claude = pick("claude")
   const codex = pick("codex")
-  const runtime = process.env["DAYCARE_RUNTIME_DIR"]
+  // Pinned: launchd may give agents another TMPDIR
+  const runtime = process.platform === "darwin" ? runtimeDir(process.env) : process.env["DAYCARE_RUNTIME_DIR"]
   return {
     bun: asFilePath(bun),
     script: scriptPath(appRoot),

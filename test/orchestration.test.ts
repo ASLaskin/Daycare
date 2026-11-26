@@ -15,11 +15,15 @@ afterEach(() => dbs.splice(0).forEach((db) => db.remove()))
 
 type Accept = "resolve" | "hang" | "refuse" | "fail"
 
-const setup = (accept: Accept = "resolve") => {
+// With plain, also a session out of master mode
+const setup = (accept: Accept = "resolve", plain = false) => {
   const db = tempDb()
   dbs.push(db)
   const conn = db.open()
   createSession(conn, { ...sample("m", "claude", "idle"), nativeId: asNativeId("n"), model: "opus", effort: "high" })
+  if (plain) {
+    createSession(conn, { ...sample("p", "claude", "idle"), nativeId: asNativeId("np"), masterMode: false })
+  }
   const updates = new Map<SessionId, (u: ProviderUpdate) => void>()
   const launch: Launch = (session, update) => {
     updates.set(session.id, update)
@@ -41,7 +45,7 @@ const setup = (accept: Accept = "resolve") => {
       close: async () => {},
     }
   }
-  const hub = makeHub(conn, launch, 50)
+  const hub = makeHub(conn, launch, { ackMs: 50 })
   const tool = async (name: string, input: Json, from: SessionId = master, signal = new AbortController().signal) => {
     const r = await hub.tool(from, name, input, signal)
     if ("error" in r) {
@@ -70,6 +74,11 @@ test("a spawned worker is a visible session under its master, found by name", as
   expect(read["finalMessage"]).toBe("(no reply yet)")
   await expect(tool("read_subagent", { worker: "nobody" })).rejects.toThrow('no worker "nobody"; known workers: Researcher')
   await expect(tool("list_subagents", {}, asSessionId(str(spawned["id"]) ?? ""))).rejects.toThrow("only a master session can orchestrate workers")
+})
+
+test("a plain session cannot orchestrate workers", async () => {
+  const { tool } = setup("resolve", true)
+  await expect(tool("spawn_subagent", { name: "a", task: "go" }, asSessionId("p"))).rejects.toThrow("only a master session can orchestrate workers")
 })
 
 test("delivery is uncertain without confirmation, an error when refused, uncertain on an ambiguous failure", async () => {
@@ -131,7 +140,7 @@ test("a user message to the master ends its pending wait early", async () => {
   })
   await Bun.sleep(10)
   expect(answer.result).toBeNull()
-  hub.command({ method: "send", session: master, text: "change plan" })
+  hub.command({ method: "send", session: master, text: "change plan", images: [], files: [] })
   await Bun.sleep(10)
   expect([answer.result?.["interrupted"], answer.result?.["timedOut"]]).toEqual([true, false])
 })
@@ -154,7 +163,7 @@ test("archived workers leave list and wait, refuse messages, and can still be re
 })
 
 test("bad arguments and unknown tools are errors", async () => {
-  const { tool } = setup()
+  const { tool } = setup("resolve", true)
   await expect(tool("spawn_subagent", { name: "a" })).rejects.toThrow("bad arguments for spawn_subagent")
   await expect(tool("do_magic", {})).rejects.toThrow("unknown tool do_magic")
 })
@@ -187,4 +196,36 @@ test("claude workers follow the subagent effort settings the app pushed", async 
   expect(await effortOf("max")).toBe("max")
   expect(await effortOf()).toBe("medium")
   await expect(effortOf("extreme")).rejects.toThrow("bad arguments for spawn_subagent")
+})
+
+const agentOptions = (o: Partial<{ confirmSubagents: boolean }>) => ({
+  method: "configure" as const,
+  workerModels: defaultModels,
+  workerEfforts: defaultEfforts,
+  agentOptions: { confirmSubagents: false, codeMode: false, ...o },
+})
+
+test("a confirmed spawn waits for the user and launches with the picked model and effort", async () => {
+  const { hub, tool } = setup()
+  hub.command(agentOptions({ confirmSubagents: true }))
+  const spawned = tool("spawn_subagent", { name: "w", task: "go" })
+  await Bun.sleep(10)
+  const [pending] = hub.state().approvals
+  expect(pending?.session).toBe(master)
+  const answer = { method: "answer" as const, session: master, request: pending!.request, choice: "allow", updatedInput: { model: "sonnet", effort: "low" } }
+  expect(hub.command(answer)).toEqual({ result: {} })
+  const result = await spawned
+  expect([result["model"], result["effort"]]).toEqual(["sonnet", "low"])
+  expect(hub.state().approvals).toEqual([])
+})
+
+test("a denied spawn tells the master and starts no worker", async () => {
+  const { hub, tool } = setup()
+  hub.command(agentOptions({ confirmSubagents: true }))
+  const spawned = tool("spawn_subagent", { name: "w", task: "go" })
+  await Bun.sleep(10)
+  const [pending] = hub.state().approvals
+  hub.command({ method: "answer", session: master, request: pending!.request, choice: "deny" })
+  await expect(spawned).rejects.toThrow("declined to start w")
+  expect(hub.state().sessions.map((s) => s.id)).toEqual([master])
 })

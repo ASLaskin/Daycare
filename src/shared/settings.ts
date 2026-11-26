@@ -18,6 +18,8 @@ export type Location = typeof Location.Type
 
 export const KeepAwake = Schema.Literals(["off", "while-running", "always"])
 export type KeepAwake = typeof KeepAwake.Type
+// Coordinator mode until a client sets one
+export const DEFAULT_KEEP_AWAKE: KeepAwake = "while-running"
 
 export const AppIcon = Schema.Literals(["random", "block", "sleepybot", "house"])
 export const Motion = Schema.Literals(["off", "fast", "normal", "slow"])
@@ -39,21 +41,22 @@ export const Settings = Schema.Struct({
   showContext: Schema.Boolean,
   defaultLocation: Schema.Int,
   masterModel: Schema.String,
+  // Plain chat sessions, without master mode
+  chatModel: Schema.String,
   workerModel: Schema.String,
   autoWorkerModel: Schema.Boolean,
   masterEffort: Schema.String,
+  chatEffort: Schema.String,
   workerEffort: Schema.String,
   autoWorkerEffort: Schema.Boolean,
   permissionMode: PermissionMode,
-  // Masters may start workers with spawn_subagent
-  allowSubagents: Schema.Boolean,
   // Each spawn waits for the user's approval
   confirmSubagents: Schema.Boolean,
   // Sets CLAUDE_CODE_EXPERIMENTAL_CODE_MODE for claude children
   codeMode: Schema.Boolean,
   // Coordinator only
   provider: Provider,
-  keepAwake: KeepAwake,
+  // Desktop only; the keep awake mode lives in the coordinator
   keepAwakeLidClosed: Schema.Boolean,
   appIcon: AppIcon,
   railOpen: Schema.Boolean,
@@ -99,17 +102,17 @@ export const baseSettings: Omit<Settings, "locations"> = {
   showContext: true,
   defaultLocation: 0,
   masterModel: "opus",
+  chatModel: "opus",
   workerModel: SAME_AS_MASTER.id,
   autoWorkerModel: false,
   masterEffort: CLAUDE_DEFAULT_EFFORT.id,
+  chatEffort: CLAUDE_DEFAULT_EFFORT.id,
   workerEffort: SAME_AS_MASTER.id,
   autoWorkerEffort: false,
   permissionMode: "default",
-  allowSubagents: true,
   confirmSubagents: false,
   codeMode: false,
   provider: "claude",
-  keepAwake: "while-running",
   keepAwakeLidClosed: false,
   appIcon: "random",
   railOpen: false,

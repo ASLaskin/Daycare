@@ -1,0 +1,19 @@
+{
+  "type": "event",
+  "seq": 4191,
+  "event": {
+    "kind": "groups",
+    "groups": [
+      {
+        "id": "g-1",
+        "name": "Group 1",
+        "color": "teal",
+        "collapsed": true,
+        "members": [
+          "s-master",
+          "s-chat"
+        ]
+      }
+    ]
+  }
+}

@@ -10,8 +10,10 @@ import { initProjectActions } from "./project-actions.ts"
 import { playDing } from "./ding.ts"
 import { removeSessionUI } from "./removal.ts"
 import { beginRename } from "./rename.ts"
+import { initGroups } from "./groups.ts"
 import { renderSidebar } from "./sidebar.ts"
-import { closedInfo, panes, pendingFocus } from "./state.ts"
+import { takeSwap } from "./session-actions.ts"
+import { closedInfo, panes, pendingFocus, settledRows } from "./state.ts"
 import { shouldDing } from "../shared/ding.ts"
 import { fireFocusChanged, settings } from "./store.ts"
 
@@ -42,7 +44,23 @@ const onRemoved = (info: { readonly id: SessionId; readonly parentId: SessionId 
   removeSessionUI(info)
 }
 
+// Successor of a pristine master: swapped in within one frame, old one deleted after.
+const swapIn = (from: SessionId, info: SessionView) => {
+  settledRows.add(info.id)
+  addSession(info)
+  const slide = chat.carryOver(from, info.id)
+  focusSession(info.id)
+  slide()
+  removeSessionUI({ id: from, parentId: null })
+  api.deleteSession(from)
+}
+
 const onCreated = (info: SessionView) => {
+  const from = takeSwap(info)
+  if (from) {
+    swapIn(from, info)
+    return
+  }
   const wanted = pendingFocus.id === info.id
   if (addSession(info) && (info.role === "master" || wanted)) {
     pendingFocus.id = wanted ? null : pendingFocus.id
@@ -104,4 +122,5 @@ export const initSessions = async () => {
   api.onChatEvent(({ id, event }) => chat.event(id, event))
   api.onChatReset(({ id, events }) => chat.reset(id, events))
   await restore()
+  await initGroups()
 }

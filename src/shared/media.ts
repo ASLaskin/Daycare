@@ -61,3 +61,59 @@ export const pathOfMediaUrl = (raw: string): string | null => {
     return null
   }
 }
+
+export interface SniffedMedia {
+  readonly mimeType: string
+  readonly kind: "image" | "video" | "audio"
+}
+
+const image = (mimeType: string): SniffedMedia => ({ mimeType, kind: "image" })
+const video = (mimeType: string): SniffedMedia => ({ mimeType, kind: "video" })
+const audio = (mimeType: string): SniffedMedia => ({ mimeType, kind: "audio" })
+
+// Container brands after ftyp at offset 8
+const FTYP_BRANDS: Readonly<Record<string, SniffedMedia>> = {
+  isom: video("video/mp4"),
+  iso2: video("video/mp4"),
+  iso4: video("video/mp4"),
+  iso5: video("video/mp4"),
+  iso6: video("video/mp4"),
+  mp41: video("video/mp4"),
+  mp42: video("video/mp4"),
+  avc1: video("video/mp4"),
+  dash: video("video/mp4"),
+  "M4V ": video("video/mp4"),
+  "qt  ": video("video/quicktime"),
+  "M4A ": audio("audio/mp4"),
+  heic: image("image/heic"),
+  heix: image("image/heic"),
+  mif1: image("image/heif"),
+  avif: image("image/avif"),
+}
+
+const ascii = (bytes: Uint8Array, start: number, length: number) => String.fromCharCode(...bytes.subarray(start, start + length))
+
+// Bytes at offset equal sig, given as text or numbers
+const at = (bytes: Uint8Array, offset: number, sig: string | ReadonlyArray<number>) =>
+  typeof sig === "string" ? ascii(bytes, offset, sig.length) === sig : sig.every((b, i) => bytes[offset + i] === b)
+
+const SIGNATURES: ReadonlyArray<readonly [(bytes: Uint8Array) => boolean, SniffedMedia]> = [
+  [(b) => at(b, 0, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), image("image/png")],
+  [(b) => at(b, 0, [0xff, 0xd8, 0xff]), image("image/jpeg")],
+  [(b) => at(b, 0, "GIF8"), image("image/gif")],
+  [(b) => at(b, 0, "RIFF") && at(b, 8, "WEBP"), image("image/webp")],
+  [(b) => at(b, 0, "BM"), image("image/bmp")],
+  [(b) => at(b, 0, [0x1a, 0x45, 0xdf, 0xa3]), video("video/webm")],
+  [(b) => at(b, 0, "RIFF") && at(b, 8, "WAVE"), audio("audio/wav")],
+  [(b) => at(b, 0, "OggS"), audio("audio/ogg")],
+  [(b) => at(b, 0, "fLaC"), audio("audio/flac")],
+  [(b) => at(b, 0, "ID3") || at(b, 0, [0xff, 0xfb]), audio("audio/mpeg")],
+]
+
+// Media type from leading bytes, never the name
+export const sniffMedia = (bytes: Uint8Array): SniffedMedia | null => {
+  if (at(bytes, 4, "ftyp")) {
+    return FTYP_BRANDS[ascii(bytes, 8, 4)] ?? null
+  }
+  return SIGNATURES.find(([test]) => test(bytes))?.[1] ?? null
+}

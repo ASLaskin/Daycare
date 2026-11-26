@@ -28,7 +28,7 @@ export const workerRow = (first: SessionView): Row<SessionView> => {
   }
   const update = (next: SessionView) => {
     w = next
-    paintName(name, w.name)
+    paintName(name, w)
     paintContext(ctx, w.context)
     paintStatus(status, w.status)
     syncChildren(right, showsContext(w.context) ? [ctx, status] : [status])

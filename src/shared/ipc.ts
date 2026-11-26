@@ -6,12 +6,14 @@ import { ResolveRequest, type ResolvedPath } from "./attachments.ts"
 import type { ChatEvent } from "./chat.ts"
 import { SaveFileRequest } from "./files.ts"
 import { ChatImage } from "./images.ts"
+import { SessionGroup } from "./groups.ts"
 import { AccountId, DirPath, type FilePath, type HttpUrl, RequestId, SessionId } from "./ids.ts"
 import { OpenCommand } from "./topButtons.ts"
+import type { PairingInfo, PairingStatus } from "./mobile.ts"
 import type { PowerStatus } from "./power.ts"
 import { NewMaster, type SessionView } from "./session.ts"
 import type { FeedAccount } from "./feed.ts"
-import { FeedTab, type Settings, SettingsPatch } from "./settings.ts"
+import { FeedTab, KeepAwake, type Settings, SettingsPatch } from "./settings.ts"
 import { RestoreSkill, SetSkillPlugin, SetSkillState, type SkillsListing } from "./skills.ts"
 import type { Usage } from "./usage.ts"
 
@@ -33,6 +35,7 @@ export const Invoke = {
   "settings:get": None,
   "settings:set": SettingsPatch,
   "dialog:pick-folder": None,
+  "dialog:pick-location": DirPath,
   "open:finder": DirPath,
   "open:vscode": DirPath,
   "project:github": DirPath,
@@ -61,6 +64,8 @@ export const Invoke = {
   "session:delete": Id,
   "session:delete-closed": None,
   "session:menu": Id,
+  "groups:list": None,
+  "groups:set": Schema.Array(SessionGroup),
   "coordinator:restart": None,
   "window:fullscreen": None,
 
@@ -69,8 +74,13 @@ export const Invoke = {
   "feed:disconnect": FeedTab,
 
   "power:status": None,
+  "power:mode": KeepAwake,
   "power:restore": None,
   "power:dismiss-error": None,
+
+  "phone:pairing": None,
+  "phone:rotate": None,
+  "phone:setup": None,
 
   "skills:list": None,
   "skills:set": SetSkillState,
@@ -112,6 +122,7 @@ export interface InvokeResult {
   "settings:get": Settings
   "settings:set": Settings
   "dialog:pick-folder": DirPath | null
+  "dialog:pick-location": DirPath | null
   "open:finder": void
   "open:vscode": void
   "project:github": HttpUrl | null
@@ -140,6 +151,8 @@ export interface InvokeResult {
   "session:delete": void
   "session:delete-closed": void
   "session:menu": void
+  "groups:list": ReadonlyArray<SessionGroup>
+  "groups:set": void
   "coordinator:restart": void
   "window:fullscreen": void
 
@@ -148,8 +161,13 @@ export interface InvokeResult {
   "feed:disconnect": ReadonlyArray<FeedAccount>
 
   "power:status": PowerStatus
+  "power:mode": void
   "power:restore": PowerStatus
   "power:dismiss-error": PowerStatus
+
+  "phone:pairing": PairingStatus
+  "phone:rotate": PairingInfo
+  "phone:setup": PairingInfo
 
   "skills:list": SkillsListing
   "skills:set": SkillsListing
@@ -174,6 +192,7 @@ export type CoordinatorStatus =
   | { readonly state: "connecting" }
   | { readonly state: "connected" }
   | { readonly state: "mismatch"; readonly coordinator: string; readonly app: string }
+  | { readonly state: "incompatible" }
   | { readonly state: "unavailable"; readonly message: string }
 
 export interface Events {
@@ -184,6 +203,7 @@ export interface Events {
   "session:update": SessionView
   "session:removed": { readonly id: SessionId; readonly parentId: SessionId | null }
   "session:begin-rename": { readonly id: SessionId }
+  "groups:changed": ReadonlyArray<SessionGroup>
   "shortcut:close": undefined
   "chat:event": { readonly id: SessionId; readonly event: ChatEvent }
   "usage:update": Usage

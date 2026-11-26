@@ -1,0 +1,44 @@
+{
+  "type": "event",
+  "seq": 4185,
+  "event": {
+    "kind": "approval",
+    "approval": {
+      "session": "s-master",
+      "request": "req-1",
+      "choices": [
+        "allow",
+        "always",
+        "deny"
+      ],
+      "event": {
+        "kind": "permission",
+        "requestId": "req-1",
+        "toolUseId": "tool-1",
+        "name": "Bash",
+        "title": "Run npm test",
+        "input": {
+          "command": "npm test",
+          "timeout": 120
+        },
+        "description": "Runs the test suite",
+        "suggestions": [
+          {
+            "type": "addRules",
+            "rules": [
+              {
+                "toolName": "Bash"
+              }
+            ]
+          }
+        ],
+        "requiresUserInteraction": false,
+        "choices": [
+          "allow",
+          "always",
+          "deny"
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "type": "request",
+  "id": 1,
+  "key": "k14",
+  "command": {
+    "method": "groups",
+    "groups": [
+      {
+        "id": "g-1",
+        "name": "Group 1",
+        "color": "teal",
+        "collapsed": false,
+        "members": [
+          "s-master",
+          "s-chat"
+        ]
+      }
+    ]
+  }
+}

@@ -4,13 +4,17 @@ import { iconFile, iconInPack } from "../shared/icons.ts"
 import type { SessionId } from "../shared/ids.ts"
 import type { SessionView } from "../shared/session.ts"
 import { api } from "./api.ts"
-import { baseName, el, setText } from "./dom.ts"
+import { baseName, el, setClass, setText } from "./dom.ts"
 import { focusSession } from "./focus.ts"
 import { keyedRows, type Row, syncChildren } from "./keyed.ts"
+import { dropOnSession } from "../shared/groups.ts"
+import { freshGroup, updateGroups } from "./groups.ts"
+import { roleLabel } from "./role-label.ts"
 import { masterActions } from "./session-actions.ts"
+import { dropZone, makeDraggable } from "./sidebar-drag.ts"
 import { accountTag, paintContext, paintName, paintStatus, renamable, showsContext } from "./sidebar-tags.ts"
 import { workerMark, workerRow } from "./sidebar-worker.ts"
-import { closedInfo, workersOf } from "./state.ts"
+import { closedInfo, settledRows, workersOf } from "./state.ts"
 import { settings } from "./store.ts"
 import { doneCount, workerSummary } from "./worker-summary.ts"
 
@@ -32,6 +36,7 @@ const masterShell = (current: () => SessionView) => {
   const name = renamable("name", current)
   name.title = "Double-click to rename"
   const status = el("span")
+  const mode = el("span")
   const top = el("div", "top")
   top.append(who, status)
   item.append(top)
@@ -45,8 +50,10 @@ const masterShell = (current: () => SessionView) => {
     if (showAvatar && avatar.getAttribute("src") !== avatarSrc(m)) {
       avatar.src = avatarSrc(m)
     }
-    syncChildren(who, showAvatar ? [avatar, name] : [name])
-    paintName(name, m.name)
+    setClass(mode, `mode-tag ${m.masterMode ? "mode-master" : "mode-chat"}`)
+    setText(mode, roleLabel(m))
+    syncChildren(who, showAvatar ? [avatar, name, mode] : [name, mode])
+    paintName(name, m)
     paintStatus(status, m.status)
   }
   return { item, top, update }
@@ -59,6 +66,7 @@ const openRow = (first: OpenView): Row<OpenView> => {
   let current = first
   let m = first.info
   const shell = masterShell(() => m)
+  shell.item.classList.toggle("settled", settledRows.delete(m.id))
   const meta = el("div", "meta")
   const summary = el("span")
   const ctx = el("span")
@@ -78,6 +86,12 @@ const openRow = (first: OpenView): Row<OpenView> => {
       focusSession(m.id)
     }
   }
+  makeDraggable(shell.item, () => m.id)
+  dropZone(
+    shell.item,
+    (id) => id !== m.id,
+    (id) => updateGroups((groups) => dropOnSession(groups, id, m.id, freshGroup())),
+  )
   const update = (view: OpenView) => {
     current = view
     m = view.info
@@ -85,7 +99,8 @@ const openRow = (first: OpenView): Row<OpenView> => {
     shell.item.classList.toggle("active", view.active)
     const workers = workersOf(m.id)
     const isFolded = folded.has(m.id)
-    setText(summary, workerSummary(m.id))
+    // Chats never have workers, so show their folder
+    setText(summary, m.masterMode || workers.length ? workerSummary(m.id) : baseName(m.cwd))
     paintContext(ctx, m.context)
     const account = accountTag(m.accountId)
     setText(acct, account ?? "")

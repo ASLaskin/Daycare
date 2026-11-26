@@ -6,6 +6,7 @@ import { type QueryFn, startClaude } from "../src/coordinator/claude.ts"
 import { type ProviderUpdate, Refused } from "../src/coordinator/provider.ts"
 import { asNativeId, type SessionState } from "../src/shared/coordinator.ts"
 import { asDirPath, asFilePath, asRequestId } from "../src/shared/ids.ts"
+import { asBase64 } from "../src/shared/images.ts"
 import { sample } from "./fixtures/store.ts"
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
@@ -174,6 +175,17 @@ test("masters get the Daycare bridge and prompt; every role loses Claude's own s
   expect(appended(wopts)).toStartWith("You are a worker session")
 })
 
+test("a plain session gets no Daycare bridge or prompt and keeps Claude's own subagents", () => {
+  const fake = fakeQuery()
+  startClaude({ ...sample("p", "claude", "idle"), masterMode: false, nativeId: asNativeId("np") }, asFilePath("/bin/claude"), () => {}, fake.run)
+  const opts = fake.options()
+  expect(opts?.mcpServers).toBeUndefined()
+  expect(opts?.allowedTools).toBeUndefined()
+  expect(opts?.disallowedTools).toBeUndefined()
+  expect(appended(opts)).toBe("")
+  fake.end()
+})
+
 test("claude runs on its account's config dir, or ~/.claude for Default", () => {
   const added = fakeQuery()
   startClaude({ ...sample("a", "claude", "idle"), nativeId: asNativeId("na"), configDir: asDirPath("/accounts/work") }, asFilePath("/bin/claude"), () => {}, added.run)
@@ -191,4 +203,28 @@ test("claude runs on its account's config dir, or ~/.claude for Default", () => 
       process.env["CLAUDE_CONFIG_DIR"] = inherited
     }
   }
+})
+
+test("images go to claude as base64 blocks ahead of the text", async () => {
+  const { fake, handle } = start("idle")
+  const image = { mediaType: "image/png" as const, data: asBase64("iVBORw0KGgo=") }
+  handle.input("look", [image]).catch(() => {})
+  const first = await fake.prompt()?.[Symbol.asyncIterator]().next()
+  expect(first?.value?.message).toEqual({
+    role: "user",
+    content: [
+      { type: "image", source: { type: "base64", media_type: "image/png", data: image.data } },
+      { type: "text", text: "look" },
+    ],
+  })
+  fake.end()
+})
+
+test("Code Mode sets its env", () => {
+  const fake = fakeQuery()
+  const session = { ...sample("s", "claude", "idle"), nativeId: asNativeId("native") }
+  startClaude(session, asFilePath("/bin/claude"), () => {}, fake.run, { codeMode: true })
+  const options = fake.options()
+  expect(options?.env?.["CLAUDE_CODE_EXPERIMENTAL_CODE_MODE"]).toBe("1")
+  fake.end()
 })

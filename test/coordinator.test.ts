@@ -83,7 +83,7 @@ test("the client decodes the snapshot, events and responses", async () => {
   cleanup.push(client.close)
   await until(() => snapshots.length > 0)
   expect(snapshots[0]?.sessions.map((s) => s.id)).toEqual([asSessionId("s")])
-  expect(await client.request({ method: "send", session: asSessionId("s"), text: "hi" })).toEqual({ accepted: "coordinator" })
+  expect(await client.request({ method: "send", session: asSessionId("s"), text: "hi", images: [], files: [] })).toEqual({ accepted: "coordinator", entry: 1 })
   expect(events.some((e) => e.kind === "chat" && e.event.kind === "user")).toBe(true)
   expect(client.request({ method: "interrupt", session: asSessionId("missing") })).rejects.toThrow("session is not running")
 })

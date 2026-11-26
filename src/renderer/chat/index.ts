@@ -6,16 +6,26 @@ import type { SessionView } from "../../shared/session.ts"
 import { forgetAttachments } from "../attachments/store.ts"
 import { onSettingsChanged } from "../store.ts"
 import { prune } from "./caps.ts"
+import { type Draft, restoreAttachments, takeAttachments } from "./attachments.ts"
 import { autosize, wireComposer } from "./composer.ts"
 import { apply } from "./events.ts"
 import { renderFoot } from "./foot.ts"
+import { wireCwdPicker } from "./cwd-picker.ts"
+import { continueSlide, wireModePicker } from "./mode-picker.ts"
 import { wireEffortPicker } from "./effort-picker.ts"
 import { wireModelPicker } from "./model-picker.ts"
 import { toBottom, updateJump } from "./scroll.ts"
 import type { ChatSession } from "./types.ts"
 import { buildView } from "./view.ts"
 
+interface Carried {
+  readonly text: string
+  readonly draft: Draft
+}
+
 const sessions = new Map<SessionId, ChatSession>()
+// Drafts waiting for their session to mount
+const carried = new Map<SessionId, Carried>()
 let subscribed = false
 
 const restoreScroll = (s: ChatSession) => {
@@ -87,6 +97,7 @@ export const mount = (info: SessionView, host: HTMLElement) => {
     input: v.input,
     send: v.send,
     stop: v.stop,
+    mode: v.mode,
     model: v.model,
     effort: v.effort,
     foot: v.foot,
@@ -95,10 +106,13 @@ export const mount = (info: SessionView, host: HTMLElement) => {
     taskSummary: v.taskSummary,
   }
   wireComposer(s)
+  wireModePicker(s, info)
+  wireCwdPicker(s, info)
   wireModelPicker(s, info)
   wireEffortPicker(s, info)
   ro.observe(v.scroll)
   sessions.set(info.id, s)
+  receive(info.id)
   renderFoot(s)
   if (!subscribed) {
     subscribed = true
@@ -127,6 +141,46 @@ export const hydrate = (id: SessionId, events: ReadonlyArray<ChatEvent>) => {
     }, 50)
     s.timers.add(t)
   }
+}
+
+const fill = (s: ChatSession, c: Carried) => {
+  s.input.value = c.text
+  restoreAttachments(s, c.draft)
+  s.input.dispatchEvent(new Event("input"))
+}
+
+const receive = (id: SessionId) => {
+  const s = sessions.get(id)
+  const c = carried.get(id)
+  if (!s || !c) {
+    return
+  }
+  carried.delete(id)
+  fill(s, c)
+}
+
+// Moves unsent composer text and attachments to another session
+// Carries a replaced pane's draft; the returned step resumes its mode slide once the new pane shows.
+export const carryOver = (from: SessionId, to: SessionId) => {
+  const a = sessions.get(from)
+  const b = sessions.get(to)
+  const slide = a && b ? continueSlide(a, b) : () => {}
+  carryDraft(from, to)
+  return slide
+}
+
+const carryDraft = (from: SessionId, to: SessionId) => {
+  const s = sessions.get(from)
+  if (!s) {
+    return
+  }
+  const c = { text: s.input.value, draft: takeAttachments(s) }
+  s.input.value = ""
+  if (!c.text && !c.draft.images.length && !c.draft.files.length) {
+    return
+  }
+  carried.set(to, c)
+  receive(to)
 }
 
 // Redraw a mounted pane from authoritative history

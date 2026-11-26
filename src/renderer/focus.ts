@@ -70,11 +70,12 @@ export const focusSession = (id: SessionId) => {
   closeSettings()
   expand(id)
   showMaster(p.info.role === "master" ? p.info.id : p.info.parentId)
+  // Focus ring in the same frame the pane shows; the caret waits for layout
+  setFocused(id)
   requestAnimationFrame(() => {
     if (!isRenaming()) {
       chat.focus(id)
     }
-    setFocused(id)
   })
 }
 

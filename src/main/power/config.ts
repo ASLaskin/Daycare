@@ -1,4 +1,4 @@
-// Keep awake settings and inputs.
+// Lid closed keep awake settings and inputs.
 
 import type { KeepAwake } from "../../shared/settings.ts"
 
@@ -20,9 +20,17 @@ export const defaultPowerConfig = (sentinel: string): PowerConfig => ({
   isMac: process.platform === "darwin",
 })
 
-export interface PowerInput {
+// Coordinator mode and busy count, plus the desktop setting
+export interface LidInput {
   readonly mode: KeepAwake
-  readonly lidClosed: boolean
-  readonly activeCount: number
   readonly busyCount: number
+  readonly lidClosed: boolean
+}
+
+export interface LidStatus {
+  readonly enabled: boolean
+  readonly active: boolean
+  // disablesleep left on by an earlier run
+  readonly stale: boolean
+  readonly error: string | null
 }
