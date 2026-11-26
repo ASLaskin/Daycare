@@ -45,6 +45,7 @@ const { Skills } = await import("../src/main/skills/Skills.ts")
 const { Usage } = await import("../src/main/usage/Usage.ts")
 const { ClaudeBinary } = await import("../src/main/sessions/Claude.ts")
 const { Accounts } = await import("../src/main/accounts/Accounts.ts")
+const { FeedAccounts } = await import("../src/main/feed/FeedAccounts.ts")
 
 const tmp = () => asDirPath(fs.mkdtempSync(path.join(os.tmpdir(), "daycare-electron-")))
 
@@ -83,6 +84,7 @@ describe("Ipc", () => {
     none(Usage),
     none(Accounts),
     none(Power),
+    none(FeedAccounts),
     none(Phone),
     none(Skills),
     none(Updater),

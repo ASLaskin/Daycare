@@ -34,6 +34,7 @@ export const api = {
   getSettings: ask("settings:get"),
   setSettings: (patch: Partial<Settings>) => bridge.invoke("settings:set", patch),
   pickFolder: ask("dialog:pick-folder"),
+  pickLocation: call("dialog:pick-location"),
   openFinder: call("open:finder"),
   openVSCode: call("open:vscode"),
   githubPage: call("project:github"),
@@ -75,6 +76,11 @@ export const api = {
   onRemoved: on("session:removed"),
   onBeginRename: on("session:begin-rename"),
   onCloseShortcut: on("shortcut:close"),
+
+  feedAccounts: ask("feed:accounts"),
+  feedSignIn: call("feed:sign-in"),
+  feedDisconnect: call("feed:disconnect"),
+  onFeedAccounts: on("feed:accounts"),
 
   powerStatus: ask("power:status"),
   setPowerMode: call("power:mode"),

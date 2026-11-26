@@ -33,6 +33,7 @@ export class MainWindow extends Context.Service<MainWindow, { readonly win: Brow
                 contextIsolation: true,
                 nodeIntegration: false,
                 sandbox: true,
+                webviewTag: true,
               },
             }),
         ),

@@ -8,9 +8,9 @@ import { collapseButton } from "./collapse-button.ts"
 import { collapse, repaintCollapsed, syncGroup } from "./collapse.ts"
 import { buildTray } from "./collapse-tray.ts"
 import { renderContext } from "./context-meter.ts"
-import { $, el } from "./dom.ts"
+import { $, el, setText } from "./dom.ts"
 import { setFocused } from "./focus.ts"
-import { beginRename } from "./rename.ts"
+import { beginRename, shownName } from "./rename.ts"
 import { roleLabel } from "./role-label.ts"
 import { menuButton } from "./menu-button.ts"
 import { renderSidebar } from "./sidebar.ts"
@@ -84,7 +84,8 @@ const mountChat = (info: SessionView, host: HTMLElement) => {
 }
 
 export const createPane = (info: SessionView) => {
-  const pane = el("div", "pane enter")
+  // Masters appear at once like switching to one; workers slide into a visible grid
+  const pane = el("div", info.role === "worker" ? "pane enter" : "pane")
   pane.dataset["id"] = info.id
   const { head, els } = buildHead(info)
   const host = el("div", "pane-body")
@@ -109,7 +110,7 @@ export const createPane = (info: SessionView) => {
 export const applyStatus = (p: Pane) => {
   const { status, activity } = p.info
   if (!p.els.title.querySelector("input")) {
-    p.els.title.textContent = p.info.name
+    setText(p.els.title, shownName(p.info))
   }
   p.els.status.className = `status ${status}`
   p.els.status.textContent = STATUS_LABEL[status]

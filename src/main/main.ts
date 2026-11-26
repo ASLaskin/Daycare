@@ -11,6 +11,7 @@ import { ElectronPaths } from "./electron/ElectronPaths.ts"
 import { ElectronUi } from "./electron/ElectronUi.ts"
 import { Ipc } from "./electron/Ipc.ts"
 import { MainWindow } from "./electron/Window.ts"
+import { ElectronFeedAccounts } from "./feed/ElectronFeedAccounts.ts"
 import { ClaudeBinary } from "./sessions/Claude.ts"
 import { SettingsStore } from "./settings/SettingsStore.ts"
 import { Skills } from "./skills/Skills.ts"
@@ -25,7 +26,12 @@ const Platform = Layer.mergeAll(ElectronPaths, ClaudeBinary.layer, Skills.layer)
 
 const Window = ElectronUi.pipe(Layer.provideMerge(MainWindow.layer))
 
-const Services = Layer.mergeAll(Accounts.layer, Usage.layer.pipe(Layer.provide(UsageSource.layer)), Updater.layer).pipe(
+const Services = Layer.mergeAll(
+  Accounts.layer,
+  Usage.layer.pipe(Layer.provide(UsageSource.layer)),
+  Updater.layer,
+  ElectronFeedAccounts,
+).pipe(
   Layer.provideMerge(Window),
   Layer.provideMerge(SettingsStore.layer),
 )

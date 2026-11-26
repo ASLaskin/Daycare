@@ -10,7 +10,8 @@ import { type Draft, restoreAttachments, takeAttachments } from "./attachments.t
 import { autosize, wireComposer } from "./composer.ts"
 import { apply } from "./events.ts"
 import { renderFoot } from "./foot.ts"
-import { wireModePicker } from "./mode-picker.ts"
+import { wireCwdPicker } from "./cwd-picker.ts"
+import { continueSlide, wireModePicker } from "./mode-picker.ts"
 import { wireEffortPicker } from "./effort-picker.ts"
 import { wireModelPicker } from "./model-picker.ts"
 import { toBottom, updateJump } from "./scroll.ts"
@@ -106,6 +107,7 @@ export const mount = (info: SessionView, host: HTMLElement) => {
   }
   wireComposer(s)
   wireModePicker(s, info)
+  wireCwdPicker(s, info)
   wireModelPicker(s, info)
   wireEffortPicker(s, info)
   ro.observe(v.scroll)
@@ -158,7 +160,16 @@ const receive = (id: SessionId) => {
 }
 
 // Moves unsent composer text and attachments to another session
-export const carryDraft = (from: SessionId, to: SessionId) => {
+// Carries a replaced pane's draft; the returned step resumes its mode slide once the new pane shows.
+export const carryOver = (from: SessionId, to: SessionId) => {
+  const a = sessions.get(from)
+  const b = sessions.get(to)
+  const slide = a && b ? continueSlide(a, b) : () => {}
+  carryDraft(from, to)
+  return slide
+}
+
+const carryDraft = (from: SessionId, to: SessionId) => {
   const s = sessions.get(from)
   if (!s) {
     return

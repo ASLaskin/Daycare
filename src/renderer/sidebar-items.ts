@@ -14,7 +14,7 @@ import { masterActions } from "./session-actions.ts"
 import { dropZone, makeDraggable } from "./sidebar-drag.ts"
 import { accountTag, paintContext, paintName, paintStatus, renamable, showsContext } from "./sidebar-tags.ts"
 import { workerMark, workerRow } from "./sidebar-worker.ts"
-import { closedInfo, workersOf } from "./state.ts"
+import { closedInfo, settledRows, workersOf } from "./state.ts"
 import { settings } from "./store.ts"
 import { doneCount, workerSummary } from "./worker-summary.ts"
 
@@ -53,7 +53,7 @@ const masterShell = (current: () => SessionView) => {
     setClass(mode, `mode-tag ${m.masterMode ? "mode-master" : "mode-chat"}`)
     setText(mode, roleLabel(m))
     syncChildren(who, showAvatar ? [avatar, name, mode] : [name, mode])
-    paintName(name, m.name)
+    paintName(name, m)
     paintStatus(status, m.status)
   }
   return { item, top, update }
@@ -66,6 +66,7 @@ const openRow = (first: OpenView): Row<OpenView> => {
   let current = first
   let m = first.info
   const shell = masterShell(() => m)
+  shell.item.classList.toggle("settled", settledRows.delete(m.id))
   const meta = el("div", "meta")
   const summary = el("span")
   const ctx = el("span")

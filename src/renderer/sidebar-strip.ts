@@ -12,6 +12,7 @@ const stripItem = (first: SessionView, onClick: (m: SessionView) => void) => {
   let m = first
   const item = el("button", "strip-item")
   item.type = "button"
+  item.dataset["id"] = m.id
   const mark = statusMark(m)
   item.append(mark)
   item.onclick = () => onClick(m)

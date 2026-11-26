@@ -33,6 +33,7 @@
   transition: background var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
   animation: rise var(--t-slow) var(--ease-out) both;
 }
+.master-item.settled { animation: none; }
 .master-item:hover { background: var(--panel-2); }
 .master-item.active { background: var(--panel-3); }
 .master-item .top { display: flex; justify-content: space-between; gap: 8px; align-items: center; }

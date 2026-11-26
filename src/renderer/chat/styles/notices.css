@@ -8,7 +8,21 @@
 
 .chat-empty { margin: 14vh auto 0; text-align: center; display: flex; flex-direction: column; gap: 6px; color: var(--muted); }
 .chat-empty-title { color: var(--text); font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
-.chat-empty-sub { font: 12px var(--mono); color: var(--faint); overflow-wrap: anywhere; }
+.chat-empty-sub {
+  align-self: center;
+  max-width: 100%;
+  padding: 3px 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  font: 12px var(--mono);
+  color: var(--faint);
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  transition: color var(--t-fast) var(--ease), background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
+}
+.chat-empty-sub:hover:not(:disabled) { color: var(--text); background: var(--panel-2); border-color: var(--line); }
+.chat-empty-sub:disabled { cursor: default; color: var(--faint); }
 
 .chat-working { display: inline-flex; gap: 4px; padding: 4px 2px 10px; align-self: flex-start; }
 .chat-working span { width: 5px; height: 5px; border-radius: 1px; background: var(--faint); animation: chat-bounce 1.2s ease-in-out infinite; }

@@ -1,7 +1,9 @@
 import type { SessionId } from "../shared/ids.ts"
+import type { SessionView } from "../shared/session.ts"
 import { api } from "./api.ts"
 import { el } from "./dom.ts"
 import { renderSidebar } from "./sidebar.ts"
+import { panes } from "./state.ts"
 
 let renaming = false
 export const isRenaming = () => renaming
@@ -43,4 +45,24 @@ export const beginEdit = (target: HTMLElement, current: string, save: (next: str
   input.ondblclick = (e) => e.stopPropagation()
 }
 
-export const beginRename = (target: HTMLElement, id: SessionId, current: string) => beginEdit(target, current, (next) => api.rename(id, next))
+// Names saved but not yet confirmed, so older updates can't flip them back
+const pendingNames = new Map<SessionId, string>()
+
+export const shownName = (info: SessionView) => pendingNames.get(info.id) ?? info.name
+
+// The confirming update arrives before the reply; a failed save shows the old name again
+const saveName = (id: SessionId, name: string) => {
+  pendingNames.set(id, name)
+  api
+    .rename(id, name)
+    .finally(() => {
+      pendingNames.delete(id)
+      const p = panes.get(id)
+      if (p && !p.els.title.querySelector("input")) {
+        p.els.title.textContent = p.info.name
+      }
+      renderSidebar()
+    })
+}
+
+export const beginRename = (target: HTMLElement, id: SessionId, current: string) => beginEdit(target, current, (next) => saveName(id, next))

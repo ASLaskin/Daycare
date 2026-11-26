@@ -95,7 +95,9 @@ const modeSwitch = () => {
 // Placeholder shown until the first real content
 const emptyState = (info: SessionView, mode: HTMLElement) => {
   const empty = el("div", "chat-empty")
-  empty.append(el("div", "chat-empty-title", "New chat"), el("div", "chat-empty-sub", tildify(info.cwd)), mode)
+  const cwd = button("chat-empty-sub", tildify(info.cwd))
+  cwd.setAttribute("aria-label", "Folder")
+  empty.append(el("div", "chat-empty-title", "New chat"), cwd, mode)
   return empty
 }
 

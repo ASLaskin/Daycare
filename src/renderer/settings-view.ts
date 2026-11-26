@@ -3,6 +3,7 @@
 import { $, el } from "./dom.ts"
 import { initPowerView } from "./power-view.ts"
 import { refreshAccounts, renderAccounts, wireAccounts } from "./settings-accounts.ts"
+import { refreshFeedAccounts, renderFeedAccounts, wireFeedAccounts } from "./settings-feed-accounts.ts"
 import { renderAppearance, wireAppearance } from "./settings-appearance.ts"
 import { renderButtons, wireButtons } from "./settings-buttons.ts"
 import { renderGeneral, wireGeneral } from "./settings-general.ts"
@@ -41,6 +42,7 @@ export const renderSettings = () => {
   renderLayoutPanel()
   renderShortcuts()
   renderAccounts()
+  renderFeedAccounts()
 }
 
 export const renderTabs = () => {
@@ -63,6 +65,7 @@ const showPanel = (id: Panel) => {
   }
   if (id === "accounts") {
     void refreshAccounts()
+    void refreshFeedAccounts()
   }
   if (id === "phone") {
     showPhone()
@@ -89,6 +92,7 @@ export const initSettingsView = () => {
   wireLayoutPanel()
   wireShortcuts()
   wireAccounts()
+  wireFeedAccounts()
   $("#open-settings").onclick = toggleSettings
   $("#close-settings").onclick = closeSettings
   initUpdateView()

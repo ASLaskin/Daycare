@@ -46,3 +46,22 @@ export const wireModePicker = (s: ChatSession, info: SessionView) => {
     }
   }
 }
+
+// Reads the old thumb mid-slide; the returned step continues it on the new pane once that shows
+export const continueSlide = (from: ChatSession, to: ChatSession) => {
+  const was = from.mode.querySelector<HTMLElement>(".mode-thumb")
+  const thumb = to.mode.querySelector<HTMLElement>(".mode-thumb")
+  if (!was || !thumb || from.mode.hidden || to.mode.hidden) {
+    return () => {}
+  }
+  const { transform, backgroundColor } = getComputedStyle(was)
+  return () => {
+    thumb.style.transition = "none"
+    thumb.style.transform = transform
+    thumb.style.backgroundColor = backgroundColor
+    void thumb.offsetWidth
+    thumb.style.removeProperty("transition")
+    thumb.style.removeProperty("transform")
+    thumb.style.removeProperty("background-color")
+  }
+}

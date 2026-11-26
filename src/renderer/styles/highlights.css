@@ -1,0 +1,11 @@
+/* Agents waiting on the user flash; a finished master gets a green outline. */
+@keyframes attention {
+  50% { background: color-mix(in srgb, var(--needs) 22%, transparent); box-shadow: inset 0 0 0 1.5px var(--needs); }
+}
+.master-item.needs-attention, .worker-item.needs-attention, .strip-item.needs-attention, .worker-mark.needs-attention {
+  animation: attention 1.2s ease-in-out infinite;
+}
+.worker-mark.needs-attention { border-radius: var(--r-sm); }
+html[data-motion="off"] .needs-attention { animation: none; box-shadow: inset 0 0 0 1.5px var(--needs); }
+
+.master-item.all-done, .strip-item.all-done { box-shadow: inset 0 0 0 1.5px var(--done); }

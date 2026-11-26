@@ -5,7 +5,7 @@ import type { AccountId } from "../shared/ids.ts"
 import type { SessionStatus, SessionView } from "../shared/session.ts"
 import { contextLevel, fmtTokens, showContext } from "./context-meter.ts"
 import { el, setClass, setText } from "./dom.ts"
-import { beginRename } from "./rename.ts"
+import { beginRename, shownName } from "./rename.ts"
 import { STATUS_LABEL } from "./status.ts"
 import { settings } from "./store.ts"
 
@@ -22,9 +22,9 @@ export const paintContext = (node: HTMLElement, tokens: number) => {
 }
 
 // Skips names mid rename.
-export const paintName = (node: HTMLElement, name: string) => {
+export const paintName = (node: HTMLElement, info: SessionView) => {
   if (!node.querySelector("input")) {
-    setText(node, name)
+    setText(node, shownName(info))
   }
 }
 

@@ -102,6 +102,10 @@
 .login-guide { display: flex; flex-direction: column; gap: 6px; padding: 8px 0 8px 168px; }
 .login-code { display: flex; gap: 8px; align-items: center; }
 .login-code input { flex: 1; min-width: 0; font-family: var(--mono); font-size: 12px; }
+.feed-account-rows { display: flex; flex-direction: column; gap: 6px; }
+.feed-account-row { display: grid; grid-template-columns: 160px 1fr auto auto; gap: 8px; align-items: center; }
+.feed-account-row .account-status.connected { color: var(--done); }
+.feed-account-row .ghost { padding: 4px 8px; font-size: 12px; }
 .add-account { display: flex; gap: 8px; align-items: center; }
 .add-account input { width: 240px; }
 

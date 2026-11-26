@@ -12,7 +12,8 @@ import { OpenCommand } from "./topButtons.ts"
 import type { PairingInfo, PairingStatus } from "./mobile.ts"
 import type { PowerStatus } from "./power.ts"
 import { NewMaster, type SessionView } from "./session.ts"
-import { KeepAwake, type Settings, SettingsPatch } from "./settings.ts"
+import type { FeedAccount } from "./feed.ts"
+import { FeedTab, KeepAwake, type Settings, SettingsPatch } from "./settings.ts"
 import { RestoreSkill, SetSkillPlugin, SetSkillState, type SkillsListing } from "./skills.ts"
 import type { Usage } from "./usage.ts"
 
@@ -34,6 +35,7 @@ export const Invoke = {
   "settings:get": None,
   "settings:set": SettingsPatch,
   "dialog:pick-folder": None,
+  "dialog:pick-location": DirPath,
   "open:finder": DirPath,
   "open:vscode": DirPath,
   "project:github": DirPath,
@@ -66,6 +68,10 @@ export const Invoke = {
   "groups:set": Schema.Array(SessionGroup),
   "coordinator:restart": None,
   "window:fullscreen": None,
+
+  "feed:accounts": None,
+  "feed:sign-in": FeedTab,
+  "feed:disconnect": FeedTab,
 
   "power:status": None,
   "power:mode": KeepAwake,
@@ -116,6 +122,7 @@ export interface InvokeResult {
   "settings:get": Settings
   "settings:set": Settings
   "dialog:pick-folder": DirPath | null
+  "dialog:pick-location": DirPath | null
   "open:finder": void
   "open:vscode": void
   "project:github": HttpUrl | null
@@ -148,6 +155,10 @@ export interface InvokeResult {
   "groups:set": void
   "coordinator:restart": void
   "window:fullscreen": void
+
+  "feed:accounts": ReadonlyArray<FeedAccount>
+  "feed:sign-in": void
+  "feed:disconnect": ReadonlyArray<FeedAccount>
 
   "power:status": PowerStatus
   "power:mode": void
@@ -198,6 +209,7 @@ export interface Events {
   "usage:update": Usage
   "account:login": LoginProgress
   "power:update": PowerStatus
+  "feed:accounts": ReadonlyArray<FeedAccount>
   "update:log": string
 }
 

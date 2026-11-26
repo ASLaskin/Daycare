@@ -16,10 +16,15 @@ export const panes = new Map<SessionId, Pane>()
 // Closed sessions, listed in the sidebar without panes.
 export const closedInfo = new Map<SessionId, SessionView>()
 
+// Sidebar rows that appear in place, skipping their entry animation.
+export const settledRows = new Set<SessionId>()
+
 // Restored session to focus once its pane opens.
 export const pendingFocus = { id: null as SessionId | null }
 
 const newestFirst = (a: SessionView, b: SessionView) => b.createdAt - a.createdAt
+
+export const openSessions = () => [...panes.values()].map((p) => p.info)
 
 // Open masters in sidebar order
 export const openMasters = () =>

@@ -15,6 +15,7 @@ import { validateUrl } from "../attachments/urls.ts"
 import { AppPaths } from "../AppPaths.ts"
 import { Ui } from "../Ui.ts"
 import { prepareFiles } from "../chat/files.ts"
+import { FeedAccounts } from "../feed/FeedAccounts.ts"
 import { prepareImages } from "../chat/images.ts"
 import { runCommand } from "../projects/command.ts"
 import { githubPage } from "../projects/github.ts"
@@ -28,6 +29,7 @@ import { Updater } from "../updater/Updater.ts"
 import { Usage } from "../usage/Usage.ts"
 import { downscale } from "./downscale.ts"
 import { MainWindow } from "./Window.ts"
+import { showLocationMenu } from "./locationMenu.ts"
 import { showSessionMenu } from "./sessionMenu.ts"
 
 type Handlers = { readonly [C in InvokeChannel]: (payload: InvokePayload<C>) => Effect.Effect<InvokeResult[C], { readonly message: string }> }
@@ -39,6 +41,7 @@ export const Ipc = Layer.effectDiscard(
     const usage = yield* Usage
     const accounts = yield* Accounts
     const power = yield* Power
+    const feed = yield* FeedAccounts
     const phone = yield* Phone
     const skills = yield* Skills
     const updater = yield* Updater
@@ -50,6 +53,7 @@ export const Ipc = Layer.effectDiscard(
     const withProjectDirs = <A, E>(f: (dirs: ReadonlyArray<DirPath>) => Effect.Effect<A, E>) => Effect.flatMap(sessions.projectDirs, f)
 
     const sessionMenu = showSessionMenu(sessions, ui, win)
+    const locationMenu = showLocationMenu(win, settings.get)
 
     const media = new MediaAllowlist()
     handleMedia(media)
@@ -65,6 +69,7 @@ export const Ipc = Layer.effectDiscard(
             return picked ? asDirPath(picked) : null
           }),
         ),
+      "dialog:pick-location": locationMenu,
       "open:finder": (dir) => Effect.promise(() => shell.openPath(dir)).pipe(Effect.asVoid),
       // VS Code CLI on the login PATH, else the app
       "open:vscode": (dir) =>
@@ -109,6 +114,10 @@ export const Ipc = Layer.effectDiscard(
       "groups:set": (groups) => sessions.setGroups(groups),
       "coordinator:restart": () => sessions.restartCoordinator,
       "window:fullscreen": () => Effect.sync(() => win.setFullScreen(!win.isFullScreen())),
+
+      "feed:accounts": () => feed.list,
+      "feed:sign-in": (id) => feed.signIn(id),
+      "feed:disconnect": (id) => feed.disconnect(id),
 
       "power:status": () => power.status,
       "power:mode": (mode) => power.setMode(mode),

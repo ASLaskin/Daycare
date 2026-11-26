@@ -9,6 +9,8 @@ import "./attachments/attachments.css"
 import "./archived/archived.css"
 import "./side-rail/side-rail.css"
 import "./theme/theme.css"
+import "./feed/feed.css"
+import { initAgentHighlights } from "./agent-highlights.ts"
 import { applyAppearance } from "./appearance.ts"
 import { initCoordinatorView } from "./coordinator-view.ts"
 import { $ } from "./dom.ts"
@@ -57,6 +59,7 @@ initSheet()
 initShortcuts()
 skills.mountManager($("#skills-panel"))
 mountSideRail($("#side-rail"))
+initAgentHighlights()
 renderTabs()
 initCoordinatorView()
 await initSessions()

@@ -1,9 +1,8 @@
 // Close, restore, delete, and relocate actions for sessions.
 
 import type { DirPath, SessionId } from "../shared/ids.ts"
-import type { SessionView } from "../shared/session.ts"
+import type { NewMaster, SessionView } from "../shared/session.ts"
 import { api } from "./api.ts"
-import { carryDraft } from "./chat/index.ts"
 import { el } from "./dom.ts"
 import { modeDefaults } from "./mode-defaults.ts"
 import { closedInfo, panes, pendingFocus, workersOf } from "./state.ts"
@@ -21,15 +20,40 @@ export const dismissMaster = (id: SessionId) => {
   api.closeSession(id)
 }
 
+// Pristine master being replaced; its successor takes its place when created.
+const swap = { from: null as SessionId | null }
+
+// Old master the created one replaces, consumed once.
+export const takeSwap = (info: SessionView): SessionId | null => {
+  const from = swap.from
+  if (!from || info.role !== "master" || info.status === "closed") {
+    return null
+  }
+  swap.from = null
+  return panes.has(from) ? from : null
+}
+
+// The old master is deleted once its successor is on screen, so no frame shows neither.
+const replaceMaster = async (id: SessionId, options: NewMaster) => {
+  if (swap.from) {
+    return
+  }
+  swap.from = id
+  try {
+    await api.createMaster(options)
+  } catch (e) {
+    swap.from = null
+    throw e
+  }
+}
+
 // Replaces a pristine master with one in another folder.
 export const relocateMaster = async (id: SessionId, cwd: DirPath) => {
   const info = panes.get(id)?.info
   if (!info || !isPristine(info) || info.cwd === cwd) {
     return
   }
-  const next = await api.createMaster({ task: "", cwd, model: info.model, effort: info.effort, permissionMode: info.permissionMode, masterMode: info.masterMode, provider: info.provider })
-  carryDraft(id, next.id)
-  api.deleteSession(id)
+  await replaceMaster(id, { task: "", cwd, model: info.model, effort: info.effort, permissionMode: info.permissionMode, masterMode: info.masterMode, provider: info.provider })
 }
 
 // Replaces a pristine master with one in the other mode, using that mode's defaults.
@@ -38,9 +62,7 @@ export const switchMasterMode = async (id: SessionId, masterMode: boolean) => {
   if (!info || !isPristine(info) || info.masterMode === masterMode) {
     return
   }
-  const next = await api.createMaster({ task: "", cwd: info.cwd, ...modeDefaults(masterMode), permissionMode: info.permissionMode, masterMode, provider: info.provider })
-  carryDraft(id, next.id)
-  api.deleteSession(id)
+  await replaceMaster(id, { task: "", cwd: info.cwd, ...modeDefaults(masterMode), permissionMode: info.permissionMode, masterMode, provider: info.provider })
 }
 
 const actionButton = (label: string, cls: string, title: string, action: () => void) => {

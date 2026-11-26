@@ -42,6 +42,7 @@
   position: relative;
   flex: none;
   width: var(--sr-panel, 252px);
+  max-width: calc(100vw - 320px);
   min-height: 0;
   flex-direction: column;
   padding: 12px 10px 10px;
@@ -51,6 +52,11 @@
 }
 .side-rail.open .sr-panel { display: flex; }
 @keyframes rail-in { from { opacity: 0; transform: translateX(6px); } }
+
+.work { position: relative; container-type: size; }
+.side-rail.wide { position: absolute; inset: 0; z-index: 5; }
+.side-rail.wide .sr-panel { flex: 1; width: auto; max-width: none; animation: none; }
+.side-rail.wide .sr-handle { display: none; }
 
 .side-rail .sr-body { display: none; flex: 1; min-height: 0; flex-direction: column; gap: 8px; }
 .side-rail .sr-body.on { display: flex; }

@@ -48,6 +48,7 @@ const ACTIONS: Record<ShortcutId, (digit: number) => void> = {
   fullScreen: () => void api.toggleFullScreen(),
   toggleAttachments: () => toggleRailTab("attachments"),
   toggleRail,
+  toggleReels: () => toggleRailTab("reels"),
   toggleSidebar,
   toggleSettings,
 }

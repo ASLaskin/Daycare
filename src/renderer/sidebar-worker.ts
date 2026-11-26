@@ -28,7 +28,7 @@ export const workerRow = (first: SessionView): Row<SessionView> => {
   }
   const update = (next: SessionView) => {
     w = next
-    paintName(name, w.name)
+    paintName(name, w)
     paintContext(ctx, w.context)
     paintStatus(status, w.status)
     syncChildren(right, showsContext(w.context) ? [ctx, status] : [status])
@@ -40,6 +40,7 @@ export const workerMark = (first: SessionView): Row<SessionView> => {
   let w = first
   const mark = statusMark(w)
   const hit = el("span", "worker-mark")
+  hit.dataset["id"] = w.id
   hit.append(mark)
   hit.onclick = (e) => {
     e.stopPropagation()
