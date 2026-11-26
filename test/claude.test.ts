@@ -5,7 +5,6 @@ import { expect, test } from "bun:test"
 import { type QueryFn, startClaude } from "../src/coordinator/claude.ts"
 import { type ProviderUpdate, Refused } from "../src/coordinator/provider.ts"
 import { asNativeId, type SessionState } from "../src/shared/coordinator.ts"
-import { MASTER_PROMPT } from "../src/main/sessions/prompts.ts"
 import { asDirPath, asFilePath, asRequestId } from "../src/shared/ids.ts"
 import { asBase64 } from "../src/shared/images.ts"
 import { sample } from "./fixtures/store.ts"
@@ -221,14 +220,11 @@ test("images go to claude as base64 blocks ahead of the text", async () => {
   fake.end()
 })
 
-test("a master without subagents loses spawn_subagent and the master prompt, and Code Mode sets its env", () => {
+test("Code Mode sets its env", () => {
   const fake = fakeQuery()
   const session = { ...sample("s", "claude", "idle"), nativeId: asNativeId("native") }
-  startClaude(session, asFilePath("/bin/claude"), () => {}, fake.run, { allowSubagents: false, codeMode: true })
+  startClaude(session, asFilePath("/bin/claude"), () => {}, fake.run, { codeMode: true })
   const options = fake.options()
-  expect(JSON.stringify(options?.systemPrompt)).not.toContain(JSON.stringify(MASTER_PROMPT).slice(1, -1))
-  expect(options?.allowedTools).not.toContain("mcp__daycare__spawn_subagent")
-  expect(options?.disallowedTools).toContain("mcp__daycare__spawn_subagent")
   expect(options?.env?.["CLAUDE_CODE_EXPERIMENTAL_CODE_MODE"]).toBe("1")
   fake.end()
 })

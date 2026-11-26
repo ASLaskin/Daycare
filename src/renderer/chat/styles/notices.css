@@ -33,3 +33,44 @@
 .chat-jump:hover { background: var(--line-strong); }
 .chat-jump:active { transform: translateX(-50%) scale(0.97); }
 @keyframes chat-jump-in { from { opacity: 0; transform: translate(-50%, 6px); } }
+
+.mode-pick { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 22px; }
+.mode-switch {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 280px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+}
+.mode-thumb {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc(50% - 4px);
+  border-radius: 999px;
+  background: var(--panel-3);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--shadow) 40%, transparent), inset 0 0 0 1px var(--line-strong);
+  transition: transform var(--t) var(--ease), background var(--t) var(--ease);
+}
+.mode-switch[data-mode="master"] .mode-thumb { transform: translateX(100%); background: color-mix(in srgb, var(--accent) 22%, var(--panel-3)); }
+.mode-option {
+  position: relative;
+  z-index: 1;
+  padding: 10px 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color var(--t) var(--ease);
+}
+.mode-option:hover { color: var(--text); }
+.mode-option[aria-checked="true"] { color: var(--text); }
+.mode-switch[data-mode="master"] .mode-option[aria-checked="true"] { color: var(--accent); }
+.mode-hint { font-size: 12.5px; color: var(--muted); max-width: 380px; }

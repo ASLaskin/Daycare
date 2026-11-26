@@ -32,10 +32,7 @@ export const renderGeneral = () => {
   input("set-auto-worker-effort").checked = s.autoWorkerEffort
   $("#worker-effort-field").classList.toggle("disabled", s.autoWorkerEffort)
   select("set-permission").value = s.permissionMode
-  input("set-allow-subagents").checked = s.allowSubagents
   input("set-confirm-subagents").checked = s.confirmSubagents
-  input("set-confirm-subagents").disabled = !s.allowSubagents
-  $("#confirm-subagents-row").classList.toggle("disabled", !s.allowSubagents)
   input("set-code-mode").checked = s.codeMode
   renderLocationRows()
 }
@@ -44,7 +41,6 @@ export const wireGeneral = () => {
   wireLocations()
   onToggle("set-ask", (askOnNew) => saveSettings({ askOnNew }))
   onToggle("set-random-names", (randomNames) => saveSettings({ randomNames }))
-  onToggle("set-allow-subagents", (allowSubagents) => saveSettings({ allowSubagents }))
   onToggle("set-confirm-subagents", (confirmSubagents) => saveSettings({ confirmSubagents }))
   onToggle("set-code-mode", (codeMode) => saveSettings({ codeMode }))
   onToggle("set-done-sounds", (doneSounds) => {

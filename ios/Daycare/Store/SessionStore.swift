@@ -12,6 +12,7 @@ final class SessionStore {
   private(set) var power: PowerState?
   private(set) var catalog: Catalog?
   private(set) var unavailable: [String] = []
+  private(set) var groups: [SessionGroup] = []
   // Snapshot received in this process; resume is only valid then
   private(set) var loaded = false
   private(set) var epoch: Epoch?
@@ -26,7 +27,7 @@ final class SessionStore {
     return Resume(epoch: epoch, seq: seq)
   }
 
-  var groups: [SessionGroup] { SessionTree.groups(Array(sessions.values)) }
+  var families: [SessionFamily] { SessionTree.families(Array(sessions.values)) }
   var orphans: [MobileSession] { SessionTree.orphans(Array(sessions.values)) }
 
   var sortedApprovals: [Approval] {
@@ -39,6 +40,20 @@ final class SessionStore {
 
   func status(of session: MobileSession) -> SessionStatus {
     SessionStatus(session, pendingApprovals: approvals.values.filter { $0.session == session.id }.count)
+  }
+
+  // Masters and chats, the sessions groups hold
+  var topLevel: [MobileSession] {
+    sessions.values.filter { $0.role == .master }.sorted { $0.createdAt > $1.createdAt }
+  }
+
+  func group(of session: SessionId) -> SessionGroup? {
+    GroupEdits.group(of: session, in: groups)
+  }
+
+  // Local edit shown before the coordinator echoes it
+  func showGroups(_ groups: [SessionGroup]) {
+    self.groups = groups
   }
 
   func workers(of master: SessionId) -> [MobileSession] {
@@ -58,6 +73,7 @@ final class SessionStore {
     power = snapshot.power
     catalog = snapshot.catalog
     unavailable = snapshot.unavailable
+    groups = snapshot.groups
     epoch = snapshot.epoch
     seq = snapshot.seq
     loaded = true
@@ -81,6 +97,8 @@ final class SessionStore {
       self.power = power
     case .catalog(let catalog):
       self.catalog = catalog
+    case .groups(let groups):
+      self.groups = groups
     case .chat, .media, .unknown:
       return
     }
@@ -92,6 +110,7 @@ final class SessionStore {
     power = nil
     catalog = nil
     unavailable = []
+    groups = []
     loaded = false
     epoch = nil
     seq = 0

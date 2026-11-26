@@ -50,7 +50,10 @@ struct SessionDetailView: View {
           Text(session.name)
             .font(.headline)
             .lineLimit(1)
-          StatusText(status: store.status(of: session))
+          HStack(spacing: 6) {
+            RoleTag(session: session)
+            StatusText(status: store.status(of: session))
+          }
         }
       }
       ToolbarItemGroup(placement: .topBarTrailing) {

@@ -13,6 +13,8 @@ public enum MobileCommand: Codable, Hashable, Sendable {
   case archive(SessionTarget)
   case unarchive(SessionTarget)
   case rename(Rename)
+  // Replaces every sidebar group
+  case groups(SetGroups)
   case remove(SessionTarget)
   case move(Move)
   case model(SetModel)
@@ -41,6 +43,7 @@ public enum MobileCommand: Codable, Hashable, Sendable {
     case "archive": self = .archive(try SessionTarget(from: decoder))
     case "unarchive": self = .unarchive(try SessionTarget(from: decoder))
     case "rename": self = .rename(try Rename(from: decoder))
+    case "groups": self = .groups(try SetGroups(from: decoder))
     case "remove": self = .remove(try SessionTarget(from: decoder))
     case "move": self = .move(try Move(from: decoder))
     case "model": self = .model(try SetModel(from: decoder))
@@ -75,6 +78,7 @@ public enum MobileCommand: Codable, Hashable, Sendable {
     case .archive: "archive"
     case .unarchive: "unarchive"
     case .rename: "rename"
+    case .groups: "groups"
     case .remove: "remove"
     case .move: "move"
     case .model: "model"
@@ -100,7 +104,7 @@ public enum MobileCommand: Codable, Hashable, Sendable {
     case .model(let p): p.session
     case .effort(let p): p.session
     case .interrupt(let p), .close(let p), .reopen(let p), .archive(let p), .unarchive(let p), .remove(let p), .media(let p): p.session
-    case .watch, .create, .upload, .configure, .power, .register, .unregister, .activity, .activityEnded: nil
+    case .watch, .create, .upload, .groups, .configure, .power, .register, .unregister, .activity, .activityEnded: nil
     }
   }
 
@@ -114,6 +118,7 @@ public enum MobileCommand: Codable, Hashable, Sendable {
     case .interrupt(let p), .close(let p), .reopen(let p), .archive(let p), .unarchive(let p), .remove(let p), .media(let p): p
     case .answer(let p): p
     case .rename(let p): p
+    case .groups(let p): p
     case .move(let p): p
     case .model(let p): p
     case .effort(let p): p

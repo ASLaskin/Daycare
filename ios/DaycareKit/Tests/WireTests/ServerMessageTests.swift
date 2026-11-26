@@ -28,7 +28,8 @@ import DaycareKit
       return
     }
     #expect(snapshot.seq == 4182)
-    #expect(snapshot.sessions.map(\.id) == ["s-master", "s-worker"])
+    #expect(snapshot.sessions.map(\.id) == ["s-master", "s-worker", "s-chat"])
+    #expect(snapshot.sessions.map(\.masterMode) == [true, false, false])
     #expect(snapshot.sessions[1].parentId == "s-master")
     #expect(snapshot.sessions[1].configDir == "/Users/me/.claude-work")
     #expect(snapshot.approvals.first?.permission?.title == "Run npm test")
@@ -36,6 +37,25 @@ import DaycareKit
     #expect(snapshot.power.lidClosed == LidClosed(enabled: false, active: false))
     #expect(snapshot.catalog?.models.map(\.id) == ["opus", "sonnet"])
     #expect(snapshot.unavailable == ["codex"])
+    #expect(snapshot.groups == [SessionGroup(id: "g-1", name: "Group 1", color: .teal, collapsed: false, members: ["s-master", "s-chat"])])
+  }
+
+  @Test func olderCoordinatorFieldsDefault() throws {
+    var json = try #require(try Fixture.object(Fixture.data("server/snapshot")) as? [String: Any])
+    json["groups"] = nil
+    let sessions = try #require(json["sessions"] as? [[String: Any]])
+    json["sessions"] = sessions.map { $0.filter { $0.key != "masterMode" } }
+    guard case .snapshot(let snapshot) = try WireCodec.decodeServer(try JSONSerialization.data(withJSONObject: json)) else {
+      Issue.record("Expected snapshot")
+      return
+    }
+    #expect(snapshot.groups.isEmpty)
+    #expect(snapshot.sessions.map(\.masterMode) == [true, false, true])
+  }
+
+  @Test func unknownEventKindDecodes() throws {
+    let data = Data(#"{"type":"event","seq":9,"event":{"kind":"someday","stuff":[1]}}"#.utf8)
+    #expect(try WireCodec.decodeServer(data) == .event(EventFrame(seq: 9, event: .unknown("someday"))))
   }
 
   @Test func emptySnapshotHasNulls() throws {
@@ -94,6 +114,10 @@ import DaycareKit
       throw CocoaError(.coderInvalidValue)
     }
     #expect(media.items.first?.kind == .video)
+    guard case .groups(let groups) = try event("groups") else {
+      throw CocoaError(.coderInvalidValue)
+    }
+    #expect(groups.map(\.collapsed) == [true])
   }
 
   @Test func responses() throws {

@@ -15,7 +15,7 @@ interface WorkerConfig {
 const workerConfigOf = (s: Settings): WorkerConfig => ({
   workerModels: { workerModel: s.workerModel, autoWorkerModel: s.autoWorkerModel },
   workerEfforts: { workerEffort: s.workerEffort, autoWorkerEffort: s.autoWorkerEffort },
-  agentOptions: { allowSubagents: s.allowSubagents, confirmSubagents: s.confirmSubagents, codeMode: s.codeMode },
+  agentOptions: { confirmSubagents: s.confirmSubagents, codeMode: s.codeMode },
 })
 
 const same = (a: WorkerConfig, b: WorkerConfig) =>
@@ -23,7 +23,6 @@ const same = (a: WorkerConfig, b: WorkerConfig) =>
   a.workerModels.autoWorkerModel === b.workerModels.autoWorkerModel &&
   a.workerEfforts.workerEffort === b.workerEfforts.workerEffort &&
   a.workerEfforts.autoWorkerEffort === b.workerEfforts.autoWorkerEffort &&
-  a.agentOptions.allowSubagents === b.agentOptions.allowSubagents &&
   a.agentOptions.confirmSubagents === b.agentOptions.confirmSubagents &&
   a.agentOptions.codeMode === b.agentOptions.codeMode
 

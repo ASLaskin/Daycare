@@ -67,7 +67,7 @@ export type WorkerModels = typeof WorkerModels.Type
 export const WorkerEfforts = Schema.Struct({ workerEffort: Schema.String, autoWorkerEffort: Schema.Boolean })
 export type WorkerEfforts = typeof WorkerEfforts.Type
 // Subagent and Code Mode settings the app pushes
-export const AgentOptions = Schema.Struct({ allowSubagents: Schema.Boolean, confirmSubagents: Schema.Boolean, codeMode: Schema.Boolean })
+export const AgentOptions = Schema.Struct({ confirmSubagents: Schema.Boolean, codeMode: Schema.Boolean })
 export type AgentOptions = typeof AgentOptions.Type
 
 export const Approval = Schema.Struct({

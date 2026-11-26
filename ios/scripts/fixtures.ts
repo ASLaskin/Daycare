@@ -51,6 +51,10 @@ const session = {
 
 const worker = { ...session, id: "s-worker", role: "worker", masterMode: false, parentId: "s-master", name: "Bo", nativeId: null, icon: null, model: null, effort: null, state: "idle", live: false, lastEntry: null, lastEventAt: null, preview: null, configDir: "/Users/me/.claude-work" }
 
+const chat = { ...session, id: "s-chat", masterMode: false, name: "Cy", createdAt: 1762300100000 }
+
+const group = { id: "g-1", name: "Group 1", color: "teal", collapsed: false, members: ["s-master", "s-chat"] }
+
 const permission = {
   kind: "permission",
   requestId: "req-1",
@@ -114,8 +118,8 @@ const chatEvents: Record<string, object> = {
 
 const server: Record<string, object> = {
   welcome: { type: "welcome", protocol: 1, coordinator: "0.2.0", epoch: "ep-1", resumed: false },
-  snapshot: { type: "snapshot", epoch: "ep-1", seq: 4182, sessions: [session, worker], approvals: [approval], power, catalog, unavailable: ["codex"] },
-  "snapshot-empty": { type: "snapshot", epoch: "ep-1", seq: 0, sessions: [], approvals: [], power: { ...power, battery: null, lidClosed: null }, catalog: null, unavailable: [] },
+  snapshot: { type: "snapshot", epoch: "ep-1", seq: 4182, sessions: [session, worker, chat], approvals: [approval], power, catalog, unavailable: ["codex"], groups: [group] },
+  "snapshot-empty": { type: "snapshot", epoch: "ep-1", seq: 0, sessions: [], approvals: [], power: { ...power, battery: null, lidClosed: null }, catalog: null, unavailable: [], groups: [] },
   "event-session": { type: "event", seq: 4183, event: { kind: "session", session } },
   "event-removed": { type: "event", seq: 4184, event: { kind: "removed", session: "s-worker", parentId: "s-master" } },
   "event-approval": { type: "event", seq: 4185, event: { kind: "approval", approval } },
@@ -124,6 +128,7 @@ const server: Record<string, object> = {
   "event-power": { type: "event", seq: 4188, event: { kind: "power", power } },
   "event-catalog": { type: "event", seq: 4189, event: { kind: "catalog", catalog } },
   "event-media": { type: "event", seq: 4190, event: { kind: "media", session: "s-master", items: [media] } },
+  "event-groups": { type: "event", seq: 4191, event: { kind: "groups", groups: [{ ...group, collapsed: true }] } },
   "response-ok": { type: "response", id: 7, result: { accepted: "coordinator", entry: 43 }, replayed: true },
   "response-error": { type: "response", id: 8, error: { code: "rejected", message: "Session closed" } },
   "protocol-mismatch": { type: "protocol_mismatch", server: 2, client: 1 },
@@ -156,6 +161,7 @@ const client: Record<string, object> = {
   archive: command({ method: "archive", session: "s-worker" }, "k5"),
   unarchive: command({ method: "unarchive", session: "s-worker" }, "k6"),
   rename: command({ method: "rename", session: "s-master", name: "Ada 2" }, "k7"),
+  groups: command({ method: "groups", groups: [group] }, "k14"),
   remove: command({ method: "remove", session: "s-worker" }, "k8"),
   move: command({ method: "move", session: "s-master", accountId: "work" }, "k9"),
   model: command({ method: "model", session: "s-master", model: "sonnet" }, "k10"),

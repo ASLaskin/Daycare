@@ -47,6 +47,7 @@ public enum ApnsTokenTag {}
 public enum EpochTag {}
 public enum ActivityIdTag {}
 public enum Base64Tag {}
+public enum GroupIdTag {}
 
 public typealias SessionId = Tagged<SessionIdTag>
 public typealias RequestId = Tagged<RequestIdTag>
@@ -64,6 +65,7 @@ public typealias ApnsToken = Tagged<ApnsTokenTag>
 public typealias Epoch = Tagged<EpochTag>
 public typealias ActivityId = Tagged<ActivityIdTag>
 public typealias Base64 = Tagged<Base64Tag>
+public typealias GroupId = Tagged<GroupIdTag>
 
 // Per history row; stable across coordinator restarts
 public typealias Entry = Int

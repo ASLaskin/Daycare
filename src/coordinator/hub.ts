@@ -27,6 +27,7 @@ import { isEffortLevel } from "../shared/efforts.ts"
 import type { Json } from "../shared/json.ts"
 import type { HistoryPage } from "../shared/mobile.ts"
 import type { Battery, PowerState } from "../shared/power.ts"
+import { makeActivity } from "./activity.ts"
 import { type Cursor, loadHistory, loadRows, page, record, type Summary, summary } from "./history.ts"
 import { makeMediaIndex } from "./media.ts"
 import { ACK_MS, makeOrchestration, type WorkerSpec } from "./orchestration.ts"
@@ -144,6 +145,7 @@ export const makeHub = (db: Database, launch: Launch, options: HubOptions = {}) 
   // Sessions whose provider is working on a turn
   const busyCount = () => [...sessions.values()].filter((s) => providers.has(s.id) && (s.state === "running" || s.state === "creating")).length
 
+  const activity = makeActivity()
   const media = makeMediaIndex({ cwd: (id) => sessions.get(id)?.cwd ?? null, rows: (id) => loadRows(db, id) })
 
   const refresh = (id: SessionId) => {
@@ -241,17 +243,23 @@ export const makeHub = (db: Database, launch: Launch, options: HubOptions = {}) 
       return
     }
     switch (u.type) {
-      case "event":
+      case "event": {
         chat(id, u.event)
-        if (u.event.kind !== "turn-end") {
-          return
-        }
-        if (u.event.isError) {
+        if (u.event.kind === "turn-end" && u.event.isError) {
           store.patch(db, id, { error: u.event.text || u.event.stopReason || "turn failed" })
         }
-        store.finishTurn(db, id)
-        refresh(id)
+        // Background agents keep a session working past its turn end
+        const next = activity.observe(id, u.event)
+        if (next === "done") {
+          store.finishTurn(db, id)
+          refresh(id)
+        }
+        if (next === "busy" && session(id).state === "idle") {
+          store.patch(db, id, { state: "running" })
+          refresh(id)
+        }
         return
+      }
       case "native":
         store.patch(db, id, { nativeId: u.nativeId })
         refresh(id)
@@ -281,6 +289,7 @@ export const makeHub = (db: Database, launch: Launch, options: HubOptions = {}) 
         return
       case "exited":
         providers.delete(id)
+        activity.forget(id)
         lose(id, "the provider stopped")
         cancelApprovals(id)
         refresh(id)
@@ -304,7 +313,7 @@ export const makeHub = (db: Database, launch: Launch, options: HubOptions = {}) 
     refresh(id)
     launching.set(id, run)
     try {
-      const options: LaunchOptions = { allowSubagents: agentOptions.allowSubagents, codeMode: agentOptions.codeMode }
+      const options: LaunchOptions = { codeMode: agentOptions.codeMode }
       const handle = launch(session(id), (u) => update(id, run, u), options)
       providers.set(id, { handle, run })
       return handle
@@ -405,6 +414,7 @@ export const makeHub = (db: Database, launch: Launch, options: HubOptions = {}) 
 
   // Stops a session's agent and withdraws its approvals
   const stopOne = (id: SessionId, reason: string) => {
+    activity.forget(id)
     const running = providers.get(id)
     if (running) {
       const closed: Promise<void> = running.handle.close().then(() => {
@@ -543,6 +553,7 @@ export const makeHub = (db: Database, launch: Launch, options: HubOptions = {}) 
         if (!running) {
           throw new Error("session is not running")
         }
+        activity.forget(command.session)
         running.handle.interrupt()
         return {}
       }

@@ -131,6 +131,14 @@ public struct Rename: Codable, Hashable, Sendable {
   }
 }
 
+public struct SetGroups: Codable, Hashable, Sendable {
+  public var groups: [SessionGroup]
+
+  public init(groups: [SessionGroup]) {
+    self.groups = groups
+  }
+}
+
 // Config dir comes from the catalog
 public struct Move: Codable, Hashable, Sendable {
   public var session: SessionId

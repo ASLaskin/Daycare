@@ -1,11 +1,10 @@
-// Masters with their workers beneath, newest first.
+// Masters and chats with their workers beneath, newest first, gathered into groups.
 
 import DaycareKit
 import SwiftUI
 
 struct SessionListView: View {
   @Environment(SessionStore.self) private var store
-  @Environment(AppModel.self) private var model
   @AppStorage("showArchived") private var showArchived = false
   @AppStorage("showClosed") private var showClosed = true
 
@@ -15,24 +14,19 @@ struct SessionListView: View {
         Text("Waiting for the Mac")
           .foregroundStyle(.secondary)
       }
-      ForEach(visibleGroups) { group in
-        Section {
-          row(group.master)
-          ForEach(group.workers) { worker in
-            row(worker)
-              .padding(.leading, 16)
+      ForEach(entries) { entry in
+        switch entry {
+        case .single(let family):
+          Section {
+            FamilyRows(family: family, showArchived: showArchived)
           }
-          if showArchived {
-            ForEach(group.archivedWorkers) { worker in
-              row(worker)
-                .padding(.leading, 16)
-            }
-          }
+        case .group(let group, let members):
+          GroupSection(group: group, members: members, showArchived: showArchived)
         }
       }
       if !store.orphans.isEmpty {
         Section("Workers") {
-          ForEach(store.orphans.filter { showArchived || !$0.archived }) { row($0) }
+          ForEach(store.orphans.filter { showArchived || !$0.archived }) { SessionListRow(session: $0) }
         }
       }
       Section {
@@ -52,36 +46,7 @@ struct SessionListView: View {
     }
   }
 
-  private var visibleGroups: [SessionGroup] {
-    store.groups.filter { showClosed || !$0.master.closed }
-  }
-
-  private func row(_ session: MobileSession) -> some View {
-    NavigationLink(value: session.id) {
-      SessionRow(session: session, status: store.status(of: session))
-    }
-    .swipeActions(edge: .trailing) {
-      swipe(session)
-    }
-  }
-
-  @ViewBuilder
-  private func swipe(_ session: MobileSession) -> some View {
-    let target = SessionTarget(session: session.id)
-    if session.role == .worker {
-      if session.archived {
-        Button("Unarchive") { model.send(.unarchive(target)) }
-      } else {
-        Button("Archive") { model.send(.archive(target)) }
-          .tint(.indigo)
-      }
-    }
-    if session.closed {
-      Button("Reopen") { model.send(.reopen(target)) }
-        .tint(.green)
-    } else {
-      Button("Close") { model.send(.close(target)) }
-        .tint(.orange)
-    }
+  private var entries: [SessionListEntry] {
+    GroupLayout.entries(store.families.filter { showClosed || !$0.master.closed }, groups: store.groups)
   }
 }

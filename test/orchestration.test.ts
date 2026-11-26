@@ -198,17 +198,11 @@ test("claude workers follow the subagent effort settings the app pushed", async 
   await expect(effortOf("extreme")).rejects.toThrow("bad arguments for spawn_subagent")
 })
 
-const agentOptions = (o: Partial<{ allowSubagents: boolean; confirmSubagents: boolean }>) => ({
+const agentOptions = (o: Partial<{ confirmSubagents: boolean }>) => ({
   method: "configure" as const,
   workerModels: defaultModels,
   workerEfforts: defaultEfforts,
-  agentOptions: { allowSubagents: true, confirmSubagents: false, codeMode: false, ...o },
-})
-
-test("spawning is refused when the user turned subagents off", async () => {
-  const { hub, tool } = setup()
-  hub.command(agentOptions({ allowSubagents: false }))
-  await expect(tool("spawn_subagent", { name: "w", task: "go" })).rejects.toThrow("turned off subagents")
+  agentOptions: { confirmSubagents: false, codeMode: false, ...o },
 })
 
 test("a confirmed spawn waits for the user and launches with the picked model and effort", async () => {

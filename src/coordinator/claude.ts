@@ -55,9 +55,8 @@ export const startClaude = (
     throw new Error("claude session has no native id")
   }
   const master = session.role === "master" && session.masterMode
-  const prompt = rolePrompt(session, options.allowSubagents)
-  // Without subagents a master keeps its tools for existing workers
-  const tools = DAYCARE_TOOLS.filter((name) => options.allowSubagents || name !== "spawn_subagent").map((name) => `mcp__daycare__${name}`)
+  const prompt = rolePrompt(session)
+  const tools = DAYCARE_TOOLS.map((name) => `mcp__daycare__${name}`)
   interface Pending {
     readonly message: SDKUserMessage
     readonly confirm: () => void
@@ -137,7 +136,7 @@ export const startClaude = (
       systemPrompt: { type: "preset", preset: "claude_code", ...(prompt ? { append: prompt } : {}) },
       // Workers replace Claude's own subagents; plain sessions keep them
       ...(session.masterMode || session.role === "worker"
-        ? { disallowedTools: ["Task", "Agent", ...(options.allowSubagents ? [] : ["mcp__daycare__spawn_subagent"])] }
+        ? { disallowedTools: ["Task", "Agent"] }
         : {}),
       ...(master
         ? {

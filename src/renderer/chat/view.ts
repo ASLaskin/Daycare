@@ -73,20 +73,29 @@ const composer = () => {
   model.setAttribute("aria-label", "Model")
   const effort = el("select", "chat-model")
   effort.setAttribute("aria-label", "Effort")
-  const mode = el("select", "chat-model")
-  mode.setAttribute("aria-label", "Mode")
   const pickers = el("div", "chat-pickers")
-  pickers.append(mode, model, effort)
+  pickers.append(model, effort)
   const under = el("div", "chat-under")
   under.append(el("div", "chat-hint", "Enter to send, Shift+Enter for a new line"), pickers)
   wrap.append(box, under)
-  return { composer: wrap, box, input, stop, send, mode, model, effort, ...files }
+  return { composer: wrap, box, input, stop, send, model, effort, ...files }
+}
+
+// Chat or Master switch with a line about the picked mode
+const modeSwitch = () => {
+  const mode = el("div", "mode-pick")
+  const track = el("div", "mode-switch")
+  track.setAttribute("role", "radiogroup")
+  track.setAttribute("aria-label", "Mode")
+  track.append(el("span", "mode-thumb"), el("button", "mode-option", "Chat"), el("button", "mode-option", "Master"))
+  mode.append(track, el("div", "mode-hint"))
+  return mode
 }
 
 // Placeholder shown until the first real content
-const emptyState = (info: SessionView) => {
+const emptyState = (info: SessionView, mode: HTMLElement) => {
   const empty = el("div", "chat-empty")
-  empty.append(el("div", "chat-empty-title", "New chat"), el("div", "chat-empty-sub", tildify(info.cwd)))
+  empty.append(el("div", "chat-empty-title", "New chat"), el("div", "chat-empty-sub", tildify(info.cwd)), mode)
   return empty
 }
 
@@ -102,7 +111,8 @@ export const buildView = (info: SessionView, host: HTMLElement) => {
   wrap.append(log.scroll, log.jump)
   root.append(tasks.taskbar, wrap, comp.composer, foot)
   host.replaceChildren(root)
-  const empty = emptyState(info)
+  const mode = modeSwitch()
+  const empty = emptyState(info, mode)
   log.thread.prepend(empty)
-  return { ...tasks, ...log, ...comp, foot, root, empty }
+  return { ...tasks, ...log, ...comp, foot, root, empty, mode }
 }

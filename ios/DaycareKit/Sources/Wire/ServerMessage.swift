@@ -18,10 +18,12 @@ public struct Snapshot: Codable, Hashable, Sendable {
   // Null until a desktop has connected once
   public var catalog: Catalog?
   public var unavailable: [String]
+  // Absent from coordinators older than groups
+  public var groups: [SessionGroup]
 
   public init(
     epoch: Epoch, seq: Int, sessions: [MobileSession], approvals: [Approval], power: PowerState,
-    catalog: Catalog?, unavailable: [String]
+    catalog: Catalog?, unavailable: [String], groups: [SessionGroup]
   ) {
     self.epoch = epoch
     self.seq = seq
@@ -30,6 +32,21 @@ public struct Snapshot: Codable, Hashable, Sendable {
     self.power = power
     self.catalog = catalog
     self.unavailable = unavailable
+    self.groups = groups
+  }
+
+  public init(from decoder: Decoder) throws {
+    let c = try decoder.container(keyedBy: CodingKeys.self)
+    self.init(
+      epoch: try c.decode(Epoch.self, forKey: .epoch),
+      seq: try c.decode(Int.self, forKey: .seq),
+      sessions: try c.decode([MobileSession].self, forKey: .sessions),
+      approvals: try c.decode([Approval].self, forKey: .approvals),
+      power: try c.decode(PowerState.self, forKey: .power),
+      catalog: try c.decodeIfPresent(Catalog.self, forKey: .catalog),
+      unavailable: try c.decode([String].self, forKey: .unavailable),
+      groups: try c.decodeIfPresent([SessionGroup].self, forKey: .groups) ?? []
+    )
   }
 }
 

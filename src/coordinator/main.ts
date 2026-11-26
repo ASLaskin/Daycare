@@ -43,7 +43,7 @@ const executable = (name: string): FilePath => {
 
 const launch: Launch = (session, update, options) =>
   session.provider === "codex"
-    ? startCodex(session, executable("DAYCARE_CODEX"), update, undefined, options)
+    ? startCodex(session, executable("DAYCARE_CODEX"), update)
     : startClaude(session, executable("DAYCARE_CLAUDE"), update, undefined, options)
 
 const mac = process.platform === "darwin"

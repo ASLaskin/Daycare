@@ -178,9 +178,6 @@ export const makeOrchestration = (core: OrchestrationCore, ackMs = ACK_MS) => {
   }
 
   const spawn = async (master: StoredSession, input: ToolInput<"spawn_subagent">, signal: AbortSignal) => {
-    if (!core.agentOptions().allowSubagents) {
-      throw new Error("The user turned off subagents for masters. Do the work yourself instead.")
-    }
     const provider = input.provider ?? master.provider
     const { model, effort } = await launchChoice(master, provider, input, signal)
     const id = core.createWorker({ master, name: input.name, provider, model, effort, cwd: input.cwd ?? master.cwd })

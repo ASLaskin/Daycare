@@ -37,6 +37,9 @@ final class AppModel {
     pairing = Credentials.loadPairing()
     wire()
     connection.configure(link: pairing, device: device)
+    #if DEBUG
+    seedIfRequested()
+    #endif
     path.start()
     activity.observePushToStart()
     observeStatus()
@@ -99,6 +102,27 @@ final class AppModel {
     }
   }
 
+  // Shows the edit at once; the coordinator echo confirms it
+  func editGroups(_ edit: ([SessionGroup]) -> [SessionGroup]) {
+    let next = edit(store.groups)
+    guard next != store.groups else {
+      return
+    }
+    store.showGroups(next)
+    send(.groups(SetGroups(groups: next)))
+  }
+
+  #if DEBUG
+  // Sample data for screenshots; the connection stays unconfigured
+  private func seedIfRequested() {
+    guard DebugSeed.requested else {
+      return
+    }
+    pairing = DebugSeed.pairing
+    store.apply(DebugSeed.snapshot)
+  }
+  #endif
+
   private func wire() {
     connection.helloContext = { [unowned self] in
       Connection.HelloContext(resume: store.resume, watch: Watch(sessions: transcripts.watched, deltas: true))
@@ -151,7 +175,7 @@ final class AppModel {
     case .removed(let removed):
       transcripts.removed(removed.session)
       media.removed(removed.session)
-    case .session, .approval, .approvalResolved, .power, .catalog, .unknown:
+    case .session, .approval, .approvalResolved, .power, .catalog, .groups, .unknown:
       return
     }
   }

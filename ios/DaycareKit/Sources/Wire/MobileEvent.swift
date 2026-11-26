@@ -38,11 +38,13 @@ public enum MobileEvent: Codable, Hashable, Sendable {
   case power(PowerState)
   case catalog(Catalog)
   case media(MediaEvent)
+  // Every sidebar group, replacing the previous list
+  case groups([SessionGroup])
   // Kind added by a newer coordinator
   case unknown(String)
 
   private enum Keys: String, CodingKey {
-    case session, approval, power, catalog
+    case session, approval, power, catalog, groups
   }
 
   public init(from decoder: Decoder) throws {
@@ -57,6 +59,7 @@ public enum MobileEvent: Codable, Hashable, Sendable {
     case "power": self = .power(try container.decode(PowerState.self, forKey: .power))
     case "catalog": self = .catalog(try container.decode(Catalog.self, forKey: .catalog))
     case "media": self = .media(try MediaEvent(from: decoder))
+    case "groups": self = .groups(try container.decode([SessionGroup].self, forKey: .groups))
     default: self = .unknown(kind)
     }
   }
@@ -84,6 +87,9 @@ public enum MobileEvent: Codable, Hashable, Sendable {
       try encoder.encode(discriminator: .kind, "catalog", payload: nil)
     case .media(let media):
       try encoder.encode(discriminator: .kind, "media", payload: media)
+    case .groups(let groups):
+      try container.encode(groups, forKey: .groups)
+      try encoder.encode(discriminator: .kind, "groups", payload: nil)
     case .unknown(let kind):
       try encoder.encode(discriminator: .kind, kind, payload: nil)
     }

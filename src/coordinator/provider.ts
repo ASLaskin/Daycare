@@ -20,11 +20,10 @@ export type ProviderUpdate =
 
 // Settings a provider reads at launch
 export interface LaunchOptions {
-  readonly allowSubagents: boolean
   readonly codeMode: boolean
 }
 
-export const DEFAULT_LAUNCH: LaunchOptions = { allowSubagents: true, codeMode: false }
+export const DEFAULT_LAUNCH: LaunchOptions = { codeMode: false }
 
 export interface Answer {
   readonly choice: string

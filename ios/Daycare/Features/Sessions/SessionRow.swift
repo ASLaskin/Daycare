@@ -1,4 +1,4 @@
-// One session: name, status in words, preview and age.
+// One session: name, kind, status in words, preview and age.
 
 import DaycareKit
 import SwiftUI
@@ -13,6 +13,9 @@ struct SessionRow: View {
         Text(session.name)
           .font(.headline)
           .lineLimit(1)
+        if session.role == .master {
+          RoleTag(session: session)
+        }
         Spacer()
         StatusText(status: status)
       }

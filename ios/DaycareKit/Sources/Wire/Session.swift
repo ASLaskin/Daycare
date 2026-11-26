@@ -30,6 +30,8 @@ public struct MobileSession: Codable, Hashable, Sendable, Identifiable {
   public var provider: Provider
   public var nativeId: NativeId?
   public var role: SessionRole
+  // Master with Daycare tools; false is a plain chat
+  public var masterMode: Bool
   public var parentId: SessionId?
   public var name: String
   public var icon: String?
@@ -58,8 +60,8 @@ public struct MobileSession: Codable, Hashable, Sendable, Identifiable {
   public var preview: String?
 
   public init(
-    id: SessionId, provider: Provider, nativeId: NativeId?, role: SessionRole, parentId: SessionId?, name: String,
-    icon: String?, cwd: DirPath, model: String?, effort: String?, permissionMode: PermissionMode, state: SessionState,
+    id: SessionId, provider: Provider, nativeId: NativeId?, role: SessionRole, masterMode: Bool, parentId: SessionId?,
+    name: String, icon: String?, cwd: DirPath, model: String?, effort: String?, permissionMode: PermissionMode, state: SessionState,
     closed: Bool, archived: Bool, error: String?, createdAt: Double, run: Double, accountId: AccountId,
     configDir: DirPath?, live: Bool, lastEntry: Entry?, lastEventAt: Double?, preview: String?
   ) {
@@ -67,6 +69,7 @@ public struct MobileSession: Codable, Hashable, Sendable, Identifiable {
     self.provider = provider
     self.nativeId = nativeId
     self.role = role
+    self.masterMode = masterMode
     self.parentId = parentId
     self.name = name
     self.icon = icon

@@ -22,7 +22,7 @@ import DaycareKit
     }
     let expected: Set<String> = [
       "watch", "history", "create", "send", "upload", "interrupt", "answer", "close", "reopen", "archive", "unarchive",
-      "rename", "remove", "move", "model", "effort", "configure", "power", "media", "register", "unregister", "activity",
+      "rename", "groups", "remove", "move", "model", "effort", "configure", "power", "media", "register", "unregister", "activity",
       "activity-ended",
     ]
     #expect(Set(methods) == expected)

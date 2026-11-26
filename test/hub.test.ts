@@ -12,7 +12,7 @@ import { DEFAULT_ACCOUNT } from "../src/shared/accounts.ts"
 import type { ChatEvent } from "../src/shared/chat.ts"
 import type { ServerMessage, SessionState } from "../src/shared/coordinator.ts"
 import { asNativeId } from "../src/shared/coordinator.ts"
-import { asAccountId, asDirPath, asFilePath, asRequestId, asSessionId, asToolUseId } from "../src/shared/ids.ts"
+import { asAccountId, asDirPath, asFilePath, asRequestId, asSessionId, asTaskId, asToolUseId } from "../src/shared/ids.ts"
 import { asBase64 } from "../src/shared/images.ts"
 import { obj, str } from "../src/shared/json.ts"
 import { sample, tempDb } from "./fixtures/store.ts"
@@ -636,4 +636,20 @@ test("media a tool writes under the session's cwd becomes a media event and is s
   expect(hub.media(id).map((m) => [m.name, m.mimeType])).toEqual([["chart.png", "image/png"]])
   expect(hub.resolveMedia(id, path.join(dir, "chart.png"))?.entry).toBe(3)
   expect(hub.resolveMedia(id, "/etc/hosts")).toBeNull()
+})
+
+test("background agents keep a session working past its turn end", () => {
+  const { hub, provider } = running()
+  const state = () => hub.state().sessions.find((s) => s.id === id)?.state
+  const turnEnd: ChatEvent = { kind: "turn-end", isError: false, stopReason: null, costUsd: 0, contextTokens: 0, numTurns: null, durationMs: null, text: "" }
+  const task = (status: string): ChatEvent => ({ kind: "task", taskId: asTaskId("t"), status, description: "", subagentType: null, summary: "", lastTool: null, usage: null })
+  provider.update({ type: "event", event: task("running") })
+  provider.update({ type: "event", event: turnEnd })
+  expect(state()).toBe("running")
+  provider.update({ type: "event", event: task("completed") })
+  expect(state()).toBe("idle")
+  provider.update({ type: "event", event: { kind: "text-delta", block: "b", text: "more" } })
+  expect(state()).toBe("running")
+  provider.update({ type: "event", event: turnEnd })
+  expect(state()).toBe("idle")
 })

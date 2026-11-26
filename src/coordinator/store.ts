@@ -271,8 +271,8 @@ const decodeAgentOptions = Schema.decodeUnknownResult(AgentOptions)
 // Last pushed by the app, else the app's defaults
 export const loadAgentOptions = (db: Database): AgentOptions => {
   const decoded = decodeAgentOptions(readConfig(db, AGENT_OPTIONS))
-  const { allowSubagents, confirmSubagents, codeMode } = baseSettings
-  return Result.isSuccess(decoded) ? decoded.success : { allowSubagents, confirmSubagents, codeMode }
+  const { confirmSubagents, codeMode } = baseSettings
+  return Result.isSuccess(decoded) ? decoded.success : { confirmSubagents, codeMode }
 }
 
 export const saveAgentOptions = (db: Database, options: AgentOptions) => writeConfig(db, AGENT_OPTIONS, options)

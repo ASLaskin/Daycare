@@ -98,7 +98,8 @@ const openRow = (first: OpenView): Row<OpenView> => {
     shell.item.classList.toggle("active", view.active)
     const workers = workersOf(m.id)
     const isFolded = folded.has(m.id)
-    setText(summary, workerSummary(m.id))
+    // Chats never have workers, so show their folder
+    setText(summary, m.masterMode || workers.length ? workerSummary(m.id) : baseName(m.cwd))
     paintContext(ctx, m.context)
     const account = accountTag(m.accountId)
     setText(acct, account ?? "")

@@ -13,5 +13,6 @@
     "error": null
   },
   "catalog": null,
-  "unavailable": []
+  "unavailable": [],
+  "groups": []
 }

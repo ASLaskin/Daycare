@@ -54,6 +54,32 @@
       "lastEntry": null,
       "lastEventAt": null,
       "preview": null
+    },
+    {
+      "id": "s-chat",
+      "provider": "claude",
+      "nativeId": "native-1",
+      "role": "master",
+      "masterMode": false,
+      "parentId": null,
+      "name": "Cy",
+      "icon": "fox",
+      "cwd": "/Users/me/code/app",
+      "model": "opus",
+      "effort": "high",
+      "permissionMode": "default",
+      "state": "running",
+      "closed": false,
+      "archived": false,
+      "error": null,
+      "createdAt": 1762300100000,
+      "run": 2,
+      "accountId": "default",
+      "configDir": null,
+      "live": true,
+      "lastEntry": 41,
+      "lastEventAt": 1762300050000,
+      "preview": "Looking at the tests now"
     }
   ],
   "approvals": [
@@ -158,5 +184,17 @@
   },
   "unavailable": [
     "codex"
+  ],
+  "groups": [
+    {
+      "id": "g-1",
+      "name": "Group 1",
+      "color": "teal",
+      "collapsed": false,
+      "members": [
+        "s-master",
+        "s-chat"
+      ]
+    }
   ]
 }
