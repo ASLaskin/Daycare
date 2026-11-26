@@ -6,7 +6,8 @@ import { renderSidebar } from "./sidebar.ts"
 let renaming = false
 export const isRenaming = () => renaming
 
-export const beginRename = (target: HTMLElement, id: SessionId, current: string) => {
+// Inline text edit; save gets the trimmed changed value.
+export const beginEdit = (target: HTMLElement, current: string, save: (next: string) => void) => {
   renaming = true
   const input = el("input", "rename-input")
   input.value = current
@@ -14,16 +15,16 @@ export const beginRename = (target: HTMLElement, id: SessionId, current: string)
   input.focus()
   input.select()
   let done = false
-  const finish = (save: boolean) => {
+  const finish = (keep: boolean) => {
     if (done) {
       return
     }
     done = true
     renaming = false
     const next = input.value.trim()
-    target.textContent = save && next ? next : current
-    if (save && next && next !== current) {
-      api.rename(id, next)
+    target.textContent = keep && next ? next : current
+    if (keep && next && next !== current) {
+      save(next)
       return
     }
     renderSidebar()
@@ -41,3 +42,5 @@ export const beginRename = (target: HTMLElement, id: SessionId, current: string)
   input.onclick = (e) => e.stopPropagation()
   input.ondblclick = (e) => e.stopPropagation()
 }
+
+export const beginRename = (target: HTMLElement, id: SessionId, current: string) => beginEdit(target, current, (next) => api.rename(id, next))

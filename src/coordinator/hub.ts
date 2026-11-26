@@ -20,6 +20,7 @@ import type {
 } from "../shared/coordinator.ts"
 import { asEpoch, asNativeId } from "../shared/coordinator.ts"
 import { fileRefText } from "../shared/files.ts"
+import { keepKnown, type SessionGroup, ungroupSession } from "../shared/groups.ts"
 import { type AccountId, asSessionId, type DirPath, type FilePath, type RequestId, type SessionId } from "../shared/ids.ts"
 import type { ChatImage } from "../shared/images.ts"
 import { isEffortLevel } from "../shared/efforts.ts"
@@ -68,6 +69,7 @@ export interface HubState {
   readonly power: PowerState
   readonly unavailable: ReadonlyArray<string>
   readonly catalog: DesktopCatalog | null
+  readonly groups: ReadonlyArray<SessionGroup>
 }
 
 // History budget for one snapshot
@@ -107,6 +109,7 @@ export const makeHub = (db: Database, launch: Launch, options: HubOptions = {}) 
   let workerEfforts = store.loadWorkerEfforts(db)
   let agentOptions = store.loadAgentOptions(db)
   let catalog = store.loadCatalog(db)
+  let groups = store.loadGroups(db)
 
   const session = (id: SessionId) => {
     const s = sessions.get(id)
@@ -151,6 +154,17 @@ export const makeHub = (db: Database, launch: Launch, options: HubOptions = {}) 
     sessions.set(id, loaded.session)
     broadcast({ kind: "session", session: live(loaded.session) })
     power.setBusy(busyCount())
+  }
+
+  // Saves and broadcasts groups, dropping unknown sessions
+  const setGroups = (next: ReadonlyArray<SessionGroup>) => {
+    const kept = keepKnown(next, (id) => sessions.has(id))
+    if (JSON.stringify(kept) === JSON.stringify(groups)) {
+      return
+    }
+    groups = kept
+    store.saveGroups(db, groups)
+    broadcast({ kind: "groups", groups })
   }
 
   // Recorded under its run, by default the latest
@@ -601,7 +615,11 @@ export const makeHub = (db: Database, launch: Launch, options: HubOptions = {}) 
             sessions.delete(id)
             media.forget(id)
             broadcast({ kind: "removed", session: id, parentId })
+            setGroups(ungroupSession(groups, id))
           })
+        return {}
+      case "groups":
+        setGroups(command.groups)
         return {}
       case "tool":
         throw new Error("tool calls go through hub.tool")
@@ -682,6 +700,7 @@ export const makeHub = (db: Database, launch: Launch, options: HubOptions = {}) 
         history: Object.fromEntries(list.map((s) => [s.id, histories.get(s.id)!])),
         approvals: [...approvals.values()],
         power: power.state(),
+        groups,
       }
     },
 
@@ -704,6 +723,7 @@ export const makeHub = (db: Database, launch: Launch, options: HubOptions = {}) 
       power: power.state(),
       unavailable,
       catalog,
+      groups,
     }),
 
     // Last pushed by a desktop, null before any

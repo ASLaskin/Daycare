@@ -3,17 +3,31 @@
 import { pickLocation } from "./add-location.ts"
 import { api } from "./api.ts"
 import { $, el, tildify } from "./dom.ts"
-import { getActiveMaster } from "./focus.ts"
+import { focusSession, getActiveMaster } from "./focus.ts"
 import { digitShortcutText } from "./keymap.ts"
 import { isPristine, relocateMaster } from "./session-actions.ts"
 import { closeSettings } from "./settings-view.ts"
 import { openSheet } from "./sheet.ts"
-import { panes } from "./state.ts"
+import { openMasters, panes } from "./state.ts"
 import { settings } from "./store.ts"
 
 const NEW_LOCATION = "new"
 
 let currentLoc = 0
+// Create or relocate in flight; extra clicks are ignored.
+let starting = false
+
+const startOnce = async (start: () => Promise<void>) => {
+  if (starting) {
+    return
+  }
+  starting = true
+  try {
+    await start()
+  } finally {
+    starting = false
+  }
+}
 
 export const setCurrentLocation = (i: number) => {
   currentLoc = i
@@ -83,7 +97,19 @@ export const newSession = (locIndex = currentLoc) => {
     openSheet(locIndex)
     return
   }
-  api.createMaster({ task: "", cwd: loc.path, model: s.masterModel, effort: s.masterEffort, permissionMode: s.permissionMode, masterMode: true, provider: s.provider })
+  // Reuse an untouched chat instead of stacking blank ones
+  const blank = openMasters().find(isPristine)
+  if (blank?.cwd === loc.path) {
+    focusSession(blank.id)
+    return
+  }
+  if (blank) {
+    startOnce(() => relocateMaster(blank.id, loc.path))
+    return
+  }
+  startOnce(async () => {
+    await api.createMaster({ task: "", cwd: loc.path, model: s.masterModel, effort: s.masterEffort, permissionMode: s.permissionMode, masterMode: true, provider: s.provider })
+  })
 }
 
 // Moves an untouched active master there, else opens a new one.

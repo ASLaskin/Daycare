@@ -11,6 +11,7 @@ import {
   ConfigureCommand,
   EffortCommand,
   Entry,
+  GroupsCommand,
   Epoch,
   InterruptCommand,
   LiveSession,
@@ -22,6 +23,7 @@ import {
   UnarchiveCommand,
 } from "./coordinator.ts"
 import { AccountId, DirPath, FilePath, RequestId, SessionId } from "./ids.ts"
+import { SessionGroup } from "./groups.ts"
 import { Base64 } from "./images.ts"
 import { PowerState } from "./power.ts"
 import { PermissionMode, Provider } from "./session.ts"
@@ -171,6 +173,7 @@ export const MobileCommand = Schema.Union([
   ArchiveCommand,
   UnarchiveCommand,
   RenameCommand,
+  GroupsCommand,
   RemoveCommand,
   MobileMoveCommand,
   ModelCommand,
@@ -254,6 +257,8 @@ export const MobileEvent = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("chat"), session: SessionId, entry: Entry, event: ChatEvent }),
   Schema.Struct({ kind: Schema.Literal("power"), power: PowerState }),
   Schema.Struct({ kind: Schema.Literal("catalog"), catalog: Catalog }),
+  // Every sidebar group, replacing the previous list
+  Schema.Struct({ kind: Schema.Literal("groups"), groups: Schema.Array(SessionGroup) }),
   // New media files for a session, watched or not
   Schema.Struct({ kind: Schema.Literal("media"), session: SessionId, items: Schema.Array(MediaItem) }),
 ])
@@ -276,6 +281,7 @@ export const MobileSnapshot = Schema.Struct({
   // Null until a desktop has connected once
   catalog: Schema.NullOr(Catalog),
   unavailable: Schema.Array(Schema.String),
+  groups: Schema.Array(SessionGroup),
 })
 export type MobileSnapshot = typeof MobileSnapshot.Type
 

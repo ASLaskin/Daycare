@@ -14,6 +14,7 @@ import { initCoordinatorView } from "./coordinator-view.ts"
 import { $ } from "./dom.ts"
 import { initDropGuard } from "./drop-guard.ts"
 import { relayoutAll } from "./layout.ts"
+import { initSidebarGroups } from "./sidebar.ts"
 import { initSidebarCollapse } from "./sidebar-collapse.ts"
 import { initSidebarMode } from "./sidebar-mode.ts"
 import { initSidebarResize } from "./sidebar-resize.ts"
@@ -49,6 +50,7 @@ initAccountPicker()
 initSidebarResize()
 initSidebarCollapse()
 initSidebarMode()
+initSidebarGroups()
 initSettingsView()
 initNewSession()
 initSheet()

@@ -3,6 +3,7 @@
 import { Schema } from "effect"
 import { DesktopCatalog } from "./catalog.ts"
 import { ChatEvent } from "./chat.ts"
+import { SessionGroup } from "./groups.ts"
 import { AccountId, DirPath, FilePath, RequestId, SessionId } from "./ids.ts"
 import { ChatImage } from "./images.ts"
 import { LidClosed, PowerState } from "./power.ts"
@@ -123,6 +124,8 @@ export const ReopenCommand = Schema.Struct({ method: Schema.Literal("reopen"), s
 export const ArchiveCommand = Schema.Struct({ method: Schema.Literal("archive"), session: SessionId })
 export const UnarchiveCommand = Schema.Struct({ method: Schema.Literal("unarchive"), session: SessionId })
 export const RenameCommand = Schema.Struct({ method: Schema.Literal("rename"), session: SessionId, name: Schema.String })
+// Replaces every sidebar group
+export const GroupsCommand = Schema.Struct({ method: Schema.Literal("groups"), groups: Schema.Array(SessionGroup) })
 // Permanently deletes the session, a master's workers, and their history
 export const RemoveCommand = Schema.Struct({ method: Schema.Literal("remove"), session: SessionId })
 // Stops a Claude session and carries its transcript to another account
@@ -163,6 +166,7 @@ export const Command = Schema.Union([
   ArchiveCommand,
   UnarchiveCommand,
   RenameCommand,
+  GroupsCommand,
   RemoveCommand,
   MoveCommand,
   ModelCommand,
@@ -218,6 +222,7 @@ export const HubEvent = Schema.Union([
   // Media files the session newly mentions that exist on disk
   Schema.Struct({ kind: Schema.Literal("media"), session: SessionId, items: Schema.Array(MediaItem) }),
   Schema.Struct({ kind: Schema.Literal("catalog"), catalog: DesktopCatalog }),
+  Schema.Struct({ kind: Schema.Literal("groups"), groups: Schema.Array(SessionGroup) }),
 ])
 export type HubEvent = typeof HubEvent.Type
 
@@ -230,6 +235,7 @@ export const Snapshot = Schema.Struct({
   history: Schema.Record(Schema.String, SessionHistory),
   approvals: Schema.Array(Approval),
   power: PowerState,
+  groups: Schema.Array(SessionGroup),
 })
 export type Snapshot = typeof Snapshot.Type
 

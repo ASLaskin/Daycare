@@ -10,6 +10,7 @@ import { initProjectActions } from "./project-actions.ts"
 import { playDing } from "./ding.ts"
 import { removeSessionUI } from "./removal.ts"
 import { beginRename } from "./rename.ts"
+import { initGroups } from "./groups.ts"
 import { renderSidebar } from "./sidebar.ts"
 import { closedInfo, panes, pendingFocus } from "./state.ts"
 import { shouldDing } from "../shared/ding.ts"
@@ -104,4 +105,5 @@ export const initSessions = async () => {
   api.onChatEvent(({ id, event }) => chat.event(id, event))
   api.onChatReset(({ id, events }) => chat.reset(id, events))
   await restore()
+  await initGroups()
 }

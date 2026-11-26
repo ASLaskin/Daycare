@@ -2,6 +2,7 @@
 
 import { Context, type Effect } from "effect"
 import type { ChatEvent } from "../../shared/chat.ts"
+import type { SessionGroup } from "../../shared/groups.ts"
 import type { ChatImage } from "../../shared/images.ts"
 import type { AccountId, DirPath, FilePath, RequestId, SessionId } from "../../shared/ids.ts"
 import type { PermissionDecision } from "../../shared/ipc.ts"
@@ -20,6 +21,9 @@ export interface SessionsShape {
   readonly archive: (id: SessionId) => Effect.Effect<void>
   readonly unarchive: (id: SessionId) => Effect.Effect<void>
   readonly remove: (id: SessionId) => Effect.Effect<void>
+  // Sidebar groups, shared with phones through the coordinator
+  readonly groups: Effect.Effect<ReadonlyArray<SessionGroup>>
+  readonly setGroups: (groups: ReadonlyArray<SessionGroup>) => Effect.Effect<void>
   // Asks once, then removes every closed master and its workers
   readonly removeClosed: Effect.Effect<void>
   readonly chatSend: (id: SessionId, text: string, images: ReadonlyArray<ChatImage>, files: ReadonlyArray<FilePath>) => Effect.Effect<void>

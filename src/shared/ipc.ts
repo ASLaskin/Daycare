@@ -6,6 +6,7 @@ import { ResolveRequest, type ResolvedPath } from "./attachments.ts"
 import type { ChatEvent } from "./chat.ts"
 import { SaveFileRequest } from "./files.ts"
 import { ChatImage } from "./images.ts"
+import { SessionGroup } from "./groups.ts"
 import { AccountId, DirPath, type FilePath, type HttpUrl, RequestId, SessionId } from "./ids.ts"
 import { OpenCommand } from "./topButtons.ts"
 import type { PairingInfo, PairingStatus } from "./mobile.ts"
@@ -61,6 +62,8 @@ export const Invoke = {
   "session:delete": Id,
   "session:delete-closed": None,
   "session:menu": Id,
+  "groups:list": None,
+  "groups:set": Schema.Array(SessionGroup),
   "coordinator:restart": None,
   "window:fullscreen": None,
 
@@ -141,6 +144,8 @@ export interface InvokeResult {
   "session:delete": void
   "session:delete-closed": void
   "session:menu": void
+  "groups:list": ReadonlyArray<SessionGroup>
+  "groups:set": void
   "coordinator:restart": void
   "window:fullscreen": void
 
@@ -187,6 +192,7 @@ export interface Events {
   "session:update": SessionView
   "session:removed": { readonly id: SessionId; readonly parentId: SessionId | null }
   "session:begin-rename": { readonly id: SessionId }
+  "groups:changed": ReadonlyArray<SessionGroup>
   "shortcut:close": undefined
   "chat:event": { readonly id: SessionId; readonly event: ChatEvent }
   "usage:update": Usage

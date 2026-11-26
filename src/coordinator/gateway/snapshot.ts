@@ -22,6 +22,7 @@ export const snapshot = (hub: Pick<Hub, "summary" | "state">): MobileSnapshot =>
     power: state.power,
     catalog: state.catalog ? phoneCatalog(state.catalog) : null,
     unavailable: [...state.unavailable],
+    groups: [...state.groups],
   }
 }
 
@@ -50,6 +51,7 @@ export const mobileEvents = (hub: SummaryHub, event: HubEvent): ReadonlyArray<Mo
     case "removed":
     case "power":
     case "media":
+    case "groups":
       return [event]
   }
 }

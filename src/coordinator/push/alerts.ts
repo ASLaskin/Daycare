@@ -85,6 +85,7 @@ export const makeAlerts = (session: (id: SessionId) => LiveSession | undefined) 
       case "removed":
       case "media":
       case "catalog":
+      case "groups":
         return []
     }
   }

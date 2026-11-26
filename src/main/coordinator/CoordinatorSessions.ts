@@ -5,6 +5,7 @@ import path from "node:path"
 import { activeAccountOf, DEFAULT_ACCOUNT } from "../../shared/accounts.ts"
 import type { ChatEvent } from "../../shared/chat.ts"
 import { Accepted, type Approval, type Command, Created, type LiveSession, type SessionHistory } from "../../shared/coordinator.ts"
+import type { SessionGroup } from "../../shared/groups.ts"
 import { asSessionId, type RequestId, type SessionId } from "../../shared/ids.ts"
 import type { NewMaster, SessionView } from "../../shared/session.ts"
 import { Accounts } from "../accounts/Accounts.ts"
@@ -64,6 +65,12 @@ const make = (version: string) =>
     const choices = new Map<string, ReadonlyArray<string>>()
     // Sessions whose provider is running
     const live = new Set<SessionId>()
+    let groups: ReadonlyArray<SessionGroup> = []
+
+    const trackGroups = (next: ReadonlyArray<SessionGroup>) => {
+      groups = next
+      ui.send("groups:changed", groups)
+    }
 
     const upsert = (v: SessionView) => {
       const before = sessions.get(v.id)
@@ -137,6 +144,7 @@ const make = (version: string) =>
         choices.clear()
         snapshot.approvals.forEach(remember)
         power.onState(snapshot.power)
+        trackGroups(snapshot.groups)
         void Effect.runFork(coordinatorAccounts.rehome(snapshot.sessions))
       },
       event: (event) => {
@@ -160,6 +168,9 @@ const make = (version: string) =>
             return
           case "power":
             power.onState(event.power)
+            return
+          case "groups":
+            trackGroups(event.groups)
             return
           case "media":
           case "catalog":
@@ -226,6 +237,8 @@ const make = (version: string) =>
       get: (id) => Effect.sync(() => sessions.get(id) ?? null),
       createMaster,
       rename: (id, name) => request({ method: "rename", session: id, name }).pipe(Effect.asVoid),
+      groups: Effect.sync(() => groups),
+      setGroups: (next) => request({ method: "groups", groups: next }).pipe(Effect.asVoid),
       close: (id) => request({ method: "close", session: id }).pipe(Effect.asVoid),
       reopen: (id) => request({ method: "reopen", session: id }).pipe(Effect.asVoid),
       archive: (id) => request({ method: "archive", session: id }).pipe(Effect.asVoid),

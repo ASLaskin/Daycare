@@ -131,6 +131,7 @@ export const makePush = ({ hub, devices, transport, now = Date.now }: PushDeps) 
         return true
       case "media":
       case "catalog":
+      case "groups":
         return false
     }
   }

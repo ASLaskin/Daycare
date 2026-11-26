@@ -3,6 +3,7 @@
 import { Database } from "bun:sqlite"
 import { Result, Schema } from "effect"
 import { DesktopCatalog } from "../shared/catalog.ts"
+import { SessionGroup } from "../shared/groups.ts"
 import { AgentOptions, type SessionState, StoredSession, WorkerEfforts, WorkerModels } from "../shared/coordinator.ts"
 import type { FilePath, SessionId } from "../shared/ids.ts"
 import { type Json, parseJson } from "../shared/json.ts"
@@ -299,5 +300,16 @@ export const loadCatalog = (db: Database): DesktopCatalog | null => {
 }
 
 export const saveCatalog = (db: Database, catalog: DesktopCatalog) => writeConfig(db, CATALOG, catalog)
+
+const GROUPS = "groups"
+
+const decodeGroups = Schema.decodeUnknownResult(Schema.Array(SessionGroup))
+
+export const loadGroups = (db: Database): ReadonlyArray<SessionGroup> => {
+  const decoded = decodeGroups(readConfig(db, GROUPS))
+  return Result.isSuccess(decoded) ? decoded.success : []
+}
+
+export const saveGroups = (db: Database, groups: ReadonlyArray<SessionGroup>) => writeConfig(db, GROUPS, groups)
 
 export const newId = () => crypto.randomUUID()

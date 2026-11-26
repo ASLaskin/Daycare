@@ -136,6 +136,7 @@ export const makeCommands = ({ hub, devices, attachments }: CommandDeps) => {
       case "archive":
       case "unarchive":
       case "rename":
+      case "groups":
       case "remove":
       case "configure":
         return hubCommand(hub, command)

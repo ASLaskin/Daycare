@@ -4,10 +4,14 @@ import { iconFile, iconInPack } from "../shared/icons.ts"
 import type { SessionId } from "../shared/ids.ts"
 import type { SessionView } from "../shared/session.ts"
 import { api } from "./api.ts"
-import { baseName, el, setText } from "./dom.ts"
+import { baseName, el, setClass, setText } from "./dom.ts"
 import { focusSession } from "./focus.ts"
 import { keyedRows, type Row, syncChildren } from "./keyed.ts"
+import { dropOnSession } from "../shared/groups.ts"
+import { freshGroup, updateGroups } from "./groups.ts"
+import { roleLabel } from "./role-label.ts"
 import { masterActions } from "./session-actions.ts"
+import { dropZone, makeDraggable } from "./sidebar-drag.ts"
 import { accountTag, paintContext, paintName, paintStatus, renamable, showsContext } from "./sidebar-tags.ts"
 import { workerMark, workerRow } from "./sidebar-worker.ts"
 import { closedInfo, workersOf } from "./state.ts"
@@ -32,6 +36,7 @@ const masterShell = (current: () => SessionView) => {
   const name = renamable("name", current)
   name.title = "Double-click to rename"
   const status = el("span")
+  const mode = el("span")
   const top = el("div", "top")
   top.append(who, status)
   item.append(top)
@@ -45,7 +50,9 @@ const masterShell = (current: () => SessionView) => {
     if (showAvatar && avatar.getAttribute("src") !== avatarSrc(m)) {
       avatar.src = avatarSrc(m)
     }
-    syncChildren(who, showAvatar ? [avatar, name] : [name])
+    setClass(mode, `mode-tag ${m.masterMode ? "mode-master" : "mode-chat"}`)
+    setText(mode, roleLabel(m))
+    syncChildren(who, showAvatar ? [avatar, name, mode] : [name, mode])
     paintName(name, m.name)
     paintStatus(status, m.status)
   }
@@ -78,6 +85,12 @@ const openRow = (first: OpenView): Row<OpenView> => {
       focusSession(m.id)
     }
   }
+  makeDraggable(shell.item, () => m.id)
+  dropZone(
+    shell.item,
+    (id) => id !== m.id,
+    (id) => updateGroups((groups) => dropOnSession(groups, id, m.id, freshGroup())),
+  )
   const update = (view: OpenView) => {
     current = view
     m = view.info

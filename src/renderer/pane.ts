@@ -11,6 +11,7 @@ import { renderContext } from "./context-meter.ts"
 import { $, el } from "./dom.ts"
 import { setFocused } from "./focus.ts"
 import { beginRename } from "./rename.ts"
+import { roleLabel } from "./role-label.ts"
 import { menuButton } from "./menu-button.ts"
 import { renderSidebar } from "./sidebar.ts"
 import { wireSplitHandle } from "./split-handle.ts"
@@ -34,13 +35,6 @@ const groupFor = (masterId: SessionId) => {
   g.append(buildTray(masterId), body)
   $("#stage").append(g)
   return g
-}
-
-const roleLabel = (info: SessionView) => {
-  if (info.role === "worker") {
-    return "Worker"
-  }
-  return info.masterMode ? "Master" : "Chat"
 }
 
 const buildHead = (info: SessionView) => {
